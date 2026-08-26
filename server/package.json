@@ -1,13 +1,23 @@
 {
   "name": "server",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "SecureAssess Backend REST API and WebRTC/Proctoring Signaling Service",
+  "main": "src/server.js",
   "type": "module",
   "scripts": {
-    "dev": "nodemon index.js"
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "db:seed": "node src/database/seeders/index.js",
+    "db:migrate": "node src/database/migrations/index.js",
+    "test": "echo \"Error: no test specified\" && exit 0"
   },
-  "keywords": [],
+  "keywords": [
+    "express",
+    "socket.io",
+    "webrtc",
+    "mongodb",
+    "proctoring"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {

@@ -1,0 +1,9 @@
+export const ASSESSMENT_TYPES = Object.freeze({
+  MCQ: "MCQ",
+  CODING: "CODING",
+  VIDEO_INTERVIEW: "VIDEO_INTERVIEW",
+  HYBRID: "HYBRID",
+  ESSAY: "ESSAY",
+});
+
+export const ASSESSMENT_TYPE_LIST = Object.values(ASSESSMENT_TYPES);

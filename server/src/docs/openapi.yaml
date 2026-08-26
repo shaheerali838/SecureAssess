@@ -1,0 +1,44 @@
+openapi: 3.0.3
+info:
+  title: SecureAssess API
+  description: Enterprise assessment & live video interview proctoring platform API.
+  version: 1.0.0
+servers:
+  - url: /api/v1
+    description: Local / Production v1 API
+paths:
+  /auth/register:
+    post:
+      summary: Register a new candidate or recruiter
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password, role]
+              properties:
+                name: { type: string }
+                email: { type: string, format: email }
+                password: { type: string }
+                role: { type: string, enum: [recruiter, candidate] }
+      responses:
+        201:
+          description: User registered successfully
+  /auth/login:
+    post:
+      summary: Login user and obtain JWT token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, role]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+                role: { type: string }
+      responses:
+        200:
+          description: Successful authentication

@@ -1,0 +1,28 @@
+{
+  "name": "secure-assess",
+  "version": "1.0.0",
+  "description": "An all-in-one platform for live video interviews and online assessments with integrity monitoring.",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm run dev --prefix client",
+    "build:client": "npm run build --prefix client",
+    "install:all": "npm install --prefix server && npm install --prefix client",
+    "start": "node server/src/server.js"
+  },
+  "keywords": [
+    "webrtc",
+    "assessment",
+    "proctoring",
+    "interview",
+    "react",
+    "express",
+    "socketio"
+  ],
+  "author": "",
+  "license": "ISC"
+}

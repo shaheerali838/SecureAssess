@@ -1,0 +1,9 @@
+export const RESULT_STATUSES = Object.freeze({
+  PENDING: "PENDING",
+  PASS: "PASS",
+  FAIL: "FAIL",
+  NEEDS_MANUAL_REVIEW: "NEEDS_MANUAL_REVIEW",
+  FLAGGED: "FLAGGED",
+});
+
+export const RESULT_STATUS_LIST = Object.values(RESULT_STATUSES);
