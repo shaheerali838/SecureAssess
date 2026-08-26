@@ -1,24 +1,29 @@
-import connectDB from "../../config/db.js";
-import { seedRoles } from "./roles.seeder.js";
-import { seedPermissions } from "./permissions.seeder.js";
-import { seedSuperAdmin } from "./admin.seeder.js";
+import { connectDatabase, disconnectDatabase } from "../../config/db.js";
+import { seedRBAC } from "./rbac.seeder.js";
+import { seedPlatformOwner } from "./admin.seeder.js";
 import { logger } from "../../config/logger.js";
 
-export const runAllSeeders = async () => {
+export const runSeeders = async () => {
   try {
-    logger.info("[SeederRunner] Starting database seeding process...");
-    await connectDB();
-    await seedRoles();
-    await seedPermissions();
-    await seedSuperAdmin();
-    logger.info("[SeederRunner] All seeders completed successfully.");
+    logger.info("[Seeder] Starting database seeder pipeline...");
+    await connectDatabase();
+
+    // 1. Seed RBAC (Permissions -> Roles -> Role-Permission links)
+    await seedRBAC();
+
+    // 2. Seed Initial Platform Owner (Root administrator account)
+    await seedPlatformOwner();
+
+    logger.info("[Seeder] Database seeding completed successfully!");
   } catch (error) {
-    logger.error("[SeederRunner] Error executing seeders:", error);
+    logger.error(`[Seeder] Fatal error during seeding: ${error.message}`);
     process.exit(1);
+  } finally {
+    await disconnectDatabase();
   }
 };
 
-// Allow executing directly via: node src/database/seeders/index.js
-if (process.argv[1]?.endsWith("index.js") || process.argv[1]?.includes("seeders")) {
-  runAllSeeders().then(() => process.exit(0));
+// Auto-run if executed directly via CLI
+if (process.argv[1] && (process.argv[1].endsWith("seeders/index.js") || process.argv[1].endsWith("seeders\\index.js") || process.argv[1].includes("seeders"))) {
+  runSeeders().then(() => process.exit(0));
 }

@@ -6,7 +6,7 @@ export class UserRepository {
   }
 
   static async findByEmail(email, projection = {}) {
-    return User.findOne({ email: email.toLowerCase() }, projection);
+    return User.findOne({ email: email.toLowerCase().trim() }, projection);
   }
 
   static async create(userData) {

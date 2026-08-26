@@ -1,9 +1,5 @@
-import express from "express";
-const router = express.Router();
+import Permission from "./permission.model.js";
 
-// Module: permissions
-router.get("/", (req, res) => {
-  res.json({ success: true, message: "permissions module initialized" });
-});
+export { Permission };
 
-export default router;
+export default Permission;

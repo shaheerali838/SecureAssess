@@ -1,10 +1,28 @@
-export const ROLES = Object.freeze({
-  SUPER_ADMIN: "SUPER_ADMIN",
-  ADMIN: "ADMIN",
-  RECRUITER: "RECRUITER",
+export const ROLE_SCOPES = Object.freeze({
+  PLATFORM: "PLATFORM",
+  ORGANIZATION: "ORGANIZATION",
+});
+
+export const PLATFORM_ROLES = Object.freeze({
+  PLATFORM_OWNER: "PLATFORM_OWNER",
+  PLATFORM_ADMIN: "PLATFORM_ADMIN",
+});
+
+export const PLATFORM_ROLE_LIST = Object.values(PLATFORM_ROLES);
+
+export const ORGANIZATION_ROLES = Object.freeze({
+  ORGANIZATION_OWNER: "ORGANIZATION_OWNER",
+  ORGANIZATION_ADMIN: "ORGANIZATION_ADMIN",
   EXAMINER: "EXAMINER",
   PROCTOR: "PROCTOR",
   CANDIDATE: "CANDIDATE",
+});
+
+export const ORGANIZATION_ROLE_LIST = Object.values(ORGANIZATION_ROLES);
+
+export const ROLES = Object.freeze({
+  ...PLATFORM_ROLES,
+  ...ORGANIZATION_ROLES,
 });
 
 export const ROLE_LIST = Object.values(ROLES);

@@ -9,8 +9,7 @@ SecureAssess (Platform Layer)
       │
       └── Organizations (Tenant Layer)
              │
-             ├── Users (Recruiters, Examiners, Admins)
-             ├── Candidates (Examinees / Applicants)
+             ├── UserMemberships (Role-bound staff & candidates)
              ├── Question Bank (Categories, Tags, Questions)
              ├── Assessments (Quizzes, Interviews, Coding Tests)
              ├── Attempts (Session Logs, Streams)
@@ -22,20 +21,20 @@ SecureAssess (Platform Layer)
 
 ## 2. Platform-Level vs. Organization-Level Data Classification
 
-Not every resource belongs to an organization. SecureAssess distinguishes between two clear scopes:
+SecureAssess distinguishes between two clear authorization and data scopes:
 
 ### A. Platform-Level Data (No `organizationId` required)
-Global to the entire application, managed by Super Admins:
-- **Roles** (`roles` collection / constants)
-- **Permissions** (`permissions` collection / constants)
+Global to the entire application, managed by Platform Owners / Platform Admins:
+- **Universal Users** (`users` collection with `platformRole`)
+- **System Roles** (`roles` collection with `scope: "PLATFORM"`)
+- **System Permissions** (`permissions` collection)
 - **Subscription Plans** (`subscriptionPlans` catalog)
 - **System Configuration** (global storage limits, email relays)
 - **Platform Audit Logs** (administrative access history)
 
 ### B. Organization-Level Data (Mandatory `organizationId`)
-Tenant-isolated, accessible only by users within that specific organization:
-- **Users / Staff** (`User.organizationId`)
-- **Candidates** (`Candidate.organizationId`)
+Tenant-isolated, accessible only by users holding an active membership in that organization:
+- **User Memberships** (`UserMembership.organizationId`)
 - **Departments & Programs** (`Department.organizationId`, `Program.organizationId`)
 - **Subjects** (`Subject.organizationId`)
 - **Question Bank** (`Question.organizationId`, `QuestionCategory.organizationId`, `QuestionTag.organizationId`)
@@ -74,12 +73,15 @@ JWT Verification (auth.middleware.js)
        ↓
 Authenticated User (req.user)
        ↓
-Verified organizationId (req.user.organizationId)
+Active Membership Validation (userMembership.model.js)
        ↓
-Tenant Resolver (tenant.middleware.js -> req.organizationId)
+Verified organizationId (req.organizationId)
        ↓
-Authorized & Scoped Query
+Role & Permission Verification (Role -> Permission[])
+       ↓
+Authorized & Tenant-Scoped Query
 ```
 
 - Users can never switch tenants by spoofing request bodies or query parameters.
-- Only verified Platform `SUPER_ADMIN` accounts can query cross-tenant or target a specific tenant explicitly for administrative oversight.
+- Organization switching requires explicit verification against the database `UserMembership` collection.
+- Platform Owners (`platformRole: "PLATFORM_OWNER"`) have platform-wide scope for system administration.

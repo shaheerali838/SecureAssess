@@ -1,13 +1,9 @@
 import mongoose from "mongoose";
 import {
   ORGANIZATION_TYPES,
-  ORGANIZATION_STATUS,
+  ORGANIZATION_STATUSES,
   ORGANIZATION_DEFAULTS,
 } from "./organization.constants.js";
-import {
-  SUBSCRIPTION_PLANS,
-  SUBSCRIPTION_PLAN_LIST,
-} from "../../constants/subscriptionPlans.js";
 
 const organizationSchema = new mongoose.Schema(
   {
@@ -18,78 +14,126 @@ const organizationSchema = new mongoose.Schema(
     },
     slug: {
       type: String,
-      required: true,
+      required: [true, "Organization slug is required"],
       unique: true,
       lowercase: true,
+      trim: true,
+      index: true,
+    },
+    code: {
+      type: String,
+      required: [true, "Organization code is required"],
+      unique: true,
+      uppercase: true,
       trim: true,
       index: true,
     },
     type: {
       type: String,
       enum: Object.values(ORGANIZATION_TYPES),
-      default: ORGANIZATION_TYPES.COMPANY,
+      default: ORGANIZATION_TYPES.CORPORATE,
+      required: true,
     },
-    domain: {
+    email: {
       type: String,
       trim: true,
       lowercase: true,
-      sparse: true,
-    },
-    logoUrl: {
-      type: String,
       default: "",
     },
-    contactEmail: {
+    phone: {
       type: String,
       trim: true,
-      lowercase: true,
+      default: "",
     },
-    subscription: {
-      plan: {
+    website: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    logo: {
+      url: {
         type: String,
-        enum: SUBSCRIPTION_PLAN_LIST,
-        default: SUBSCRIPTION_PLANS.FREE_TRIAL,
+        default: "",
       },
-      status: {
+      publicId: {
         type: String,
-        enum: ["ACTIVE", "EXPIRED", "SUSPENDED", "CANCELLED"],
-        default: "ACTIVE",
-      },
-      validUntil: {
-        type: Date,
-      },
-      maxUsers: {
-        type: Number,
-        default: ORGANIZATION_DEFAULTS.MAX_USERS,
-      },
-      maxAssessmentsPerMonth: {
-        type: Number,
-        default: ORGANIZATION_DEFAULTS.MAX_ASSESSMENTS_PER_MONTH,
+        default: "",
       },
     },
-    settings: {
-      allowedDomains: [{ type: String }],
-      enforceProctoring: {
-        type: Boolean,
-        default: ORGANIZATION_DEFAULTS.DEFAULT_PROCTORING.enforceFullscreen,
-      },
-      enableWebcamSnapshot: {
-        type: Boolean,
-        default: ORGANIZATION_DEFAULTS.DEFAULT_PROCTORING.enableWebcamSnapshot,
-      },
-      enableScreenShare: {
-        type: Boolean,
-        default: ORGANIZATION_DEFAULTS.DEFAULT_PROCTORING.enableScreenShare,
-      },
+    description: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    address: {
+      addressLine1: { type: String, trim: true, default: "" },
+      addressLine2: { type: String, trim: true, default: "" },
+      city: { type: String, trim: true, default: "" },
+      state: { type: String, trim: true, default: "" },
+      country: { type: String, trim: true, default: "" },
+      postalCode: { type: String, trim: true, default: "" },
     },
     status: {
       type: String,
-      enum: Object.values(ORGANIZATION_STATUS),
-      default: ORGANIZATION_STATUS.ACTIVE,
+      enum: Object.values(ORGANIZATION_STATUSES),
+      default: ORGANIZATION_STATUSES.ACTIVE,
+      index: true,
     },
-    isActive: {
-      type: Boolean,
-      default: true,
+    settings: {
+      timezone: {
+        type: String,
+        default: ORGANIZATION_DEFAULTS.TIMEZONE,
+      },
+      locale: {
+        type: String,
+        default: ORGANIZATION_DEFAULTS.LOCALE,
+      },
+      dateFormat: {
+        type: String,
+        default: ORGANIZATION_DEFAULTS.DATE_FORMAT,
+      },
+      branding: {
+        primaryColor: {
+          type: String,
+          default: ORGANIZATION_DEFAULTS.BRANDING.primaryColor,
+        },
+        secondaryColor: {
+          type: String,
+          default: ORGANIZATION_DEFAULTS.BRANDING.secondaryColor,
+        },
+      },
+      assessmentDefaults: {
+        durationMinutes: {
+          type: Number,
+          default: ORGANIZATION_DEFAULTS.ASSESSMENT_DEFAULTS.durationMinutes,
+        },
+        passingPercentage: {
+          type: Number,
+          default: ORGANIZATION_DEFAULTS.ASSESSMENT_DEFAULTS.passingPercentage,
+        },
+        enforceFullscreen: {
+          type: Boolean,
+          default: ORGANIZATION_DEFAULTS.ASSESSMENT_DEFAULTS.enforceFullscreen,
+        },
+        trackTabSwitches: {
+          type: Boolean,
+          default: ORGANIZATION_DEFAULTS.ASSESSMENT_DEFAULTS.trackTabSwitches,
+        },
+        maxTabSwitchesAllowed: {
+          type: Number,
+          default: ORGANIZATION_DEFAULTS.ASSESSMENT_DEFAULTS.maxTabSwitchesAllowed,
+        },
+      },
+    },
+    subscriptionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Subscription",
+      default: null,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
     },
   },
   {
@@ -97,7 +141,8 @@ const organizationSchema = new mongoose.Schema(
   }
 );
 
-organizationSchema.index({ status: 1, isActive: 1 });
+// Indexes
+organizationSchema.index({ status: 1, createdAt: -1 });
 
 const Organization =
   mongoose.models.Organization ||

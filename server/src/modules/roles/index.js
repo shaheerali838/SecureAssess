@@ -1,9 +1,5 @@
-import express from "express";
-const router = express.Router();
+import Role from "./role.model.js";
 
-// Module: roles
-router.get("/", (req, res) => {
-  res.json({ success: true, message: "roles module initialized" });
-});
+export { Role };
 
-export default router;
+export default Role;

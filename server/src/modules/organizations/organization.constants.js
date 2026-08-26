@@ -1,37 +1,33 @@
 export const ORGANIZATION_TYPES = Object.freeze({
   UNIVERSITY: "UNIVERSITY",
-  COMPANY: "COMPANY",
+  COLLEGE: "COLLEGE",
+  SCHOOL: "SCHOOL",
+  CORPORATE: "CORPORATE",
   TRAINING_INSTITUTE: "TRAINING_INSTITUTE",
-  BOOTCAMP: "BOOTCAMP",
+  GOVERNMENT: "GOVERNMENT",
   OTHER: "OTHER",
 });
 
-export const ORGANIZATION_STATUS = Object.freeze({
+export const ORGANIZATION_STATUSES = Object.freeze({
   ACTIVE: "ACTIVE",
-  PENDING_VERIFICATION: "PENDING_VERIFICATION",
+  PENDING: "PENDING",
   SUSPENDED: "SUSPENDED",
   DEACTIVATED: "DEACTIVATED",
 });
 
-export const ORGANIZATION_MESSAGES = Object.freeze({
-  CREATED: "Organization registered successfully",
-  RETRIEVED: "Organization details retrieved successfully",
-  LIST_RETRIEVED: "Organizations list retrieved successfully",
-  UPDATED: "Organization updated successfully",
-  DEACTIVATED: "Organization deactivated successfully",
-  NOT_FOUND: "Organization not found",
-  SLUG_EXISTS: "Organization with this slug or domain already exists",
-  SUBSCRIPTION_UPDATED: "Organization subscription updated successfully",
-});
-
 export const ORGANIZATION_DEFAULTS = Object.freeze({
-  MAX_USERS: 50,
-  MAX_ASSESSMENTS_PER_MONTH: 200,
-  STORAGE_QUOTA_MB: 5120, // 5GB
-  DEFAULT_PROCTORING: {
+  TIMEZONE: "UTC",
+  LOCALE: "en-US",
+  DATE_FORMAT: "YYYY-MM-DD",
+  BRANDING: {
+    primaryColor: "#4f46e5",
+    secondaryColor: "#06b6d4",
+  },
+  ASSESSMENT_DEFAULTS: {
+    durationMinutes: 60,
+    passingPercentage: 60,
     enforceFullscreen: true,
     trackTabSwitches: true,
-    enableWebcamSnapshot: true,
-    enableScreenShare: true,
+    maxTabSwitchesAllowed: 3,
   },
 });

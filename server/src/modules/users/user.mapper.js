@@ -1,21 +1,25 @@
 export class UserMapper {
   /**
-   * Transforms raw user DB document to safe response DTO
+   * Transforms raw user DB document to safe response DTO (strips passwordHash)
    */
   static toDTO(user) {
     if (!user) return null;
-    const userObj = typeof user.toObject === "function" ? user.toObject() : user;
+    const doc = typeof user.toObject === "function" ? user.toObject() : user;
 
     return {
-      id: userObj._id,
-      name: userObj.name,
-      email: userObj.email,
-      role: userObj.role,
-      status: userObj.status,
-      organizationId: userObj.organizationId,
-      permissions: userObj.permissions || [],
-      createdAt: userObj.createdAt,
-      updatedAt: userObj.updatedAt,
+      id: doc._id,
+      firstName: doc.firstName,
+      lastName: doc.lastName || "",
+      fullName: `${doc.firstName} ${doc.lastName || ""}`.trim(),
+      email: doc.email,
+      platformRole: doc.platformRole || null,
+      status: doc.status,
+      emailVerified: doc.emailVerified,
+      emailVerifiedAt: doc.emailVerifiedAt || null,
+      profile: doc.profile || {},
+      lastLoginAt: doc.lastLoginAt,
+      createdAt: doc.createdAt,
+      updatedAt: doc.updatedAt,
     };
   }
 
