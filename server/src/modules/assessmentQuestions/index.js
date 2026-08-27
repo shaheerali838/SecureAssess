@@ -1,9 +1,14 @@
-import express from "express";
-const router = express.Router();
+import router from "./assessmentQuestion.routes.js";
+import AssessmentQuestion from "./assessmentQuestion.model.js";
+import { AssessmentQuestionService } from "./assessmentQuestion.service.js";
+import { AssessmentQuestionValidator } from "./assessmentQuestion.validation.js";
+import { AssessmentQuestionMapper } from "./assessmentQuestion.mapper.js";
 
-// Module: assessmentQuestions
-router.get("/", (req, res) => {
-  res.json({ success: true, message: "assessmentQuestions module initialized" });
-});
+export {
+  AssessmentQuestion,
+  AssessmentQuestionService,
+  AssessmentQuestionValidator,
+  AssessmentQuestionMapper,
+};
 
 export default router;

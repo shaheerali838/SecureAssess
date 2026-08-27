@@ -19,6 +19,7 @@ import programsRouter from "../programs/index.js";
 import subjectsRouter from "../subjects/index.js";
 import questionBankRouter from "../questionBank/index.js";
 import questionTagsRouter from "../questionTags/index.js";
+import assessmentsRouter from "../assessments/index.js";
 import { requireAuth } from "../../middleware/auth.middleware.js";
 import {
   requirePlatformPermission,
@@ -99,5 +100,8 @@ router.use("/:organizationId/subjects", subjectsRouter);
 // --- Organization Question Banks & Question Tags Sub-routes ---
 router.use("/:organizationId/question-banks", questionBankRouter);
 router.use("/:organizationId/question-tags", questionTagsRouter);
+
+// --- Organization Assessments Sub-routes ---
+router.use("/:organizationId/assessments", assessmentsRouter);
 
 export default router;
