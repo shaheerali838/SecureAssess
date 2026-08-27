@@ -1,9 +1,12 @@
-import express from "express";
-const router = express.Router();
+import router from "./questionTag.routes.js";
+import QuestionTag from "./questionTag.model.js";
+import { QuestionTagService } from "./questionTag.service.js";
+import { QuestionTagValidator } from "./questionTag.validation.js";
 
-// Module: questionTags
-router.get("/", (req, res) => {
-  res.json({ success: true, message: "questionTags module initialized" });
-});
+export {
+  QuestionTag,
+  QuestionTagService,
+  QuestionTagValidator,
+};
 
 export default router;

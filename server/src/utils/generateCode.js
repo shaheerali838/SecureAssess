@@ -7,6 +7,9 @@ export const generateAssessmentCode = (length = 6) => {
   return result;
 };
 
+export const generateRandomCode = generateAssessmentCode;
+
 export const generateOtp = (digits = 6) => {
   return Math.floor(100000 + Math.random() * 900000).toString().substring(0, digits);
 };
+

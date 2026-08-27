@@ -1,0 +1,8 @@
+export const MEMBERSHIP_STATUSES = Object.freeze({
+  ACTIVE: "ACTIVE",
+  INVITED: "INVITED",
+  SUSPENDED: "SUSPENDED",
+  REMOVED: "REMOVED",
+});
+
+export const MEMBERSHIP_STATUS_LIST = Object.values(MEMBERSHIP_STATUSES);

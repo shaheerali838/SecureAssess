@@ -28,10 +28,15 @@ const sessionSchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
+    device: {
+      type: String,
+      default: "Browser / Client",
+      trim: true,
+    },
     expiresAt: {
       type: Date,
       required: [true, "Session expiration date is required"],
-      index: true,
+      index: { expires: 0 }, // TTL index: auto-cleans expired sessions
     },
     lastUsedAt: {
       type: Date,
@@ -39,6 +44,10 @@ const sessionSchema = new mongoose.Schema(
     },
     revokedAt: {
       type: Date,
+      default: null,
+    },
+    revokeReason: {
+      type: String,
       default: null,
     },
   },

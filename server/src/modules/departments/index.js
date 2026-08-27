@@ -1,9 +1,12 @@
-import express from "express";
-const router = express.Router();
+import router from "./department.routes.js";
+import Department from "./department.model.js";
+import { DepartmentService } from "./department.service.js";
+import { DepartmentValidator } from "./department.validation.js";
 
-// Module: departments
-router.get("/", (req, res) => {
-  res.json({ success: true, message: "departments module initialized" });
-});
+export {
+  Department,
+  DepartmentService,
+  DepartmentValidator,
+};
 
 export default router;

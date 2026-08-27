@@ -11,22 +11,19 @@ const organizationSchema = new mongoose.Schema(
       type: String,
       required: [true, "Organization name is required"],
       trim: true,
+      maxlength: 150,
     },
     slug: {
       type: String,
       required: [true, "Organization slug is required"],
-      unique: true,
       lowercase: true,
       trim: true,
-      index: true,
     },
     code: {
       type: String,
       required: [true, "Organization code is required"],
-      unique: true,
       uppercase: true,
       trim: true,
-      index: true,
     },
     type: {
       type: String,
@@ -34,63 +31,41 @@ const organizationSchema = new mongoose.Schema(
       default: ORGANIZATION_TYPES.CORPORATE,
       required: true,
     },
-    email: {
-      type: String,
-      trim: true,
-      lowercase: true,
-      default: "",
-    },
-    phone: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-    website: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-    logo: {
-      url: {
-        type: String,
-        default: "",
-      },
-      publicId: {
-        type: String,
-        default: "",
-      },
-    },
     description: {
       type: String,
       trim: true,
+      maxlength: 1000,
       default: "",
     },
+    logo: {
+      url: { type: String, default: "" },
+      publicId: { type: String, default: "" },
+    },
     address: {
-      addressLine1: { type: String, trim: true, default: "" },
-      addressLine2: { type: String, trim: true, default: "" },
+      street: { type: String, trim: true, default: "" },
       city: { type: String, trim: true, default: "" },
       state: { type: String, trim: true, default: "" },
       country: { type: String, trim: true, default: "" },
       postalCode: { type: String, trim: true, default: "" },
     },
+    contact: {
+      email: { type: String, trim: true, lowercase: true, default: "" },
+      phone: { type: String, trim: true, default: "" },
+      website: { type: String, trim: true, default: "" },
+    },
     status: {
       type: String,
       enum: Object.values(ORGANIZATION_STATUSES),
-      default: ORGANIZATION_STATUSES.ACTIVE,
-      index: true,
+      default: ORGANIZATION_STATUSES.TRIAL,
     },
     settings: {
       timezone: {
         type: String,
         default: ORGANIZATION_DEFAULTS.TIMEZONE,
       },
-      locale: {
+      defaultLanguage: {
         type: String,
         default: ORGANIZATION_DEFAULTS.LOCALE,
-      },
-      dateFormat: {
-        type: String,
-        default: ORGANIZATION_DEFAULTS.DATE_FORMAT,
       },
       branding: {
         primaryColor: {
@@ -102,26 +77,14 @@ const organizationSchema = new mongoose.Schema(
           default: ORGANIZATION_DEFAULTS.BRANDING.secondaryColor,
         },
       },
-      assessmentDefaults: {
-        durationMinutes: {
-          type: Number,
-          default: ORGANIZATION_DEFAULTS.ASSESSMENT_DEFAULTS.durationMinutes,
-        },
-        passingPercentage: {
-          type: Number,
-          default: ORGANIZATION_DEFAULTS.ASSESSMENT_DEFAULTS.passingPercentage,
-        },
-        enforceFullscreen: {
+      assessmentSettings: {
+        allowCandidatePause: {
           type: Boolean,
-          default: ORGANIZATION_DEFAULTS.ASSESSMENT_DEFAULTS.enforceFullscreen,
+          default: false,
         },
-        trackTabSwitches: {
-          type: Boolean,
-          default: ORGANIZATION_DEFAULTS.ASSESSMENT_DEFAULTS.trackTabSwitches,
-        },
-        maxTabSwitchesAllowed: {
+        defaultDurationMinutes: {
           type: Number,
-          default: ORGANIZATION_DEFAULTS.ASSESSMENT_DEFAULTS.maxTabSwitchesAllowed,
+          default: 60,
         },
       },
     },
@@ -133,7 +96,7 @@ const organizationSchema = new mongoose.Schema(
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      default: null,
+      required: true,
     },
   },
   {
@@ -142,7 +105,11 @@ const organizationSchema = new mongoose.Schema(
 );
 
 // Indexes
-organizationSchema.index({ status: 1, createdAt: -1 });
+organizationSchema.index({ slug: 1 }, { unique: true });
+organizationSchema.index({ code: 1 }, { unique: true });
+organizationSchema.index({ status: 1 });
+organizationSchema.index({ type: 1 });
+organizationSchema.index({ name: "text", description: "text" });
 
 const Organization =
   mongoose.models.Organization ||

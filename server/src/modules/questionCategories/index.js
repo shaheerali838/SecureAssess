@@ -1,9 +1,12 @@
-import express from "express";
-const router = express.Router();
+import router from "./questionCategory.routes.js";
+import QuestionCategory from "./questionCategory.model.js";
+import { QuestionCategoryService } from "./questionCategory.service.js";
+import { QuestionCategoryValidator } from "./questionCategory.validation.js";
 
-// Module: questionCategories
-router.get("/", (req, res) => {
-  res.json({ success: true, message: "questionCategories module initialized" });
-});
+export {
+  QuestionCategory,
+  QuestionCategoryService,
+  QuestionCategoryValidator,
+};
 
 export default router;

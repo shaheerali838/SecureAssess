@@ -1,9 +1,12 @@
-import express from "express";
-const router = express.Router();
+import router from "./program.routes.js";
+import Program from "./program.model.js";
+import { ProgramService } from "./program.service.js";
+import { ProgramValidator } from "./program.validation.js";
 
-// Module: programs
-router.get("/", (req, res) => {
-  res.json({ success: true, message: "programs module initialized" });
-});
+export {
+  Program,
+  ProgramService,
+  ProgramValidator,
+};
 
 export default router;

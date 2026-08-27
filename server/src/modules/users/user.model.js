@@ -66,6 +66,26 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    // Password reset fields (hashed)
+    passwordResetTokenHash: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    passwordResetExpiresAt: {
+      type: Date,
+      default: null,
+    },
+    // Email verification fields (hashed)
+    emailVerificationTokenHash: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    emailVerificationExpiresAt: {
+      type: Date,
+      default: null,
+    },
     profile: {
       avatar: { type: String, default: "" },
       phone: { type: String, trim: true, default: "" },

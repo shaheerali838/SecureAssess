@@ -7,6 +7,7 @@
 ---
 
 ## Table of Contents
+
 1. [Executive Summary & System Architecture](#1-executive-summary--system-architecture)
 2. [Project Root & Workspace Structure](#2-project-root--workspace-structure)
 3. [Decoupled Identity & Multi-Tenant Model (Step 5)](#3-decoupled-identity--multi-tenant-model-step-5)
@@ -97,6 +98,7 @@ SecureAssess avoids the anti-pattern of tying a User directly to a single organi
 ```
 
 ### Core Entities:
+
 1. **`User` ([user.model.js](file:///c:/Users/theun/OneDrive/Desktop/FYP/SecureAssess/server/src/modules/users/user.model.js))**:
    - Holds universal identity (`firstName`, `lastName`, `email`, `passwordHash`, `status`, `profile`, `emailVerified`).
    - Holds platform access (`platformRole`: `"PLATFORM_OWNER"`, `"PLATFORM_ADMIN"`, or `null`).
@@ -117,10 +119,12 @@ SecureAssess avoids the anti-pattern of tying a User directly to a single organi
 ## 4. RBAC & Authorization Matrix (Step 6)
 
 ### 4.1 Scopes
+
 - **`PLATFORM` Scope**: For platform administrators overseeing SecureAssess.
 - **`ORGANIZATION` Scope**: For tenant-isolated staff and candidate operations.
 
 ### 4.2 System Roles & Permissions Breakdown
+
 ```
 PLATFORM_OWNER (113 Permissions)
     │
@@ -135,15 +139,15 @@ ORGANIZATION_OWNER (77 Permissions)
             └── CANDIDATE (8 Permissions)
 ```
 
-| System Role | Scope | Total Perms | Primary Responsibilities |
-| :--- | :---: | :---: | :--- |
-| **`PLATFORM_OWNER`** | `PLATFORM` | **113** | Root system administrator (You). Full control over all organizations, subscriptions, billing, and platform configurations. |
-| **`PLATFORM_ADMIN`** | `PLATFORM` | **12** | Platform staff for monitoring organizations, viewing logs, and user support. |
-| **`ORGANIZATION_OWNER`** | `ORGANIZATION` | **77** | Primary administrator of an organization. Manages org profile, staff, departments, question banks, exams, and reports. |
-| **`ORGANIZATION_ADMIN`** | `ORGANIZATION` | **49** | Operational administrator managing staff, schedules, question banks, exams, and grading. |
-| **`EXAMINER`** | `ORGANIZATION` | **37** | Creates and curates question banks, constructs assessments, configures rubrics, and grades candidates. |
-| **`PROCTOR`** | `ORGANIZATION` | **9** | Supervises live examinations, monitors candidate streams, and reviews/flags integrity violations. |
-| **`CANDIDATE`** | `ORGANIZATION` | **8** | Examinee. Strictly isolated to starting own attempts, updating own answers, and viewing own results/certificates. |
+| System Role              |     Scope      | Total Perms | Primary Responsibilities                                                                                                   |
+| :----------------------- | :------------: | :---------: | :------------------------------------------------------------------------------------------------------------------------- |
+| **`PLATFORM_OWNER`**     |   `PLATFORM`   |   **113**   | Root system administrator (You). Full control over all organizations, subscriptions, billing, and platform configurations. |
+| **`PLATFORM_ADMIN`**     |   `PLATFORM`   |   **12**    | Platform staff for monitoring organizations, viewing logs, and user support.                                               |
+| **`ORGANIZATION_OWNER`** | `ORGANIZATION` |   **77**    | Primary administrator of an organization. Manages org profile, staff, departments, question banks, exams, and reports.     |
+| **`ORGANIZATION_ADMIN`** | `ORGANIZATION` |   **49**    | Operational administrator managing staff, schedules, question banks, exams, and grading.                                   |
+| **`EXAMINER`**           | `ORGANIZATION` |   **37**    | Creates and curates question banks, constructs assessments, configures rubrics, and grades candidates.                     |
+| **`PROCTOR`**            | `ORGANIZATION` |    **9**    | Supervises live examinations, monitors candidate streams, and reviews/flags integrity violations.                          |
+| **`CANDIDATE`**          | `ORGANIZATION` |    **8**    | Examinee. Strictly isolated to starting own attempts, updating own answers, and viewing own results/certificates.          |
 
 ---
 
@@ -231,16 +235,17 @@ server/
 
 ## 7. Database Models & Seeder Infrastructure
 
-| Collection | Model File | Purpose | Indexed Fields |
-| :--- | :--- | :--- | :--- |
-| **`users`** | `user.model.js` | Universal identity & credentials | `email: 1` (unique), `platformRole: 1`, `status: 1` |
-| **`usermemberships`** | `userMembership.model.js` | User-to-Organization role binding | `{ userId: 1, organizationId: 1 }` (unique), `roleId: 1` |
-| **`sessions`** | `session.model.js` | Active device session & token rotation | `userId: 1`, `tokenFamily: 1`, `expiresAt: 1` |
-| **`roles`** | `role.model.js` | System & custom role definitions | `{ name: 1, scope: 1, organizationId: 1 }` (unique) |
-| **`permissions`** | `permission.model.js` | Granular action registry (113 keys) | `key: 1` (unique), `resource: 1`, `action: 1` |
-| **`organizations`** | `organization.model.js` | Customer tenant account | `slug: 1` (unique), `code: 1` (unique), `status: 1` |
+| Collection            | Model File                | Purpose                                | Indexed Fields                                           |
+| :-------------------- | :------------------------ | :------------------------------------- | :------------------------------------------------------- |
+| **`users`**           | `user.model.js`           | Universal identity & credentials       | `email: 1` (unique), `platformRole: 1`, `status: 1`      |
+| **`usermemberships`** | `userMembership.model.js` | User-to-Organization role binding      | `{ userId: 1, organizationId: 1 }` (unique), `roleId: 1` |
+| **`sessions`**        | `session.model.js`        | Active device session & token rotation | `userId: 1`, `tokenFamily: 1`, `expiresAt: 1`            |
+| **`roles`**           | `role.model.js`           | System & custom role definitions       | `{ name: 1, scope: 1, organizationId: 1 }` (unique)      |
+| **`permissions`**     | `permission.model.js`     | Granular action registry (113 keys)    | `key: 1` (unique), `resource: 1`, `action: 1`            |
+| **`organizations`**   | `organization.model.js`   | Customer tenant account                | `slug: 1` (unique), `code: 1` (unique), `status: 1`      |
 
 ### Seeder Pipeline (`npm run db:seed`)
+
 1. **`rbac.seeder.js`**: Populates all 113 permissions, creates 7 system roles, and maps permissions into each role's `permissions` array.
 2. **`admin.seeder.js`**: Seeds the root `owner@secureassess.com` account with `platformRole: "PLATFORM_OWNER"` (requires no tenant membership).
 
@@ -248,12 +253,12 @@ server/
 
 ## 8. Module Implementation Status Matrix
 
-| Module | Schema / Model | Core Logic / Contract | Seeder / Data Ready |
-| :--- | :---: | :---: | :---: |
-| **`auth`** | :heavy_check_mark: `session.model.js` | :heavy_check_mark: Token Rotation | :heavy_check_mark: Configured |
-| **`users`** | :heavy_check_mark: `user.model.js` & `userMembership.model.js` | :heavy_check_mark: Standard Contract | :heavy_check_mark: Seeded |
-| **`roles`** | :heavy_check_mark: `role.model.js` | :heavy_check_mark: Standard Contract | :heavy_check_mark: 7 System Roles Seeded |
-| **`permissions`** | :heavy_check_mark: `permission.model.js` | :heavy_check_mark: Standard Contract | :heavy_check_mark: 113 Perms Seeded |
-| **`organizations`** | :heavy_check_mark: `organization.model.js` | :heavy_check_mark: Standard Contract | :heavy_check_mark: Multi-tenant Ready |
-| **`assessments`** | :heavy_check_mark: `assessment.model.js` | :heavy_check_mark: Standard Contract | :heavy_check_mark: Reference Ready |
-| *25 Remaining Modules* | Foundation Ready | `index.js` Router Foundation | Pending Domain Steps |
+| Module                 |                         Schema / Model                         |        Core Logic / Contract         |           Seeder / Data Ready            |
+| :--------------------- | :------------------------------------------------------------: | :----------------------------------: | :--------------------------------------: |
+| **`auth`**             |             :heavy_check_mark: `session.model.js`              |  :heavy_check_mark: Token Rotation   |      :heavy_check_mark: Configured       |
+| **`users`**            | :heavy_check_mark: `user.model.js` & `userMembership.model.js` | :heavy_check_mark: Standard Contract |        :heavy_check_mark: Seeded         |
+| **`roles`**            |               :heavy_check_mark: `role.model.js`               | :heavy_check_mark: Standard Contract | :heavy_check_mark: 7 System Roles Seeded |
+| **`permissions`**      |            :heavy_check_mark: `permission.model.js`            | :heavy_check_mark: Standard Contract |   :heavy_check_mark: 113 Perms Seeded    |
+| **`organizations`**    |           :heavy_check_mark: `organization.model.js`           | :heavy_check_mark: Standard Contract |  :heavy_check_mark: Multi-tenant Ready   |
+| **`assessments`**      |            :heavy_check_mark: `assessment.model.js`            | :heavy_check_mark: Standard Contract |    :heavy_check_mark: Reference Ready    |
+| _25 Remaining Modules_ |                        Foundation Ready                        |     `index.js` Router Foundation     |           Pending Domain Steps           |

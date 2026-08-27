@@ -1,37 +1,19 @@
+import mongoose from "mongoose";
+import Organization from "../modules/organizations/organization.model.js";
+import UserMembership from "../modules/users/userMembership.model.js";
+import { PLATFORM_ROLES } from "../constants/roles.js";
 import { ApiError } from "../utils/ApiError.js";
 
 /**
- * Global Tenant Resolver Middleware:
- * Extracts organizationId securely from the cryptographically verified JWT (req.user).
- *
- * Security Rule:
- * Never trust organizationId sent in req.query, req.body, or headers for tenant users.
- * Only Platform SUPER_ADMINs can specify an organization via header for platform management.
+ * Passive global tenant resolver (does not block requests)
  */
 export const tenantMiddleware = (req, res, next) => {
-  if (req.user) {
-    if (req.user.role === "SUPER_ADMIN") {
-      // Super Admin can optionally target a specific tenant via header or query
-      const targetOrg =
-        req.headers["x-tenant-id"] ||
-        req.headers["x-organization-id"] ||
-        req.query.organizationId ||
-        null;
-      req.organizationId = targetOrg;
-      req.tenantId = targetOrg;
-    } else {
-      // Normal tenant users (Admins, Recruiters, Examiners, Candidates) MUST ONLY use their verified JWT organizationId
-      req.organizationId = req.user.organizationId || null;
-      req.tenantId = req.user.organizationId || null;
+  const headerOrg =
+    req.headers["x-organization-id"] ||
+    req.headers["x-tenant-id"] ||
+    null;
 
-      // Defense-in-depth: If client sent an organizationId in body/query that attempts to spoof another tenant, sanitize/override it
-      if (req.body && typeof req.body === "object") {
-        req.body.organizationId = req.organizationId;
-      }
-    }
-  } else {
-    // Unauthenticated requests (e.g. public branding lookups) can read explicit headers/slugs
-    const headerOrg = req.headers["x-tenant-id"] || req.headers["x-organization-id"] || null;
+  if (headerOrg && mongoose.Types.ObjectId.isValid(headerOrg)) {
     req.organizationId = headerOrg;
     req.tenantId = headerOrg;
   }
@@ -40,20 +22,92 @@ export const tenantMiddleware = (req, res, next) => {
 };
 
 /**
- * Strict Multi-Tenancy Guard Middleware:
- * Blocks requests if organization context is missing for tenant-owned resources.
+ * Strict Tenant Boundary Guard: Resolves organization tenant boundary and enforces isolation
  */
-export const requireTenant = (req, res, next) => {
-  const isSuperAdmin = req.user?.role === "SUPER_ADMIN";
+export const requireTenantContext = async (req, res, next) => {
+  try {
+    if (!req.user) {
+      return next(new ApiError(401, "Authentication token required"));
+    }
 
-  if (!req.organizationId && !isSuperAdmin) {
-    return next(
-      new ApiError(
-        403,
-        "Tenant context required. You must belong to an active organization to perform this action."
-      )
-    );
+    const rawOrgId =
+      req.params.organizationId ||
+      req.headers["x-organization-id"] ||
+      req.headers["x-tenant-id"] ||
+      req.query?.organizationId ||
+      null;
+
+    if (!rawOrgId) {
+      return next(new ApiError(400, "Organization ID context is required"));
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(rawOrgId)) {
+      return next(new ApiError(400, "Invalid organization ID format"));
+    }
+
+    const organization = await Organization.findById(rawOrgId);
+    if (!organization) {
+      return next(new ApiError(404, "Organization not found"));
+    }
+
+    const isPlatformStaff =
+      req.user.platformRole === PLATFORM_ROLES.PLATFORM_OWNER ||
+      req.user.platformRole === PLATFORM_ROLES.PLATFORM_ADMIN;
+
+    if (isPlatformStaff) {
+      req.organization = organization;
+      req.organizationId = organization._id;
+      req.tenantId = organization._id;
+      req.organizationRole = {
+        name: req.user.platformRole,
+        scope: "PLATFORM",
+        permissions: [],
+      };
+      return next();
+    }
+
+    // Check organization lifecycle status
+    if (organization.status === "DEACTIVATED") {
+      return next(new ApiError(403, "This organization has been deactivated. Access denied."));
+    }
+    if (organization.status === "SUSPENDED") {
+      return next(new ApiError(403, "This organization is suspended. Access denied."));
+    }
+
+    // Resolve tenant membership
+    const membership = await UserMembership.findOne({
+      userId: req.user.id || req.user._id,
+      organizationId: organization._id,
+      status: "ACTIVE",
+    }).populate({
+      path: "roleId",
+      populate: { path: "permissions" },
+    });
+
+    if (!membership) {
+      return next(
+        new ApiError(
+          403,
+          "Forbidden. You do not hold an active membership in this organization."
+        )
+      );
+    }
+
+    req.organization = organization;
+    req.organizationId = organization._id;
+    req.tenantId = organization._id;
+    req.membership = membership;
+    req.organizationRole = membership.roleId;
+
+    // Defense-in-depth: If client attempts to send spoofed organizationId in body, sanitize it
+    if (req.body && typeof req.body === "object") {
+      req.body.organizationId = organization._id;
+    }
+
+    next();
+  } catch (err) {
+    next(err);
   }
-
-  next();
 };
+
+export const requireTenant = requireTenantContext;

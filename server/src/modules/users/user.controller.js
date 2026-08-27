@@ -1,47 +1,106 @@
 import { UserService } from "./user.service.js";
 import { UserValidator } from "./user.validator.js";
-import { USER_MESSAGES } from "./user.constants.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { ApiError } from "../../utils/ApiError.js";
-import { getPagination, formatPaginatedResponse } from "../../utils/pagination.js";
 
-export const getProfile = asyncHandler(async (req, res) => {
-  const user = await UserService.getUserById(req.user.id);
-  return res.status(200).json(new ApiResponse(200, user, USER_MESSAGES.PROFILE_RETRIEVED));
+/**
+ * GET /api/v1/users - List users
+ */
+export const listUsers = asyncHandler(async (req, res) => {
+  const result = await UserService.listUsers(req.user, req.query);
+  return res.status(200).json(new ApiResponse(200, result, "Users retrieved successfully"));
 });
 
+/**
+ * GET /api/v1/users/:userId - Get user profile and memberships
+ */
 export const getUserById = asyncHandler(async (req, res) => {
-  const user = await UserService.getUserById(req.params.id);
-  return res.status(200).json(new ApiResponse(200, user, USER_MESSAGES.USER_RETRIEVED));
+  const user = await UserService.getUserById(req.params.userId, req.user);
+  return res.status(200).json(new ApiResponse(200, user, "User profile retrieved successfully"));
 });
 
-export const getOrgUsers = asyncHandler(async (req, res) => {
-  const pagination = getPagination(req.query);
-  const organizationId = req.organizationId || req.user.organizationId;
-  const { items, total } = await UserService.getUsersByOrganization(
-    organizationId,
-    {},
-    pagination
-  );
-  return res.status(200).json(
-    new ApiResponse(
-      200,
-      formatPaginatedResponse({ data: items, total, page: pagination.page, limit: pagination.limit }),
-      USER_MESSAGES.USERS_RETRIEVED
-    )
-  );
-});
-
+/**
+ * PATCH /api/v1/users/:userId - Update user profile
+ */
 export const updateUser = asyncHandler(async (req, res) => {
   const { isValid, errors } = UserValidator.validateUpdateUser(req.body);
-  if (!isValid) throw new ApiError(400, "Validation failed", errors);
+  if (!isValid) {
+    throw new ApiError(400, "Validation failed", errors);
+  }
 
-  const updated = await UserService.updateUser(req.params.id, req.body);
-  return res.status(200).json(new ApiResponse(200, updated, USER_MESSAGES.USER_UPDATED));
+  const updatedUser = await UserService.updateUser(req.params.userId, req.body, req.user);
+  return res.status(200).json(new ApiResponse(200, updatedUser, "User profile updated successfully"));
 });
 
-export const deleteUser = asyncHandler(async (req, res) => {
-  const result = await UserService.deleteUser(req.params.id);
-  return res.status(200).json(new ApiResponse(200, result, USER_MESSAGES.USER_DELETED));
+/**
+ * PATCH /api/v1/users/:userId/status - Update universal user status (Platform Staff only)
+ */
+export const updateUserStatus = asyncHandler(async (req, res) => {
+  const { isValid, errors } = UserValidator.validateStatusUpdate(req.body);
+  if (!isValid) {
+    throw new ApiError(400, "Validation failed", errors);
+  }
+
+  const updatedUser = await UserService.updateUserStatus(req.params.userId, req.body.status, req.user);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, updatedUser, `User status updated to '${req.body.status}'`));
+});
+
+/**
+ * POST /api/v1/users/:userId/memberships - Assign user to organization with a role
+ */
+export const createMembership = asyncHandler(async (req, res) => {
+  const { isValid, errors } = UserValidator.validateCreateMembership(req.body);
+  if (!isValid) {
+    throw new ApiError(400, "Validation failed", errors);
+  }
+
+  const membership = await UserService.createMembership(req.params.userId, req.body, req.user);
+  return res
+    .status(201)
+    .json(new ApiResponse(201, membership, "Organization membership created successfully"));
+});
+
+/**
+ * GET /api/v1/users/:userId/memberships - List user memberships
+ */
+export const listMemberships = asyncHandler(async (req, res) => {
+  const memberships = await UserService.listMemberships(req.params.userId, req.user);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, memberships, "User memberships retrieved successfully"));
+});
+
+/**
+ * PATCH /api/v1/users/:userId/memberships/:membershipId - Update membership role or status
+ */
+export const updateMembership = asyncHandler(async (req, res) => {
+  const { isValid, errors } = UserValidator.validateUpdateMembership(req.body);
+  if (!isValid) {
+    throw new ApiError(400, "Validation failed", errors);
+  }
+
+  const updated = await UserService.updateMembership(
+    req.params.userId,
+    req.params.membershipId,
+    req.body,
+    req.user
+  );
+  return res
+    .status(200)
+    .json(new ApiResponse(200, updated, "Organization membership updated successfully"));
+});
+
+/**
+ * DELETE /api/v1/users/:userId/memberships/:membershipId - Remove membership
+ */
+export const deleteMembership = asyncHandler(async (req, res) => {
+  const result = await UserService.deleteMembership(
+    req.params.userId,
+    req.params.membershipId,
+    req.user
+  );
+  return res.status(200).json(new ApiResponse(200, result, "Membership deleted successfully"));
 });
