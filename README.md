@@ -1,165 +1,197 @@
-# SecureAssess
+# 🛡️ SecureAssess — Enterprise Multi-Tenant Online Examination & Assessment SaaS Platform
 
-An all-in-one platform for live video interviews and online assessments, built to reduce AI-assisted cheating in remote hiring and testing. SecureAssess combines real-time video calling, quiz/assessment hosting, and integrity monitoring into a single MERN-stack application — no more juggling separate tools for interviews, quizzes, and proctoring.
+SecureAssess is an all-in-one, enterprise-grade multi-tenant B2B SaaS platform for online examinations, timed assessments, AI-proctored integrity monitoring, and live technical evaluations. It empowers educational institutions (universities, colleges, bootcamps) and recruitment enterprises to organize academic structures, curate multi-type question banks, author immutable assessment snapshots, batch-assign candidate cohorts with secure access codes, monitor runtime attempts with authoritative server timers, autosave answers with tamper protection, and execute automated evaluation pipelines with grade calculation and publication controls.
 
-## Why SecureAssess
+---
 
-Remote assessments and interviews are increasingly undermined by AI tools — invisible screen overlays that feed candidates live answers, browser extensions that auto-solve MCQs, and other forms of undetected assistance. SecureAssess is built to close that gap by combining the interview/assessment experience with real-time integrity signals, so recruiters get a single, trustworthy picture of a candidate's performance.
-
-## Features
-
-- **Live video interviews** — peer-to-peer WebRTC video calls, no third-party conferencing tool required
-- **Built-in assessments** — recruiters build MCQ (and future coding/short-answer) quizzes directly in the platform
-- **Timed sessions** — configurable time limits with auto-submit
-- **Integrity monitoring** — real-time detection of tab switches, fullscreen exits, copy/paste attempts, and other flagged behaviors during a session
-- **Recruiter dashboard** — view candidate sessions, scores, and integrity flags in one place
-- **Session recording** _(optional)_ — webcam snapshots and call recordings stored securely for later review
-- **Role-based access** — separate recruiter/admin and candidate experiences
-
-> **Current status:** in active development. See [Roadmap](#roadmap) for what's built and what's planned.
-
-## Tech stack
-
-| Layer           | Technology                                               |
-| --------------- | -------------------------------------------------------- |
-| Frontend        | React (Vite), React Router, Zustand                      |
-| Backend         | Node.js, Express, Socket.io                              |
-| Database        | MongoDB (Mongoose)                                       |
-| Real-time video | WebRTC (`simple-peer`/`PeerJS`), `coturn` for TURN relay |
-| Auth            | JWT (access + refresh tokens)                            |
-| File storage    | AWS S3 or S3-compatible (Cloudflare R2 / Backblaze B2)   |
-| Email           | SendGrid / Resend                                        |
-
-## Architecture overview
-
-- The **client** (React) handles the interview room UI, quiz-taking UI, and recruiter dashboard.
-- The **server** (Express + Socket.io) handles REST API calls (auth, assessments, results) and WebRTC signaling (offer/answer/ICE candidate exchange between peers).
-- Video/audio streams flow **directly between browsers** via WebRTC — the server never proxies media, only signaling. A TURN server is used as a fallback relay when direct peer connections fail due to NAT/firewall restrictions.
-- **MongoDB** stores users, assessments, questions, session data, and integrity event logs.
-- **Cloud storage** holds session recordings and webcam snapshots, accessed via signed, expiring URLs.
-
-## Prerequisites
-
-- Node.js LTS (v18+)
-- npm or yarn
-- A MongoDB Atlas account (or local MongoDB instance)
-- (For production) a TURN server and an S3-compatible storage bucket
-
-## Getting started
-
-### 1. Clone the repository
-
-```bash
-git clone https://github.com/your-username/secureassess.git
-cd secureassess
-```
-
-### 2. Set up the backend
-
-```bash
-cd server
-npm install
-```
-
-Create a `.env` file in `/server`:
-
-```env
-PORT=5000
-MONGO_URI=your_mongodb_connection_string
-JWT_SECRET=your_jwt_secret
-JWT_REFRESH_SECRET=your_refresh_secret
-CLIENT_URL=http://localhost:5173
-S3_BUCKET=your_bucket_name
-S3_ACCESS_KEY=your_access_key
-S3_SECRET_KEY=your_secret_key
-TURN_SERVER_URL=turn:your-turn-server:3478
-TURN_USERNAME=your_turn_username
-TURN_CREDENTIAL=your_turn_credential
-```
-
-Start the backend:
-
-```bash
-npm run dev
-```
-
-### 3. Set up the frontend
-
-```bash
-cd ../client
-npm install
-```
-
-Create a `.env` file in `/client`:
-
-```env
-VITE_API_URL=http://localhost:5000
-VITE_SOCKET_URL=http://localhost:5000
-```
-
-Start the frontend:
-
-```bash
-npm run dev
-```
-
-The app should now be running at `http://localhost:5173`, connected to the API at `http://localhost:5000`.
-
-## Project structure
+## 🌟 Core System Capabilities (Steps 1–19 Completed)
 
 ```
-secureassess/
-├── client/                # React frontend
+                    ACADEMIC HIERARCHY
+                (Dept → Program → Subject)
+                           │
+                           ▼
+                     QUESTION BANK
+             (MCQ, Coding, Essay, True/False)
+                           │
+                           ▼
+                  ASSESSMENT BUILDER
+             (7-Stage Lifecycle & Snapshots)
+                           │
+                           ▼
+                  COHORT ASSIGNMENT
+           (Candidate Groups & SA-XXXX-XXXX)
+                           │
+                           ▼
+                   RUNTIME ATTEMPTS
+         (Authoritative Timers & Shuffling)
+                           │
+                           ▼
+                   ANSWER ENGINE
+           (Debounced Autosave & Versioning)
+                           │
+                           ▼
+                  EVALUATION ENGINE
+         (Strategy Graders & Result Publishing)
+```
+
+1. **Decoupled Identity & Multi-Tenancy**: Universal `User` identity decoupled from tenant memberships (`UserMembership`) allowing a single person to belong to multiple organizations with distinct roles.
+2. **Granular RBAC**: 121 fine-grained atomic permissions mapped across 7 system roles (`PLATFORM_OWNER`, `PLATFORM_ADMIN`, `ORGANIZATION_OWNER`, `ORGANIZATION_ADMIN`, `EXAMINER`, `PROCTOR`, `CANDIDATE`).
+3. **Academic Hierarchy**: Complete academic and institutional taxonomy with Department, Program, and Subject models.
+4. **Question Bank & Multi-Type Authoring**: Support for `SINGLE_CHOICE`, `MULTIPLE_CHOICE`, `TRUE_FALSE`, `SHORT_ANSWER`, `ESSAY`, `CODING`, and `VIDEO_RESPONSE` with tag and category indexing.
+5. **Assessment Builder & Immutable Snapshots**: 7-stage exam lifecycle (`DRAFT` $\to$ `READY_FOR_REVIEW` $\to$ `APPROVED` $\to$ `PUBLISHED` $\to$ `ACTIVE` $\to$ `CLOSED` $\to$ `ARCHIVED`) with immutable question snapshotting preventing post-publication exam tampering.
+6. **Candidate Management & Access Codes**: Scalable candidate groups with normalized memberships, cryptographic access codes (`SA-XXXX-XXXX`), and candidate authorization boundary protection.
+7. **Runtime Examination Engine**: Server-authoritative effective expiry (`expiresAt = MIN(...)`), duplicate active attempt prevention, candidate question/option shuffling with masked answers, and heartbeat tracking.
+8. **Answer Autosaving & Concurrency**: Structured answer representation across all question types, debounced autosave with versioning, anti-tampering guards, and race-condition protected atomic submission.
+9. **Automated Evaluation & Results**: Extensible strategy pattern graders, per-question `EvaluationItem` score breakdown, negative marking, pass/fail and grade calculation (`A+` to `F`), versioned regrading, and publication gates (`WITHHELD` vs `PUBLISHED`).
+
+---
+
+## 🛠️ Technology Stack
+
+| Layer | Technologies |
+| :--- | :--- |
+| **Backend Service** | Node.js (v18+ LTS, ES Modules), Express v5.2.1, Socket.io v4.8.3 |
+| **Database & ODM** | MongoDB Atlas, Mongoose v9.9.4 |
+| **Authentication & Tokens** | JSON Web Tokens (`jsonwebtoken`), `bcryptjs`, HttpOnly Refresh Sessions |
+| **Cloud Storage & Media** | Cloudinary SDK (Proctoring snapshots & evidence) |
+| **Email & Communications** | Nodemailer (SMTP / Gmail Service) |
+| **Frontend Web App** | React v19.2.8, Vite v8.2.2, React Router v7.18.2, Zustand v5.0.15, Tailwind CSS |
+
+---
+
+## 📂 Project Repository Structure
+
+```
+SecureAssess/
+├── client/                     # Frontend Single-Page Application (React + Vite)
 │   ├── src/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   ├── hooks/
-│   │   ├── store/          # Zustand state
-│   │   └── App.jsx
+│   │   ├── components/         # Reusable UI component library (Buttons, Cards, Modals)
+│   │   ├── pages/              # Portal views (Platform, Organization, Candidate)
+│   │   ├── store/              # Zustand state stores
+│   │   └── App.jsx             # Router and theme container
 │   └── package.json
-├── server/                # Express backend
-│   ├── routes/
-│   ├── controllers/
-│   ├── models/
-│   ├── middleware/
-│   ├── sockets/            # Socket.io signaling logic
-│   └── index.js
-└── README.md
+│
+├── server/                     # Backend API & Real-time Server (Node.js + Express)
+│   ├── src/
+│   │   ├── config/             # Infrastructure (Database, Env, CORS, Logger, Storage)
+│   │   ├── constants/          # Roles, 121 Permissions, Statuses, Types
+│   │   ├── database/seeders/   # System RBAC and Platform Admin seeders
+│   │   ├── middleware/         # Auth, Tenant, Role, Permission, RateLimit, Error
+│   │   ├── modules/            # 19 Completed Domain Feature Modules (Clean Architecture)
+│   │   │   ├── auth/           # Login, register, token rotation, sessions
+│   │   │   ├── users/          # Universal identity & UserMemberships
+│   │   │   ├── organizations/  # Tenant management & sub-route mounting
+│   │   │   ├── departments/    # Academic departments
+│   │   │   ├── programs/       # Degree & training programs
+│   │   │   ├── subjects/       # Subject courses
+│   │   │   ├── questionBank/   # Banks & multi-type questions
+│   │   │   ├── questionTags/   # Question taxonomy tags
+│   │   │   ├── assessments/    # Assessment configuration & 7-stage lifecycle
+│   │   │   ├── assessmentSections/ # Exam sections
+│   │   │   ├── assessmentQuestions/# Immutable question snapshots
+│   │   │   ├── candidates/     # Candidate profiles
+│   │   │   ├── candidateGroups/# Candidate cohorts & members
+│   │   │   ├── assessmentAssignments/# Individual & batch exam assignments
+│   │   │   ├── attempts/       # Examination runtime attempt engine
+│   │   │   ├── attemptQuestions/# Runtime candidate question delivery
+│   │   │   ├── answers/        # Answer autosaving & navigation policies
+│   │   │   ├── evaluations/    # Evaluation engine & strategy graders
+│   │   │   ├── evaluationItems/# Question-level score records
+│   │   │   └── results/        # Final results & publication control
+│   │   ├── utils/              # ApiResponse, ApiError, asyncHandler, Token helpers
+│   │   ├── app.js              # Express app pipeline
+│   │   └── server.js           # Server bootstrap & Socket.io listeners
+│   └── tests/integration/      # End-to-end integration test suites (Steps 13-19)
+│
+├── docs/                       # Comprehensive Documentation Suite
+│   ├── README.md               # Documentation guide & overview
+│   ├── ARCHITECTURE.md         # System design, RBAC matrix, & runtime pipeline
+│   ├── API.md                  # Complete REST API & Socket.io reference
+│   ├── DATA_MODEL.md           # Database schemas, relationships, & indexes
+│   ├── SETUP.md                # Environment configuration & installation guide
+│   └── CONTRIBUTING.md         # Module contracts & code standards
+│
+├── SECUREASSESS_ARCHITECTURE_AND_STATUS.md # Architecture & implementation status
+└── package.json
 ```
 
-## Core data models
+---
 
-- **User** — recruiter/candidate accounts, role-based
-- **Assessment** — quiz metadata, question references, time limits
-- **Question** — MCQ (and future question types), options, correct answers, point values
-- **AssessmentSession** — a candidate's attempt: answers, score, timestamps, status
-- **ProctoringEvent** — timestamped integrity flags tied to a session (tab switch, fullscreen exit, etc.)
+## 🚀 Getting Started
 
-## Roadmap
+### 1. Prerequisites
+- **Node.js**: v18.0.0 or higher
+- **MongoDB**: MongoDB Atlas URI or local instance
+- **Cloudinary**: Cloud name, API key, and secret (for media uploads)
+- **SMTP**: Gmail or SMTP credentials (for email notifications)
 
-SecureAssess is being built in phases:
+### 2. Installation
 
-1. ✅ Project setup and authentication
-2. 🔲 Assessment engine (quiz builder, taking, scoring)
-3. 🔲 Live video interviews (WebRTC + signaling)
-4. 🔲 Integrity/anti-cheat layer
-5. 🔲 Recruiter dashboards and reporting
-6. 🔲 Security hardening, compliance, and deployment
-7. 🔲 Panel interview support (SFU-based, multi-participant calls)
+```bash
+# Clone the repository
+git clone https://github.com/shaheerali838/SecureAssess.git
+cd SecureAssess
 
-_(Check off items as they're completed — this list should stay in sync with actual progress.)_
+# Install dependencies across workspaces
+npm run install:all
+```
 
-## Security and privacy notes
+### 3. Environment Configuration
 
-- Candidates must be clearly informed before any webcam access, recording, or activity monitoring begins — this is a legal requirement in most jurisdictions, not just good practice.
-- Recordings and snapshots are stored with signed, expiring URLs — never public buckets.
-- Passwords are hashed with bcrypt; JWTs are short-lived with refresh token rotation.
-- A privacy policy and terms of service reviewed by a legal professional are strongly recommended before onboarding real candidates.
+Create `server/.env` with your credentials:
 
-## Contributing
+```env
+NODE_ENV=development
+PORT=7000
+MONGODB_URI=mongodb+srv://<user>:<password>@cluster0.mongodb.net/SecureAssess
+JWT_SECRET=your_super_secret_jwt_key_here
+JWT_EXPIRES_IN=1d
+JWT_REFRESH_SECRET=your_super_secret_refresh_key_here
+JWT_REFRESH_EXPIRES_IN=7d
+CORS_ORIGIN=http://localhost:5173
 
-This project is currently in early solo development. Contribution guidelines will be added once the core MVP is stable.
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
 
-## License
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your_email@gmail.com
+SMTP_PASS=your_app_password
+EMAIL_FROM=noreply@secureassess.com
 
-_(Add your chosen license here — e.g., MIT, Apache 2.0, or "All rights reserved" if proprietary.)_
+ADMIN_FIRST_NAME=Shaheer
+ADMIN_LAST_NAME=Ali
+ADMIN_EMAIL=shaheer838838@gmail.com
+ADMIN_PASSWORD=Admin@123
+```
+
+### 4. Database Seeding & Development Servers
+
+```bash
+# Seed 121 RBAC permissions, 7 system roles, and root Platform Owner
+npm run db:seed --prefix server
+
+# Start Backend API & Socket Server (Port 7000)
+npm run dev --prefix server
+
+# In another terminal, start Frontend Vite Dev Server (Port 5173)
+npm run dev --prefix client
+```
+
+---
+
+## 🧪 Integration Test Suites
+
+Run the end-to-end integration tests to verify the completed examination pipeline:
+
+```bash
+node server/tests/integration/step13_hierarchy.test.js
+node server/tests/integration/step14_question_bank.test.js
+node server/tests/integration/step15_assessment_lifecycle.test.js
+node server/tests/integration/step16_candidate_assignment.test.js
+node server/tests/integration/step17_assessment_attempts.test.js
+node server/tests/integration/step18_answer_management.test.js
+node server/tests/integration/step19_evaluation_engine.test.js
+```
