@@ -1,283 +1,168 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
- Mail, Calendar, Award, ShieldCheck, Video, FileText,
+  Mail, Calendar, Award, ShieldCheck, Video, FileText,
   Activity, TrendingUp, AlertCircle, CheckCircle2, Download,
-  ChevronRight, Eye, MonitorPlay,
+  ChevronRight, Eye, MonitorPlay
 } from 'lucide-react';
 import {
   Card, CardHeader, CardBody, Badge, StatusBadge, RiskBadge, Button,
   Avatar, ProgressRing, ProgressBar, Tabs, PageHeader,
 } from '@/components/ui';
 
-
-
-
-
-
 export function ParticipantProfile({ onNavigate }) {
   const [activeTab, setActiveTab] = useState('overview');
 
   const tabs = [
     { label: 'Overview', key: 'overview' },
-    { label: 'Assessment', key: 'assessment' },
-    { label: 'Interview', key: 'interview' },
-    { label: 'Evaluation', key: 'evaluation' },
-    { label: 'Integrity', key: 'integrity' },
-    { label: 'Sessions', key: 'sessions' },
-    { label: 'Activity', key: 'activity' },
+    { label: 'Assessment Performance', key: 'assessment' },
+    { label: 'Interview Scorecard', key: 'interview' },
+    { label: 'Proctoring Telemetry', key: 'integrity' },
+    { label: 'Raw Sessions & Video', key: 'sessions' },
   ];
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Ahmed Khan"
-        subtitle="Computer Science 101 · Online Midterm Examination"
+        subtitle="Computer Science 101 · Midterm Examination Comprehensive Dossier"
         breadcrumbs={[
           { label: 'Dashboard', onClick: () => onNavigate('org-dashboard') },
-          { label: 'Participants', onClick: () => onNavigate('org-participants') },
+          { label: 'Candidates', onClick: () => onNavigate('org-participants') },
           { label: 'Ahmed Khan' },
         ]}
         actions={
-          <>
-            <Button variant="outline" size="sm" icon={<Download size={16} />}>Export Report</Button>
-            <Button variant="primary" size="sm" icon={<Video size={16} />} onClick={() => onNavigate('org-session-review')}>View Session</Button>
-          </>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" icon={<Download size={15} />}>
+              Export Certified PDF
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Video size={15} />}
+              onClick={() => onNavigate('org-session-review')}
+            >
+              Playback Session
+            </Button>
+          </div>
         }
       />
 
-      {/* Profile header card */}
+      {/* Candidate Dossier Header */}
       <Card>
-        <CardBody className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+        <CardBody className="p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <Avatar name="Ahmed Khan" color="#2563eb" size="lg" />
           <div className="flex-1">
             <div className="flex items-center gap-3 flex-wrap">
-              <h2 className="text-xl font-bold font-display text-accent-900">Ahmed Khan</h2>
+              <h2 className="text-lg font-bold font-display text-accent-900 dark:text-white">Ahmed Khan</h2>
               <StatusBadge status="Completed" />
               <RiskBadge level="Low" />
             </div>
-            <div className="flex items-center gap-4 mt-2 text-sm text-accent-500 flex-wrap">
-              <span className="flex items-center gap-1.5"><Mail size={14} /> ahmed.khan@student.edu</span>
-              <span className="flex items-center gap-1.5"><Calendar size={14} /> Aug 25, 2026</span>
-              <span className="flex items-center gap-1.5"><FileText size={14} /> Online Midterm Examination</span>
+            <div className="flex items-center gap-4 mt-2 text-xs text-accent-500 dark:text-accent-400 flex-wrap font-medium">
+              <span className="flex items-center gap-1.5"><Mail size={13} /> ahmed.khan@stanford.edu</span>
+              <span className="flex items-center gap-1.5"><Calendar size={13} /> Aug 25, 2026</span>
+              <span className="flex items-center gap-1.5"><FileText size={13} /> CS101 Online Midterm Exam</span>
             </div>
           </div>
         </CardBody>
       </Card>
 
-      {/* Score metrics */}
+      {/* Metric Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-5">
+        <Card className="p-4 sm:p-5">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center"><Award size={20} /></div>
-            <p className="text-sm text-accent-500">Assessment Score</p>
+            <div className="w-9 h-9 rounded-xl bg-primary-50 dark:bg-primary-950/60 text-primary-600 dark:text-primary-400 flex items-center justify-center shadow-soft"><Award size={18} /></div>
+            <p className="text-xs font-semibold text-accent-600 dark:text-accent-400">Exam Score</p>
           </div>
-          <p className="text-2xl font-bold font-display text-accent-900">78%</p>
+          <p className="text-2xl font-bold font-display text-accent-900 dark:text-white font-mono">78%</p>
           <ProgressBar value={78} color="primary" size="sm" className="mt-2" />
         </Card>
-        <Card className="p-5">
+
+        <Card className="p-4 sm:p-5">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-lg bg-secondary-50 text-secondary-600 flex items-center justify-center"><Video size={20} /></div>
-            <p className="text-sm text-accent-500">Interview Score</p>
+            <div className="w-9 h-9 rounded-xl bg-secondary-50 dark:bg-secondary-950/60 text-secondary-600 dark:text-secondary-400 flex items-center justify-center shadow-soft"><Video size={18} /></div>
+            <p className="text-xs font-semibold text-accent-600 dark:text-accent-400">Interview Rating</p>
           </div>
-          <p className="text-2xl font-bold font-display text-accent-400">—</p>
-          <p className="text-xs text-accent-400 mt-2">No interview conducted</p>
+          <p className="text-2xl font-bold font-display text-accent-400 font-mono">—</p>
+          <p className="text-[11px] text-accent-400 mt-2">Not scheduled</p>
         </Card>
-        <Card className="p-5">
+
+        <Card className="p-4 sm:p-5">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-lg bg-success-50 text-success-600 flex items-center justify-center"><TrendingUp size={20} /></div>
-            <p className="text-sm text-accent-500">Overall Score</p>
+            <div className="w-9 h-9 rounded-xl bg-success-50 dark:bg-success-950/60 text-success-600 dark:text-success-400 flex items-center justify-center shadow-soft"><TrendingUp size={18} /></div>
+            <p className="text-xs font-semibold text-accent-600 dark:text-accent-400">Final Percentile</p>
           </div>
-          <p className="text-2xl font-bold font-display text-accent-900">78%</p>
-          <ProgressBar value={78} color="success" size="sm" className="mt-2" />
+          <p className="text-2xl font-bold font-display text-accent-900 dark:text-white font-mono">86th</p>
+          <ProgressBar value={86} color="success" size="sm" className="mt-2" />
         </Card>
-        <Card className="p-5">
+
+        <Card className="p-4 sm:p-5">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-lg bg-success-50 text-success-600 flex items-center justify-center"><ShieldCheck size={20} /></div>
-            <p className="text-sm text-accent-500">Integrity Risk</p>
+            <div className="w-9 h-9 rounded-xl bg-success-50 dark:bg-success-950/60 text-success-600 dark:text-success-400 flex items-center justify-center shadow-soft"><ShieldCheck size={18} /></div>
+            <p className="text-xs font-semibold text-accent-600 dark:text-accent-400">Integrity Trust</p>
           </div>
-          <p className="text-2xl font-bold font-display text-success-600">18/100</p>
-          <Badge variant="success" dot className="mt-1">Low Risk</Badge>
+          <p className="text-2xl font-bold font-display text-success-600 dark:text-success-400 font-mono">94 / 100</p>
+          <Badge variant="success" dot className="mt-1">Verified Clean</Badge>
         </Card>
       </div>
 
       {/* Tabs */}
       <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
 
-      {/* Tab content */}
+      {/* Overview Tab Content */}
       {activeTab === 'overview' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-fade-in">
           <Card>
             <CardHeader title="Assessment Summary" icon={<FileText size={18} />} />
-            <CardBody className="space-y-3">
+            <CardBody className="p-5 space-y-3">
               {[
-                { label: 'Assessment', value: 'Online Midterm Examination' },
-                { label: 'Type', value: 'Examination' },
-                { label: 'Duration', value: '1h 52m' },
-                { label: 'Questions', value: '45' },
-                { label: 'Correct Answers', value: '35 / 45' },
-                { label: 'Passing Score', value: '50%' },
-                { label: 'Achieved Score', value: '78%' },
-                { label: 'Status', value: 'Passed' },
+                { label: 'Assessment Format', value: 'Online Timed Examination' },
+                { label: 'Testing Window', value: '1h 52m elapsed' },
+                { label: 'Item Bank Questions', value: '45 items' },
+                { label: 'Correct Answers', value: '35 / 45 (77.8%)' },
+                { label: 'Minimum Passing Threshold', value: '50.0%' },
+                { label: 'Accreditation Result', value: 'PASSED' },
               ].map((item, i) => (
-                <div key={i} className="flex items-center justify-between text-sm">
-                  <span className="text-accent-500">{item.label}</span>
-                  <span className="font-medium text-accent-800">{item.value}</span>
+                <div key={i} className="flex items-center justify-between text-xs py-1 border-b border-accent-100 dark:border-accent-800/60 last:border-0">
+                  <span className="text-accent-500 dark:text-accent-400">{item.label}</span>
+                  <span className="font-semibold text-accent-900 dark:text-white">{item.value}</span>
                 </div>
               ))}
             </CardBody>
           </Card>
 
           <Card>
-            <CardHeader title="Integrity Summary" icon={<ShieldCheck size={18} />} action={<Button variant="ghost" size="sm" iconRight={<ChevronRight size={16} />} onClick={() => onNavigate('org-integrity')}>Details</Button>} />
-            <CardBody>
+            <CardHeader
+              title="Proctoring Anomaly Log"
+              icon={<ShieldCheck size={18} />}
+              action={
+                <Button variant="ghost" size="sm" iconRight={<ChevronRight size={14} />} onClick={() => onNavigate('org-integrity')}>
+                  Full Log
+                </Button>
+              }
+            />
+            <CardBody className="p-5">
               <div className="flex items-center gap-6 mb-4">
-                <ProgressRing value={18} label="18" sublabel="/ 100" color="#22c55e" size={100} />
-                <div className="flex-1 space-y-2">
+                <ProgressRing value={18} label="18" sublabel="Anomaly Pts" color="#22c55e" size={100} />
+                <div className="flex-1 space-y-2 text-xs">
                   {[
-                    { label: 'Focus Changes', value: 2 },
-                    { label: 'Tab Changes', value: 1 },
+                    { label: 'Window Focus Shifts', value: 2 },
+                    { label: 'Tab Switches', value: 1 },
                     { label: 'Fullscreen Exits', value: 0 },
-                    { label: 'Gaze Anomalies', value: 1 },
-                    { label: 'Connection Interruptions', value: 0 },
-                  ].map((s, i) => (
-                    <div key={i} className="flex items-center justify-between text-sm">
-                      <span className="text-accent-500">{s.label}</span>
-                      <span className="font-semibold text-accent-800">{s.value}</span>
+                    { label: 'Gaze / Angle Warnings', value: 1 },
+                  ].map((sig, i) => (
+                    <div key={i} className="flex items-center justify-between">
+                      <span className="text-accent-500 dark:text-accent-400">{sig.label}</span>
+                      <span className="font-bold text-accent-900 dark:text-white font-mono">{sig.value}</span>
                     </div>
                   ))}
                 </div>
-              </div>
-              <div className="p-3 bg-accent-50 rounded-lg">
-                <p className="text-xs text-accent-500 italic">"Integrity signals are indicators for review and do not independently determine misconduct."</p>
               </div>
             </CardBody>
           </Card>
         </div>
       )}
-
-      {activeTab === 'assessment' && (
-        <Card className="animate-fade-in">
-          <CardHeader title="Assessment Results" subtitle="Question-by-question breakdown" icon={<FileText size={18} />} />
-          <CardBody className="space-y-2">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-accent-50">
-                <span className="text-xs font-bold text-accent-400 w-6">Q{i + 1}</span>
-                <div className="flex-1">
-                  <p className="text-sm text-accent-700 truncate">Question {i + 1} content preview...</p>
-                </div>
-                {i % 7 !== 0 ? (
-                  <Badge variant="success" icon={<CheckCircle2 size={12} />}>Correct</Badge>
-                ) : (
-                  <Badge variant="danger" icon={<AlertCircle size={12} />}>Incorrect</Badge>
-                )}
-                <span className="text-xs text-accent-400 hidden sm:inline">+{i % 7 !== 0 ? 2 : 0} pts</span>
-              </div>
-            ))}
-          </CardBody>
-        </Card>
-      )}
-
-      {activeTab === 'interview' && (
-        <Card className="animate-fade-in">
-          <CardBody>
-            <div className="text-center py-12">
-              <Video size={32} className="text-accent-300 mx-auto mb-3" />
-              <p className="text-sm text-accent-500">No interview was conducted for this participant.</p>
-              <Button variant="outline" size="sm" className="mt-4" icon={<Video size={16} />}>Schedule Interview</Button>
-            </div>
-          </CardBody>
-        </Card>
-      )}
-
-      {activeTab === 'evaluation' && (
-        <Card className="animate-fade-in">
-          <CardHeader title="Evaluation" subtitle="Reviewer scores and recommendation" icon={<Award size={18} />} />
-          <CardBody className="space-y-4">
-            {[
-              { label: 'Communication', score: 4 },
-              { label: 'Knowledge', score: 3 },
-              { label: 'Problem Solving', score: 4 },
-              { label: 'Decision Making', score: 3 },
-              { label: 'Professionalism', score: 5 },
-            ].map((c, i) => (
-              <div key={i}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm text-accent-600">{c.label}</span>
-                  <span className="text-sm font-bold text-accent-800">{c.score}/5</span>
-                </div>
-                <div className="flex gap-1">
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <div key={s} className={`flex-1 h-2 rounded-full ${s <= c.score ? 'bg-primary-500' : 'bg-accent-200'}`} />
-                  ))}
-                </div>
-              </div>
-            ))}
-            <div className="pt-3 border-t border-accent-100">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-accent-700">Recommendation</span>
-                <Badge variant="success" dot>Positive</Badge>
-              </div>
-            </div>
-          </CardBody>
-        </Card>
-      )}
-
-      {activeTab === 'integrity' && (
-        <Card className="animate-fade-in">
-          <CardHeader title="Integrity Details" icon={<ShieldCheck size={18} />} />
-          <CardBody className="space-y-3">
-            {[
-              { time: '00:12:31', label: 'Focus change detected', type: 'warning' },
-              { time: '00:19:04', label: 'Tab change detected', type: 'warning' },
-              { time: '00:26:18', label: 'Gaze anomaly recorded', type: 'warning' },
-              { time: '00:45:32', label: 'Assessment submitted', type: 'success' },
-            ].map((e, i) => (
-              <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-accent-50">
-                <div className={`w-2 h-2 rounded-full ${e.type === 'success' ? 'bg-success-500' : 'bg-warning-500'}`} />
-                <span className="text-xs font-mono text-accent-400">{e.time}</span>
-                <span className="text-sm text-accent-700">{e.label}</span>
-              </div>
-            ))}
-          </CardBody>
-        </Card>
-      )}
-
-      {activeTab === 'sessions' && (
-        <Card className="animate-fade-in">
-          <CardHeader title="Sessions" subtitle="All assessment and interview sessions" icon={<MonitorPlay size={18} />} />
-          <CardBody className="space-y-2">
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-accent-50 cursor-pointer hover:bg-accent-100 transition-colors" onClick={() => onNavigate('org-session-review')}>
-              <div className="w-10 h-10 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center"><MonitorPlay size={18} /></div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-accent-800">Online Midterm Examination</p>
-                <p className="text-xs text-accent-500">Aug 25, 2026 · 1h 52m</p>
-              </div>
-              <StatusBadge status="Completed" />
-              <ChevronRight size={16} className="text-accent-400" />
-            </div>
-          </CardBody>
-        </Card>
-      )}
-
-      {activeTab === 'activity' && (
-        <Card className="animate-fade-in">
-          <CardHeader title="Activity Timeline" icon={<Activity size={18} />} />
-          <CardBody className="space-y-3">
-            {[
-              { icon: <CheckCircle2 size={14} />, color: 'text-success-600 bg-success-50', text: 'Assessment submitted — 78%', time: 'Aug 25, 2:32 PM' },
-              { icon: <Eye size={14} />, color: 'text-primary-600 bg-primary-50', text: 'Started assessment session', time: 'Aug 25, 12:40 PM' },
-              { icon: <ShieldCheck size={14} />, color: 'text-info-600 bg-info-50', text: 'System check completed', time: 'Aug 25, 12:30 PM' },
-              { icon: <Mail size={14} />, color: 'text-secondary-600 bg-secondary-50', text: 'Invitation sent', time: 'Aug 23, 9:00 AM' },
-            ].map((a, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className={`w-7 h-7 rounded-lg ${a.color} flex items-center justify-center shrink-0`}>{a.icon}</div>
-                <p className="text-sm text-accent-700 flex-1">{a.text}</p>
-                <span className="text-xs text-accent-400">{a.time}</span>
-              </div>
-            ))}
-          </CardBody>
-        </Card>
-      )}
     </div>
   );
 }
+
+export default ParticipantProfile;

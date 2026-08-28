@@ -70,23 +70,30 @@ export function LandingPage() {
 
             <div className="hidden md:flex items-center gap-3">
               <button
-                onClick={toggleTheme}
-                className="p-2 rounded-lg text-accent-500 hover:text-accent-800 dark:hover:text-accent-200 hover:bg-accent-100 dark:hover:bg-accent-800 transition-colors"
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  toggleTheme();
+                }}
+                className="p-2 rounded-lg text-accent-500 hover:text-accent-800 dark:hover:text-accent-200 hover:bg-accent-100 dark:hover:bg-accent-800 transition-colors cursor-pointer"
                 title={isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
               >
                 {isDark ? <Sun size={18} className="text-warning-400" /> : <Moon size={18} />}
               </button>
 
               <button
+                type="button"
                 onClick={() => navigate('/login')}
-                className="px-4 py-2 text-xs font-bold text-accent-700 dark:text-accent-200 hover:text-accent-900 dark:hover:text-white transition-colors"
+                className="px-4 py-2 text-xs font-bold text-accent-700 dark:text-accent-200 hover:text-accent-900 dark:hover:text-white transition-colors cursor-pointer"
               >
                 Sign In
               </button>
 
               <button
+                type="button"
                 onClick={() => navigate('/request-demo')}
-                className="px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-xs font-bold shadow-soft transition-all"
+                className="px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-xs font-bold shadow-soft transition-all cursor-pointer"
               >
                 Request a Demo
               </button>
@@ -94,8 +101,13 @@ export function LandingPage() {
 
             <div className="flex items-center gap-2 md:hidden">
               <button
-                onClick={toggleTheme}
-                className="p-2 rounded-lg text-accent-500 hover:bg-accent-100 dark:hover:bg-accent-800"
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  toggleTheme();
+                }}
+                className="p-2 rounded-lg text-accent-500 hover:bg-accent-100 dark:hover:bg-accent-800 cursor-pointer"
               >
                 {isDark ? <Sun size={18} className="text-warning-400" /> : <Moon size={18} />}
               </button>

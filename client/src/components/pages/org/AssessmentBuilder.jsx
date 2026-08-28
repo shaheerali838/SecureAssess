@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   FileText, Plus, Trash2, Save, Eye, Settings2,
-  Shield, ListChecks, ChevronUp, ChevronDown, GripVertical,
+  Shield, ListChecks, ChevronUp, ChevronDown, GripVertical, Check
 } from 'lucide-react';
 import {
   Card, CardHeader, CardBody, Button, Input, Select, Textarea, Badge,
@@ -9,13 +9,8 @@ import {
 } from '@/components/ui';
 import { questions as defaultQuestions } from '@/data';
 
-
-
-
-
-
 const questionTypes = ['Multiple Choice', 'Multiple Select', 'True / False', 'Short Answer', 'Long Answer', 'Numerical', 'Scenario', 'Coding', 'Custom'];
-const securityLevels = ['Standard', 'Monitored', 'Secure'] ;
+const securityLevels = ['Standard', 'Monitored', 'Secure'];
 const assessmentTypes = ['Quiz', 'Examination', 'MCQ Test', 'Knowledge Assessment', 'Skills Assessment', 'Aptitude Test', 'Scenario Assessment', 'Interview Assessment', 'Custom Assessment'];
 
 export function AssessmentBuilder({ onNavigate }) {
@@ -29,13 +24,13 @@ export function AssessmentBuilder({ onNavigate }) {
     const newQ = {
       id: questions.length + 1,
       type: 'Multiple Choice',
-      content: 'New question',
+      content: 'New question stem...',
       options: ['Option A', 'Option B', 'Option C', 'Option D'],
       correctAnswer: 0,
       explanation: '',
       points: 1,
       difficulty: 'Easy',
-      category: '',
+      category: 'General',
       tags: [],
     };
     setQuestions([...questions, newQ]);
@@ -63,188 +58,281 @@ export function AssessmentBuilder({ onNavigate }) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <PageHeader
-        title="Create Assessment"
-        subtitle="Build your assessment with questions, rules, and policies"
-        icon={<FileText size={22} />}
+        title="Assessment Authoring Suite"
+        subtitle="Configure evaluation structure, author item pools, and declare proctoring parameters."
+        icon={<FileText size={22} className="text-primary-600 dark:text-primary-400" />}
         breadcrumbs={[
           { label: 'Dashboard', onClick: () => onNavigate('org-dashboard') },
           { label: 'Assessments', onClick: () => onNavigate('org-assessments') },
           { label: 'Builder' },
         ]}
         actions={
-          <>
-            <Button variant="ghost" size="sm" icon={<Eye size={16} />} onClick={() => setShowPreview(!showPreview)}>
-              {showPreview ? 'Edit' : 'Preview'}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={<Eye size={15} />}
+              onClick={() => setShowPreview(!showPreview)}
+            >
+              {showPreview ? 'Exit Preview' : 'Interactive Preview'}
             </Button>
-            <Button variant="outline" size="sm" icon={<Save size={16} />}>Save Draft</Button>
-            <Button variant="primary" size="sm">Publish</Button>
-          </>
+            <Button variant="outline" size="sm" icon={<Save size={15} />}>Save Draft</Button>
+            <Button variant="primary" size="sm" icon={<Check size={15} />}>Publish Assessment</Button>
+          </div>
         }
       />
 
-      {/* Assessment settings bar */}
+      {/* Assessment Global Parameters */}
       <Card>
-        <CardBody className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Input label="Title" placeholder="Assessment title" defaultValue="University Admission Test" />
+        <CardBody className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-5">
+          <Input label="Assessment Title" placeholder="e.g. CS201 Midterm Examination" defaultValue="University Admission Test" />
           <Select label="Assessment Type" options={assessmentTypes.map(t => ({ value: t, label: t }))} />
-          <Input label="Duration (minutes)" type="number" defaultValue={90} />
+          <Input label="Duration (Minutes)" type="number" defaultValue={90} />
           <Input label="Passing Score (%)" type="number" defaultValue={60} />
         </CardBody>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Left: Question list */}
-        <div className="lg:col-span-3">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Left: Question Navigator List */}
+        <div className="lg:col-span-4 xl:col-span-3">
           <Card>
-            <CardHeader title="Questions" subtitle={`${questions.length} total`} icon={<ListChecks size={18} />} action={<Button variant="ghost" size="sm" icon={<Plus size={16} />} onClick={addQuestion}>Add</Button>} />
-            <CardBody className="p-2 space-y-1">
-              {questions.map((q, i) => (
-                <div
-                  key={q.id}
-                  onClick={() => setActiveIdx(i)}
-                  className={`flex items-center gap-2 p-2.5 rounded-lg cursor-pointer transition-colors ${activeIdx === i ? 'bg-primary-50 border border-primary-200' : 'hover:bg-accent-50'}`}
-                >
-                  <GripVertical size={14} className="text-accent-300 shrink-0" />
-                  <span className={`text-xs font-bold w-5 text-center ${activeIdx === i ? 'text-primary-600' : 'text-accent-400'}`}>{i + 1}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-xs truncate ${activeIdx === i ? 'text-primary-800' : 'text-accent-600'}`}>{q.content}</p>
-                    <p className="text-xs text-accent-400">{q.type}</p>
+            <CardHeader
+              title="Question Pool"
+              subtitle={`${questions.length} total items`}
+              icon={<ListChecks size={18} />}
+              action={
+                <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={addQuestion}>
+                  Add
+                </Button>
+              }
+            />
+            <CardBody className="p-2 space-y-1.5 max-h-[600px] overflow-y-auto">
+              {questions.map((q, i) => {
+                const isActive = activeIdx === i;
+                return (
+                  <div
+                    key={q.id}
+                    onClick={() => setActiveIdx(i)}
+                    className={`flex items-center gap-2.5 p-3 rounded-xl cursor-pointer transition-all ${
+                      isActive
+                        ? 'bg-primary-50 dark:bg-primary-950/60 border border-primary-300 dark:border-primary-700/60 shadow-soft'
+                        : 'hover:bg-accent-50 dark:hover:bg-accent-800/50 border border-transparent hover:border-accent-200 dark:hover:border-accent-700'
+                    }`}
+                  >
+                    <GripVertical size={14} className="text-accent-400 shrink-0" />
+                    <span className={`text-xs font-bold w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${
+                      isActive
+                        ? 'bg-primary-600 text-white'
+                        : 'bg-accent-100 dark:bg-accent-800 text-accent-600 dark:text-accent-400'
+                    }`}>
+                      {i + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-xs font-semibold truncate ${
+                        isActive
+                          ? 'text-primary-900 dark:text-primary-200'
+                          : 'text-accent-800 dark:text-accent-200'
+                      }`}>
+                        {q.content || 'Untitled question'}
+                      </p>
+                      <p className="text-[11px] text-accent-500 dark:text-accent-400">{q.type} · {q.points} pt</p>
+                    </div>
                   </div>
-                </div>
-              ))}
-              <button onClick={addQuestion} className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium text-primary-600 hover:bg-primary-50 rounded-lg transition-colors">
+                );
+              })}
+              <button
+                type="button"
+                onClick={addQuestion}
+                className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-bold text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-950/50 rounded-xl transition-colors cursor-pointer border border-dashed border-primary-300 dark:border-primary-800/60"
+              >
                 <Plus size={14} /> Add Question
               </button>
             </CardBody>
           </Card>
         </div>
 
-        {/* Center: Question editor */}
-        <div className="lg:col-span-6">
+        {/* Center: Question Authoring Surface */}
+        <div className="lg:col-span-8 xl:col-span-6">
           {activeQuestion && !showPreview && (
             <Card>
               <CardHeader
-                title={`Question ${activeIdx + 1}`}
+                title={`Item #${activeIdx + 1}`}
                 subtitle={activeQuestion.type}
                 icon={<FileText size={18} />}
                 action={
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => moveQuestion(activeIdx, 'up')} disabled={activeIdx === 0} className="p-1.5 text-accent-400 hover:text-accent-700 hover:bg-accent-100 rounded transition-colors disabled:opacity-30"><ChevronUp size={16} /></button>
-                    <button onClick={() => moveQuestion(activeIdx, 'down')} disabled={activeIdx === questions.length - 1} className="p-1.5 text-accent-400 hover:text-accent-700 hover:bg-accent-100 rounded transition-colors disabled:opacity-30"><ChevronDown size={16} /></button>
-                    <button onClick={() => deleteQuestion(activeIdx)} className="p-1.5 text-accent-400 hover:text-danger-600 hover:bg-danger-50 rounded transition-colors"><Trash2 size={16} /></button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => moveQuestion(activeIdx, 'up')}
+                      disabled={activeIdx === 0}
+                      className="p-1.5 text-accent-400 hover:text-accent-700 dark:hover:text-white hover:bg-accent-100 dark:hover:bg-accent-800 rounded-lg transition-colors disabled:opacity-30 cursor-pointer"
+                      title="Move up"
+                    >
+                      <ChevronUp size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveQuestion(activeIdx, 'down')}
+                      disabled={activeIdx === questions.length - 1}
+                      className="p-1.5 text-accent-400 hover:text-accent-700 dark:hover:text-white hover:bg-accent-100 dark:hover:bg-accent-800 rounded-lg transition-colors disabled:opacity-30 cursor-pointer"
+                      title="Move down"
+                    >
+                      <ChevronDown size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deleteQuestion(activeIdx)}
+                      className="p-1.5 text-accent-400 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950/40 rounded-lg transition-colors cursor-pointer"
+                      title="Delete question"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
                 }
               />
-              <CardBody className="space-y-4">
+              <CardBody className="p-5 space-y-5">
                 <Select
-                  label="Question Type"
+                  label="Question Format"
                   options={questionTypes.map(t => ({ value: t, label: t }))}
                   value={activeQuestion.type}
-                  onChange={(e) => updateQuestion(activeIdx, { type: e.target.value  })}
+                  onChange={(e) => updateQuestion(activeIdx, { type: e.target.value })}
                 />
                 <Textarea
-                  label="Question Content"
-                  rows={3}
+                  label="Question Prompt / Problem Description"
+                  rows={4}
                   value={activeQuestion.content}
                   onChange={(e) => updateQuestion(activeIdx, { content: e.target.value })}
                 />
 
                 {/* Options editor for choice-based questions */}
                 {(activeQuestion.type === 'Multiple Choice' || activeQuestion.type === 'Multiple Select' || activeQuestion.type === 'True / False') && (
-                  <div>
-                    <label className="block text-sm font-medium text-accent-700 mb-2">Answer Options</label>
-                    <div className="space-y-2">
-                      {activeQuestion.options.map((opt, oi) => (
-                        <div key={oi} className="flex items-center gap-2">
-                          <button
-                            onClick={() => updateQuestion(activeIdx, { correctAnswer: oi })}
-                            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
-                              (Array.isArray(activeQuestion.correctAnswer) ? activeQuestion.correctAnswer.includes(oi) : activeQuestion.correctAnswer === oi)
-                                ? 'border-success-500 bg-success-500' : 'border-accent-300 hover:border-accent-400'
-                            }`}
-                          >
-                            {(Array.isArray(activeQuestion.correctAnswer) ? activeQuestion.correctAnswer.includes(oi) : activeQuestion.correctAnswer === oi) && <span className="w-2 h-2 rounded-full bg-white" />}
-                          </button>
-                          <input
-                            type="text"
-                            value={opt}
-                            onChange={(e) => {
-                              const newOpts = [...activeQuestion.options];
-                              newOpts[oi] = e.target.value;
-                              updateQuestion(activeIdx, { options: newOpts });
-                            }}
-                            className="flex-1 h-9 px-3 text-sm rounded-lg border border-accent-300 bg-white text-accent-800 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                          />
-                          {activeQuestion.options.length > 2 && (
-                            <button onClick={() => { const newOpts = activeQuestion.options.filter((_, i) => i !== oi); updateQuestion(activeIdx, { options: newOpts }); }} className="p-1.5 text-accent-400 hover:text-danger-600 rounded transition-colors">
-                              <Trash2 size={14} />
+                  <div className="space-y-3">
+                    <label className="block text-xs font-semibold text-accent-700 dark:text-accent-300">
+                      Answer Choices & Correct Key
+                    </label>
+                    <div className="space-y-2.5">
+                      {activeQuestion.options.map((opt, oi) => {
+                        const isCorrect = Array.isArray(activeQuestion.correctAnswer)
+                          ? activeQuestion.correctAnswer.includes(oi)
+                          : activeQuestion.correctAnswer === oi;
+                        return (
+                          <div key={oi} className="flex items-center gap-2.5">
+                            <button
+                              type="button"
+                              onClick={() => updateQuestion(activeIdx, { correctAnswer: oi })}
+                              className={`w-7 h-7 rounded-xl border-2 flex items-center justify-center shrink-0 transition-all cursor-pointer ${
+                                isCorrect
+                                  ? 'border-success-500 bg-success-500 text-white shadow-soft'
+                                  : 'border-accent-300 dark:border-accent-700 hover:border-accent-400 bg-white dark:bg-accent-800'
+                              }`}
+                              title={isCorrect ? 'Marked as Correct Answer' : 'Click to mark as Correct Answer'}
+                            >
+                              {isCorrect && <Check size={14} className="stroke-[3]" />}
                             </button>
-                          )}
-                        </div>
-                      ))}
+                            <input
+                              type="text"
+                              value={opt}
+                              onChange={(e) => {
+                                const newOpts = [...activeQuestion.options];
+                                newOpts[oi] = e.target.value;
+                                updateQuestion(activeIdx, { options: newOpts });
+                              }}
+                              className="flex-1 h-10 px-3.5 text-xs rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors"
+                            />
+                            {activeQuestion.options.length > 2 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newOpts = activeQuestion.options.filter((_, i) => i !== oi);
+                                  updateQuestion(activeIdx, { options: newOpts });
+                                }}
+                                className="p-2 text-accent-400 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950/40 rounded-xl transition-colors cursor-pointer"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
                       {activeQuestion.type !== 'True / False' && (
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          icon={<Plus size={14} />}
                           onClick={() => updateQuestion(activeIdx, { options: [...activeQuestion.options, `Option ${String.fromCharCode(65 + activeQuestion.options.length)}`] })}
-                          className="flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"
                         >
-                          <Plus size={14} /> Add Option
-                        </button>
+                          Add Option
+                        </Button>
                       )}
                     </div>
                   </div>
                 )}
 
                 <Textarea
-                  label="Explanation"
+                  label="Explanation & Feedback Rationale"
                   rows={2}
-                  placeholder="Explain the correct answer..."
+                  placeholder="Provide guidance or hints displayed after review..."
                   value={activeQuestion.explanation}
                   onChange={(e) => updateQuestion(activeIdx, { explanation: e.target.value })}
                 />
 
-                <div className="grid grid-cols-3 gap-3">
-                  <Input label="Points" type="number" value={activeQuestion.points} onChange={(e) => updateQuestion(activeIdx, { points: Number(e.target.value) })} />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <Input label="Points Awarded" type="number" value={activeQuestion.points} onChange={(e) => updateQuestion(activeIdx, { points: Number(e.target.value) })} />
                   <Select
-                    label="Difficulty"
+                    label="Difficulty Level"
                     options={[{ value: 'Easy', label: 'Easy' }, { value: 'Medium', label: 'Medium' }, { value: 'Hard', label: 'Hard' }]}
                     value={activeQuestion.difficulty}
-                    onChange={(e) => updateQuestion(activeIdx, { difficulty: e.target.value  })}
+                    onChange={(e) => updateQuestion(activeIdx, { difficulty: e.target.value })}
                   />
-                  <Input label="Category" placeholder="e.g. Algorithms" value={activeQuestion.category} onChange={(e) => updateQuestion(activeIdx, { category: e.target.value })} />
+                  <Input label="Domain Category" placeholder="e.g. System Design" value={activeQuestion.category} onChange={(e) => updateQuestion(activeIdx, { category: e.target.value })} />
                 </div>
               </CardBody>
             </Card>
           )}
 
-          {/* Preview mode */}
+          {/* Interactive Candidate View Preview */}
           {activeQuestion && showPreview && (
             <Card>
-              <CardHeader title="Preview" subtitle="How participants will see this question" icon={<Eye size={18} />} />
-              <CardBody>
-                <div className="bg-accent-50 rounded-xl p-6">
-                  <div className="flex items-center justify-between mb-4">
+              <CardHeader title="Candidate View Preview" subtitle="Real-time rendering of participant experience" icon={<Eye size={18} />} />
+              <CardBody className="p-5">
+                <div className="bg-accent-50/70 dark:bg-accent-950/60 border border-accent-200 dark:border-accent-800 rounded-2xl p-6 space-y-5">
+                  <div className="flex items-center justify-between">
                     <Badge variant="primary">Question {activeIdx + 1} of {questions.length}</Badge>
-                    <Badge variant="neutral">{activeQuestion.points} points</Badge>
+                    <Badge variant="neutral">{activeQuestion.points} Points</Badge>
                   </div>
-                  <p className="text-lg text-accent-900 mb-4">{activeQuestion.content}</p>
+                  <p className="text-base font-semibold text-accent-900 dark:text-white leading-relaxed">{activeQuestion.content}</p>
+
                   {(activeQuestion.type === 'Multiple Choice' || activeQuestion.type === 'True / False') && (
-                    <div className="space-y-2">
-                      {activeQuestion.options.map((opt, oi) => (
-                        <div key={oi} className={`flex items-center gap-3 p-3 rounded-lg border-2 ${activeQuestion.correctAnswer === oi ? 'border-success-300 bg-success-50' : 'border-accent-200 bg-white'}`}>
-                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${activeQuestion.correctAnswer === oi ? 'border-success-500 bg-success-500' : 'border-accent-300'}`}>
-                            {activeQuestion.correctAnswer === oi && <span className="w-2 h-2 rounded-full bg-white" />}
+                    <div className="space-y-2.5">
+                      {activeQuestion.options.map((opt, oi) => {
+                        const isCorrect = activeQuestion.correctAnswer === oi;
+                        return (
+                          <div
+                            key={oi}
+                            className={`flex items-center gap-3.5 p-4 rounded-xl border-2 transition-all ${
+                              isCorrect
+                                ? 'border-success-500 bg-success-50/60 dark:bg-success-950/30 text-success-900 dark:text-success-100'
+                                : 'border-accent-200 dark:border-accent-800 bg-white dark:bg-accent-900 text-accent-800 dark:text-accent-200'
+                            }`}
+                          >
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                              isCorrect ? 'border-success-500 bg-success-500' : 'border-accent-300 dark:border-accent-700'
+                            }`}>
+                              {isCorrect && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                            </div>
+                            <span className="text-xs font-semibold">{opt}</span>
                           </div>
-                          <span className="text-sm text-accent-700">{opt}</span>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
+
                   {activeQuestion.explanation && (
-                    <div className="mt-4 p-3 bg-primary-50 rounded-lg">
-                      <p className="text-xs font-medium text-primary-700 mb-1">Explanation</p>
-                      <p className="text-sm text-primary-600">{activeQuestion.explanation}</p>
+                    <div className="p-4 bg-primary-50/70 dark:bg-primary-950/40 border border-primary-200 dark:border-primary-800/40 rounded-xl space-y-1">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-primary-700 dark:text-primary-300">Explanation</p>
+                      <p className="text-xs text-primary-900 dark:text-primary-200 leading-relaxed">{activeQuestion.explanation}</p>
                     </div>
                   )}
                 </div>
@@ -253,62 +341,72 @@ export function AssessmentBuilder({ onNavigate }) {
           )}
         </div>
 
-        {/* Right: Configuration */}
-        <div className="lg:col-span-3">
+        {/* Right: Security & Proctoring Configuration */}
+        <div className="lg:col-span-12 xl:col-span-3">
           <Card>
-            <CardHeader title="Configuration" icon={<Settings2 size={18} />} />
-            <CardBody className="space-y-4">
+            <CardHeader title="Security & Policies" icon={<Settings2 size={18} />} />
+            <CardBody className="p-5 space-y-5">
               <div>
-                <label className="block text-sm font-medium text-accent-700 mb-2">Security Level</label>
+                <label className="block text-xs font-semibold text-accent-700 dark:text-accent-300 mb-2.5">
+                  Proctoring Tier
+                </label>
                 <div className="space-y-2">
-                  {securityLevels.map((level) => (
-                    <button
-                      key={level}
-                      className={`w-full flex items-center justify-between p-2.5 rounded-lg border-2 transition-colors text-left ${level === 'Secure' ? 'border-success-300 bg-success-50' : level === 'Monitored' ? 'border-warning-300 bg-warning-50' : 'border-accent-200 bg-white'}`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Shield size={16} className={level === 'Secure' ? 'text-success-600' : level === 'Monitored' ? 'text-warning-600' : 'text-accent-400'} />
-                        <span className="text-sm font-medium text-accent-700">{level}</span>
-                      </div>
-                    </button>
-                  ))}
+                  {securityLevels.map((level) => {
+                    const isSecure = level === 'Secure';
+                    const isMonitored = level === 'Monitored';
+                    return (
+                      <button
+                        key={level}
+                        type="button"
+                        className={`w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all text-left cursor-pointer ${
+                          isSecure
+                            ? 'border-primary-500 bg-primary-50/60 dark:bg-primary-950/40'
+                            : 'border-accent-200 dark:border-accent-800 bg-white dark:bg-accent-900 hover:border-accent-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Shield size={16} className={isSecure ? 'text-primary-600 dark:text-primary-400' : isMonitored ? 'text-warning-500' : 'text-accent-400'} />
+                          <span className="text-xs font-bold text-accent-900 dark:text-white">{level}</span>
+                        </div>
+                        {isSecure && <Check size={14} className="text-primary-600 dark:text-primary-400" />}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-accent-700 mb-2">Integrity Policies</label>
-                <div className="space-y-2">
-                  {['Require camera', 'Fullscreen mode', 'Tab change detection', 'Browser lockdown', 'Session recording'].map((p) => (
-                    <label key={p} className="flex items-center gap-2 text-sm text-accent-600">
-                      <input type="checkbox" defaultChecked className="rounded border-accent-300 text-primary-600 focus:ring-primary-500" />
-                      {p}
+                <label className="block text-xs font-semibold text-accent-700 dark:text-accent-300 mb-2.5">
+                  Anti-Cheat Telemetry
+                </label>
+                <div className="space-y-2.5">
+                  {[
+                    'Require Primary Webcam Feed',
+                    'Enforce Fullscreen Kiosk Mode',
+                    'Tab Blur & Window Loss Flagging',
+                    'Continuous Screen Recording',
+                    'AI Head Movement Tracking'
+                  ].map((p) => (
+                    <label key={p} className="flex items-center gap-2.5 text-xs font-medium text-accent-700 dark:text-accent-300 cursor-pointer">
+                      <input type="checkbox" defaultChecked className="rounded text-primary-600 focus:ring-primary-500 w-4 h-4 bg-white dark:bg-accent-800 border-accent-300 dark:border-accent-700" />
+                      <span>{p}</span>
                     </label>
                   ))}
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-accent-700 mb-2">Schedule</label>
-                <Input type="datetime-local" />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-accent-700 mb-2">Instructions</label>
-                <Textarea rows={3} placeholder="Instructions for participants..." defaultValue="Read each question carefully. You have 90 minutes to complete this assessment." />
-              </div>
-
-              <div className="pt-3 border-t border-accent-100">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-accent-600">Total Questions</span>
-                  <span className="font-bold text-accent-900">{questions.length}</span>
+              <div className="pt-4 border-t border-accent-100 dark:border-accent-800 space-y-2">
+                <div className="flex items-center justify-between text-xs font-medium">
+                  <span className="text-accent-500 dark:text-accent-400">Total Questions</span>
+                  <span className="font-bold text-accent-900 dark:text-white">{questions.length}</span>
                 </div>
-                <div className="flex items-center justify-between text-sm mt-1">
-                  <span className="text-accent-600">Total Points</span>
-                  <span className="font-bold text-accent-900">{questions.reduce((s, q) => s + q.points, 0)}</span>
+                <div className="flex items-center justify-between text-xs font-medium">
+                  <span className="text-accent-500 dark:text-accent-400">Total Points</span>
+                  <span className="font-bold text-accent-900 dark:text-white">{questions.reduce((s, q) => s + q.points, 0)}</span>
                 </div>
-                <div className="flex items-center justify-between text-sm mt-1">
-                  <span className="text-accent-600">Duration</span>
-                  <span className="font-bold text-accent-900">90 min</span>
+                <div className="flex items-center justify-between text-xs font-medium">
+                  <span className="text-accent-500 dark:text-accent-400">Exam Window</span>
+                  <span className="font-bold text-accent-900 dark:text-white">90 min</span>
                 </div>
               </div>
             </CardBody>
@@ -318,3 +416,5 @@ export function AssessmentBuilder({ onNavigate }) {
     </div>
   );
 }
+
+export default AssessmentBuilder;

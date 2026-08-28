@@ -1,17 +1,12 @@
+import React, { useState } from 'react';
 import {
-  UsersRound, Plus, MoreHorizontal, Shield,
+  UsersRound, Plus, MoreHorizontal, Shield
 } from 'lucide-react';
 import {
   Card, CardBody, Badge, StatusBadge, Button, Avatar, SearchBar,
   PageHeader, Select,
 } from '@/components/ui';
 import { platformUsers } from '@/data';
-import { useState } from 'react';
-
-
-
-
-
 
 export function OrgUsers({ onNavigate }) {
   const [search, setSearch] = useState('');
@@ -23,26 +18,38 @@ export function OrgUsers({ onNavigate }) {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Users"
-        subtitle="Manage staff and team members in your organization"
-        icon={<UsersRound size={22} />}
-        breadcrumbs={[{ label: 'Dashboard', onClick: () => onNavigate('org-dashboard') }, { label: 'Users' }]}
-        actions={<Button variant="primary" size="sm" icon={<Plus size={16} />}>Invite User</Button>}
+        title="Organization Faculty & Staff"
+        subtitle="Manage faculty examiners, invigilators, and organization administrator access."
+        icon={<UsersRound size={22} className="text-primary-600 dark:text-primary-400" />}
+        breadcrumbs={[{ label: 'Dashboard', onClick: () => onNavigate('org-dashboard') }, { label: 'Staff' }]}
+        actions={
+          <Button variant="primary" size="sm" icon={<Plus size={15} />}>
+            Invite Staff Member
+          </Button>
+        }
       />
 
       <div className="flex flex-col sm:flex-row gap-3">
-        <SearchBar value={search} onChange={setSearch} placeholder="Search users..." className="flex-1" />
-        <Select options={[
-          { value: 'all', label: 'All Roles' },
-          { value: 'admin', label: 'Organization Admin' },
-          { value: 'examiner', label: 'Examiner' },
-          { value: 'teacher', label: 'Teacher' },
-        ]} className="w-40" />
-        <Select options={[
-          { value: 'all', label: 'All Status' },
-          { value: 'active', label: 'Active' },
-          { value: 'invited', label: 'Invited' },
-        ]} className="w-36" />
+        <SearchBar value={search} onChange={setSearch} placeholder="Search staff members..." className="flex-1" />
+        <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+          <Select
+            options={[
+              { value: 'all', label: 'All Roles' },
+              { value: 'admin', label: 'Organization Admin' },
+              { value: 'examiner', label: 'Examiner' },
+              { value: 'proctor', label: 'Proctor' },
+            ]}
+            className="w-40"
+          />
+          <Select
+            options={[
+              { value: 'all', label: 'All Statuses' },
+              { value: 'active', label: 'Active' },
+              { value: 'invited', label: 'Invited' },
+            ]}
+            className="w-36"
+          />
+        </div>
       </div>
 
       <Card>
@@ -50,33 +57,39 @@ export function OrgUsers({ onNavigate }) {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-accent-100 bg-accent-50/50">
-                  <th className="text-left text-xs font-semibold text-accent-600 px-5 py-3">User</th>
-                  <th className="text-left text-xs font-semibold text-accent-600 px-3 py-3 hidden sm:table-cell">Role</th>
-                  <th className="text-left text-xs font-semibold text-accent-600 px-3 py-3">Status</th>
-                  <th className="text-left text-xs font-semibold text-accent-600 px-3 py-3 hidden md:table-cell">Last Active</th>
-                  <th className="text-right text-xs font-semibold text-accent-600 px-5 py-3"></th>
+                <tr className="border-b border-accent-100 dark:border-accent-800 bg-accent-50/50 dark:bg-accent-900/50">
+                  <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-5 py-3">Member</th>
+                  <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 hidden sm:table-cell">Role</th>
+                  <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3">Status</th>
+                  <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 hidden md:table-cell">Last Active</th>
+                  <th className="text-right text-xs font-semibold text-accent-600 dark:text-accent-400 px-5 py-3"></th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((u) => (
-                  <tr key={u.id} className="border-b border-accent-50 hover:bg-accent-50/50 transition-colors">
-                    <td className="px-5 py-3">
+                  <tr key={u.id} className="border-b border-accent-50 dark:border-accent-800/40 hover:bg-accent-50/50 dark:hover:bg-accent-800/40 transition-colors">
+                    <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
                         <Avatar name={u.name} color={u.avatarColor} size="sm" />
                         <div>
-                          <p className="text-sm font-medium text-accent-800">{u.name}</p>
-                          <p className="text-xs text-accent-500">{u.email}</p>
+                          <p className="text-xs font-semibold text-accent-900 dark:text-white truncate">{u.name}</p>
+                          <p className="text-[11px] text-accent-500 dark:text-accent-400 truncate">{u.email}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-3 py-3 hidden sm:table-cell">
+                    <td className="px-3 py-3.5 hidden sm:table-cell">
                       <Badge variant={u.role === 'Organization Admin' ? 'primary' : 'neutral'} icon={<Shield size={12} />}>{u.role}</Badge>
                     </td>
-                    <td className="px-3 py-3"><StatusBadge status={u.status} /></td>
-                    <td className="px-3 py-3 hidden md:table-cell text-sm text-accent-500">{u.lastActive}</td>
-                    <td className="px-5 py-3 text-right">
-                      <button className="p-1.5 text-accent-400 hover:text-accent-700 hover:bg-accent-100 rounded transition-colors"><MoreHorizontal size={16} /></button>
+                    <td className="px-3 py-3.5">
+                      <StatusBadge status={u.status} />
+                    </td>
+                    <td className="px-3 py-3.5 hidden md:table-cell text-xs text-accent-500 dark:text-accent-400 font-mono">
+                      {u.lastActive}
+                    </td>
+                    <td className="px-5 py-3.5 text-right">
+                      <button className="p-1.5 text-accent-400 hover:text-accent-700 dark:hover:text-white hover:bg-accent-100 dark:hover:bg-accent-800 rounded-lg transition-colors cursor-pointer">
+                        <MoreHorizontal size={15} />
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -88,3 +101,5 @@ export function OrgUsers({ onNavigate }) {
     </div>
   );
 }
+
+export default OrgUsers;

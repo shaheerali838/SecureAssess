@@ -14,13 +14,26 @@
     scroll-behavior: smooth;
   }
 
+  html.dark {
+    color-scheme: dark;
+  }
+
   body {
-    @apply font-sans text-accent-800 bg-accent-50 dark:bg-accent-950 dark:text-accent-100 transition-colors duration-200;
+    @apply font-sans text-accent-900 bg-accent-50 transition-colors duration-200;
     font-feature-settings: 'cv11', 'ss01';
   }
 
+  html.dark body {
+    background-color: #020617 !important;
+    color: #f8fafc !important;
+  }
+
   h1, h2, h3, h4, h5, h6 {
-    @apply font-display tracking-tight text-accent-900 dark:text-white;
+    @apply font-display tracking-tight text-accent-900;
+  }
+
+  html.dark h1, html.dark h2, html.dark h3, html.dark h4, html.dark h5, html.dark h6 {
+    color: #ffffff !important;
   }
 
   ::selection {
@@ -36,11 +49,65 @@
     @apply bg-transparent;
   }
   ::-webkit-scrollbar-thumb {
-    @apply bg-accent-300 dark:bg-accent-700 rounded-full;
+    @apply bg-accent-300 rounded-full;
+  }
+  html.dark ::-webkit-scrollbar-thumb {
+    background-color: #334155 !important;
   }
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-accent-400 dark:bg-accent-600;
+    @apply bg-accent-400;
   }
+}
+
+/* Global Dark Theme Fallback & Override Engine */
+html.dark .bg-white {
+  background-color: #0f172a !important;
+  color: #f8fafc;
+}
+
+html.dark .bg-accent-50,
+html.dark .bg-accent-50\/50,
+html.dark .bg-accent-50\/60 {
+  background-color: rgba(2, 6, 23, 0.7) !important;
+}
+
+html.dark .bg-accent-100 {
+  background-color: #1e293b !important;
+  color: #e2e8f0 !important;
+}
+
+html.dark .border-accent-100,
+html.dark .border-accent-200,
+html.dark .border-accent-300 {
+  border-color: #1e293b !important;
+}
+
+html.dark .text-accent-900,
+html.dark .text-accent-800 {
+  color: #ffffff !important;
+}
+
+html.dark .text-accent-700,
+html.dark .text-accent-600 {
+  color: #cbd5e1 !important;
+}
+
+html.dark .text-accent-500,
+html.dark .text-accent-400 {
+  color: #94a3b8 !important;
+}
+
+html.dark input,
+html.dark select,
+html.dark textarea {
+  background-color: #1e293b !important;
+  color: #ffffff !important;
+  border-color: #334155 !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #64748b !important;
 }
 
 @layer components {
@@ -50,6 +117,11 @@
 
   .glass {
     @apply bg-white/80 backdrop-blur-md border border-white/40;
+  }
+
+  html.dark .glass {
+    background-color: rgba(15, 23, 42, 0.85) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
   }
 
   .glass-dark {

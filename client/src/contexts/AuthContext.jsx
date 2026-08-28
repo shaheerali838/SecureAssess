@@ -90,8 +90,12 @@ export const AuthProvider = ({ children }) => {
   const isPlatformStaff = Boolean(
     user &&
       (user.platformRole === PLATFORM_ROLES.PLATFORM_OWNER ||
-        user.platformRole === PLATFORM_ROLES.PLATFORM_ADMIN)
+        user.platformRole === PLATFORM_ROLES.PLATFORM_ADMIN ||
+        user.platformRole === 'PLATFORM_OWNER' ||
+        user.platformRole === 'PLATFORM_ADMIN')
   );
+
+  const isPlatformAdmin = () => isPlatformStaff;
 
   const value = {
     user,
@@ -99,6 +103,7 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated: Boolean(accessToken && user),
     isLoading,
     isPlatformStaff,
+    isPlatformAdmin,
     login,
     logout,
     refreshSession: initializeAuth,

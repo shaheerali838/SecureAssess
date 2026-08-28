@@ -1,59 +1,61 @@
+import React, { useState } from 'react';
 import {
   Shield, ArrowRight, ArrowLeft, X, Eye, Lock, Database,
-  UserCheck, Clock,
+  UserCheck, Clock
 } from 'lucide-react';
-import { Button, Card, CardBody, } from '@/components/ui';
-import { useState } from 'react';
-
-
-
-
-
+import { Button, Card, CardBody } from '@/components/ui';
 
 export function Consent({ onNavigate }) {
   const [agreed, setAgreed] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
 
   return (
-    <div className="min-h-screen bg-accent-50 flex flex-col">
-      <header className="bg-white border-b border-accent-200">
-        <div className="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between">
+    <div className="min-h-screen bg-accent-50 dark:bg-accent-950 text-accent-900 dark:text-white flex flex-col transition-colors duration-200 font-sans">
+      <header className="bg-white/90 dark:bg-accent-900/90 backdrop-blur-md border-b border-accent-200 dark:border-accent-800 sticky top-0 z-20">
+        <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-primary-600 flex items-center justify-center shadow-soft">
               <Shield size={18} className="text-white" />
             </div>
-            <span className="font-bold text-accent-900">SecureAssess</span>
+            <span className="font-bold text-accent-900 dark:text-white tracking-tight">SecureAssess</span>
           </div>
-          <button onClick={() => onNavigate('landing')} className="text-accent-400 hover:text-accent-700">
-            <X size={20} />
+          <button
+            onClick={() => onNavigate('landing')}
+            className="text-accent-400 hover:text-accent-700 dark:hover:text-white p-1.5 rounded-lg hover:bg-accent-100 dark:hover:bg-accent-800 transition-colors cursor-pointer"
+          >
+            <X size={18} />
           </button>
         </div>
       </header>
 
-      <div className="flex-1 flex items-center justify-center p-4">
+      <div className="flex-1 flex items-center justify-center p-4 py-8">
         <div className="w-full max-w-2xl">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-primary-50 text-primary-600 flex items-center justify-center mx-auto mb-4">
-              <Shield size={32} />
+          <div className="text-center mb-6">
+            <div className="w-14 h-14 rounded-2xl bg-primary-50 dark:bg-primary-950/60 text-primary-600 dark:text-primary-400 flex items-center justify-center mx-auto mb-3 shadow-soft">
+              <Shield size={28} />
             </div>
-            <h1 className="text-2xl font-bold font-display text-accent-900">Before you begin</h1>
-            <p className="text-accent-500 mt-2">Please review how your assessment session will be monitored.</p>
+            <h1 className="text-2xl font-bold font-display text-accent-900 dark:text-white">Proctoring & Integrity Consent</h1>
+            <p className="text-xs text-accent-500 dark:text-accent-400 mt-1">
+              Please review the examination code of conduct and automated proctoring telemetry scope.
+            </p>
           </div>
 
           <Card>
-            <CardBody className="space-y-4">
+            <CardBody className="p-5 space-y-4">
               {[
-                { icon: <Eye size={18} />, title: 'What may be monitored', desc: 'Camera feed, microphone audio, browser tab focus, and fullscreen status may be recorded during your session.' },
-                { icon: <Lock size={18} />, title: 'Why monitoring is required', desc: 'Monitoring helps ensure a fair and secure assessment environment for all participants.' },
-                { icon: <Database size={18} />, title: 'What information may be collected', desc: 'Session video, integrity signals (focus changes, tab switches), and assessment responses.' },
-                { icon: <UserCheck size={18} />, title: 'Who can access it', desc: 'Authorized reviewers in your organization can access session recordings and integrity reports.' },
-                { icon: <Clock size={18} />, title: 'How information is retained', desc: 'Session data is retained according to your organization\'s data retention policy.' },
+                { icon: <Eye size={18} />, title: 'Monitored Data Streams', desc: 'Webcam feed, ambient audio, window blur/tab switches, and active fullscreen status are recorded.' },
+                { icon: <Lock size={18} />, title: 'Purpose of Verification', desc: 'Ensures equitable, tamper-resistant examination conditions for accredited certifications.' },
+                { icon: <Database size={18} />, title: 'Collected Telemetry', desc: 'Time-stamped anomaly markers, facial presence bounding boxes, and encrypted response logs.' },
+                { icon: <UserCheck size={18} />, title: 'Human Review Protocol', desc: 'Only authorized course instructors and credentialing examiners have access to flagged sessions.' },
+                { icon: <Clock size={18} />, title: 'GDPR & Data Retention', desc: 'Session artifacts are encrypted in transit and at rest, and purged according to institutional retention limits.' },
               ].map((item, i) => (
-                <div key={i} className="flex gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center shrink-0">{item.icon}</div>
+                <div key={i} className="flex items-start gap-3.5">
+                  <div className="w-9 h-9 rounded-xl bg-primary-50 dark:bg-primary-950/60 text-primary-600 dark:text-primary-400 flex items-center justify-center shrink-0 shadow-soft">
+                    {item.icon}
+                  </div>
                   <div>
-                    <p className="text-sm font-semibold text-accent-800">{item.title}</p>
-                    <p className="text-sm text-accent-600 mt-0.5">{item.desc}</p>
+                    <p className="text-xs font-bold text-accent-900 dark:text-white">{item.title}</p>
+                    <p className="text-xs text-accent-600 dark:text-accent-300 mt-0.5 leading-relaxed">{item.desc}</p>
                   </div>
                 </div>
               ))}
@@ -61,38 +63,53 @@ export function Consent({ onNavigate }) {
           </Card>
 
           <div className="mt-4 flex items-center justify-between">
-            <button onClick={() => setShowDetails(!showDetails)} className="text-sm text-primary-600 hover:text-primary-700 font-medium">
-              {showDetails ? 'Hide' : 'Review'} Privacy Details
+            <button
+              onClick={() => setShowDetails(!showDetails)}
+              className="text-xs text-primary-600 dark:text-primary-400 hover:underline font-semibold cursor-pointer"
+            >
+              {showDetails ? 'Hide' : 'Review'} Data Privacy Policy
             </button>
-            <button onClick={() => onNavigate('landing')} className="text-sm text-accent-400 hover:text-accent-700">Cancel</button>
+            <button onClick={() => onNavigate('landing')} className="text-xs text-accent-400 hover:text-accent-600 dark:hover:text-accent-300 cursor-pointer">
+              Cancel
+            </button>
           </div>
 
           {showDetails && (
             <Card className="mt-3 animate-fade-in">
-              <CardBody>
-                <div className="space-y-2 text-sm text-accent-600">
-                  <p><strong className="text-accent-800">Data Collection:</strong> SecureAssess collects session video, audio, and behavioral signals during assessments to ensure integrity.</p>
-                  <p><strong className="text-accent-800">Data Usage:</strong> Collected data is used solely for assessment integrity review by authorized personnel.</p>
-                  <p><strong className="text-accent-800">Data Storage:</strong> Data is encrypted and stored securely. Access is restricted to authorized reviewers.</p>
-                  <p><strong className="text-accent-800">Your Rights:</strong> You may request access to your session data or deletion according to your organization's policies.</p>
-                </div>
+              <CardBody className="p-4 space-y-2 text-xs text-accent-600 dark:text-accent-300 leading-relaxed">
+                <p><strong className="text-accent-900 dark:text-white">Telemetry Safeguards:</strong> SecureAssess does not scan personal files or install invasive background kernel drivers.</p>
+                <p><strong className="text-accent-900 dark:text-white">Fair Human-in-the-Loop Review:</strong> Automated algorithms produce flags for human review, never automatic failure.</p>
               </CardBody>
             </Card>
           )}
 
-          <div className="mt-6">
-            <label className="flex items-start gap-3 p-4 bg-white rounded-xl border border-accent-200 cursor-pointer hover:border-primary-300 transition-colors">
-              <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-0.5 rounded border-accent-300 text-primary-600 focus:ring-primary-500" />
-              <span className="text-sm text-accent-700">
-                I understand and consent to the monitoring described above. I agree to follow the assessment rules and integrity policies.
+          <div className="mt-5">
+            <label className="flex items-start gap-3 p-4 bg-white dark:bg-accent-900 rounded-2xl border border-accent-200 dark:border-accent-800 cursor-pointer hover:border-primary-300 dark:hover:border-primary-700 transition-colors shadow-soft">
+              <input
+                type="checkbox"
+                checked={agreed}
+                onChange={(e) => setAgreed(e.target.checked)}
+                className="mt-0.5 rounded border-accent-300 dark:border-accent-700 text-primary-600 focus:ring-primary-500 cursor-pointer"
+              />
+              <span className="text-xs text-accent-700 dark:text-accent-200 leading-relaxed font-medium">
+                I understand and agree to the monitoring protocols described above. I confirm I will adhere to the academic honesty code throughout this examination.
               </span>
             </label>
           </div>
 
-          <div className="flex gap-3 mt-6">
-            <Button variant="outline" size="lg" icon={<ArrowLeft size={18} />} onClick={() => onNavigate('participant-system-check')}>Back</Button>
-            <Button variant="primary" size="lg" fullWidth icon={<ArrowRight size={18} />} disabled={!agreed} onClick={() => onNavigate('participant-assessment')}>
-              Continue to Assessment
+          <div className="flex gap-3 mt-5">
+            <Button variant="outline" size="lg" icon={<ArrowLeft size={16} />} onClick={() => onNavigate('participant-system-check')}>
+              Back
+            </Button>
+            <Button
+              variant="primary"
+              size="lg"
+              fullWidth
+              icon={<ArrowRight size={16} />}
+              disabled={!agreed}
+              onClick={() => onNavigate('participant-assessment')}
+            >
+              Enter Examination Room
             </Button>
           </div>
         </div>
@@ -100,3 +117,5 @@ export function Consent({ onNavigate }) {
     </div>
   );
 }
+
+export default Consent;
