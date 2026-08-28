@@ -15,31 +15,31 @@
   }
 
   body {
-    @apply font-sans text-accent-800 bg-accent-50;
+    @apply font-sans text-accent-800 bg-accent-50 dark:bg-accent-950 dark:text-accent-100 transition-colors duration-200;
     font-feature-settings: 'cv11', 'ss01';
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply font-display;
+    @apply font-display tracking-tight text-accent-900 dark:text-white;
   }
 
   ::selection {
-    @apply bg-primary-200 text-primary-900;
+    @apply bg-primary-500 text-white;
   }
 
   /* Custom scrollbar */
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 7px;
+    height: 7px;
   }
   ::-webkit-scrollbar-track {
     @apply bg-transparent;
   }
   ::-webkit-scrollbar-thumb {
-    @apply bg-accent-300 rounded-full;
+    @apply bg-accent-300 dark:bg-accent-700 rounded-full;
   }
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-accent-400;
+    @apply bg-accent-400 dark:bg-accent-600;
   }
 }
 

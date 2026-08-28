@@ -26,3 +26,13 @@ export const ROLES = Object.freeze({
 });
 
 export const ROLE_LIST = Object.values(ROLES);
+
+export const ROLE_LABELS = Object.freeze({
+  [PLATFORM_ROLES.PLATFORM_OWNER]: 'Platform Owner',
+  [PLATFORM_ROLES.PLATFORM_ADMIN]: 'Platform Administrator',
+  [ORGANIZATION_ROLES.ORGANIZATION_OWNER]: 'Organization Owner',
+  [ORGANIZATION_ROLES.ORGANIZATION_ADMIN]: 'Organization Administrator',
+  [ORGANIZATION_ROLES.EXAMINER]: 'Examiner / Faculty',
+  [ORGANIZATION_ROLES.PROCTOR]: 'Proctor / Invigilator',
+  [ORGANIZATION_ROLES.CANDIDATE]: 'Candidate / Student',
+});
