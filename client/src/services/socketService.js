@@ -1,6 +1,6 @@
 import { io } from 'socket.io-client';
 
-const SOCKET_SERVER_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+const SOCKET_SERVER_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:7000';
 
 class SocketService {
   constructor() {
@@ -28,12 +28,12 @@ class SocketService {
       });
 
       this.socket.on('connect_error', (error) => {
-        console.warn('[SocketService] Connection error (falling back to offline mock mode):', error.message);
+        console.warn('[SocketService] Connection warning (running with mock fallback):', error.message);
       });
 
       return this.socket;
     } catch (err) {
-      console.warn('[SocketService] Initialization error:', err);
+      console.warn('[SocketService] Initialization warning:', err);
       return null;
     }
   }
@@ -52,13 +52,16 @@ class SocketService {
   }
 
   emitProctorEvent(roomId, eventType, metadata = {}) {
+    if (!this.socket) this.connect();
     if (this.socket) {
-      this.socket.emit('proctor-event', {
+      const payload = {
         roomId,
         eventType,
         timestamp: new Date().toISOString(),
         metadata,
-      });
+      };
+      this.socket.emit('proctor-event', payload);
+      this.socket.emit('candidate-anomaly', payload);
     }
   }
 
