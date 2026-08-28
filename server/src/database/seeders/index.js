@@ -1,6 +1,7 @@
 import { connectDatabase, disconnectDatabase } from "../../config/db.js";
 import { seedRBAC } from "./rbac.seeder.js";
 import { seedPlatformOwner } from "./admin.seeder.js";
+import { seedDemoAccounts } from "./demo.seeder.js";
 import { logger } from "../../config/logger.js";
 
 export const runSeeders = async () => {
@@ -13,6 +14,9 @@ export const runSeeders = async () => {
 
     // 2. Seed Initial Platform Owner (Root administrator account)
     await seedPlatformOwner();
+
+    // 3. Seed Demo Tenant Organization & Multi-Role Persona Accounts
+    await seedDemoAccounts();
 
     logger.info("[Seeder] Database seeding completed successfully!");
   } catch (error) {
