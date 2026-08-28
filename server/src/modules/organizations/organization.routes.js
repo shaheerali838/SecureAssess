@@ -20,6 +20,11 @@ import subjectsRouter from "../subjects/index.js";
 import questionBankRouter from "../questionBank/index.js";
 import questionTagsRouter from "../questionTags/index.js";
 import assessmentsRouter from "../assessments/index.js";
+import candidatesRouter from "../candidates/index.js";
+import candidateGroupsRouter from "../candidateGroups/index.js";
+import assessmentAssignmentsRouter from "../assessmentAssignments/index.js";
+import attemptsRouter from "../attempts/index.js";
+import answersRouter from "../answers/index.js";
 import { requireAuth } from "../../middleware/auth.middleware.js";
 import {
   requirePlatformPermission,
@@ -103,5 +108,14 @@ router.use("/:organizationId/question-tags", questionTagsRouter);
 
 // --- Organization Assessments Sub-routes ---
 router.use("/:organizationId/assessments", assessmentsRouter);
+
+// --- Candidate & Assignment Sub-routes ---
+router.use("/:organizationId/candidates", candidatesRouter);
+router.use("/:organizationId/candidate-groups", candidateGroupsRouter);
+router.use("/:organizationId", assessmentAssignmentsRouter);
+
+// --- Attempt & Runtime Sub-routes ---
+router.use("/:organizationId/candidate", attemptsRouter);
+router.use("/:organizationId/candidate", answersRouter);
 
 export default router;

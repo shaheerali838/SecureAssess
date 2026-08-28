@@ -58,6 +58,17 @@ export const PERMISSIONS = Object.freeze({
   SUBJECTS_UPDATE: "subjects.update",
   SUBJECTS_DELETE: "subjects.delete",
 
+  // --- Candidate Permissions ---
+  CANDIDATES_CREATE: "candidates.create",
+  CANDIDATES_VIEW: "candidates.view",
+  CANDIDATES_UPDATE: "candidates.update",
+  CANDIDATES_DELETE: "candidates.delete",
+
+  CANDIDATE_GROUPS_CREATE: "candidate_groups.create",
+  CANDIDATE_GROUPS_VIEW: "candidate_groups.view",
+  CANDIDATE_GROUPS_UPDATE: "candidate_groups.update",
+  CANDIDATE_GROUPS_DELETE: "candidate_groups.delete",
+
   // --- Question Bank Permissions ---
   QUESTION_BANKS_CREATE: "question_banks.create",
   QUESTION_BANKS_VIEW: "question_banks.view",

@@ -1,9 +1,12 @@
-import express from "express";
-const router = express.Router();
+import router from "./answer.routes.js";
+import Answer from "./answer.model.js";
+import { AnswerService } from "./answer.service.js";
+import { AnswerValidator } from "./answer.validation.js";
 
-// Module: answers
-router.get("/", (req, res) => {
-  res.json({ success: true, message: "answers module initialized" });
-});
+export {
+  Answer,
+  AnswerService,
+  AnswerValidator,
+};
 
 export default router;
