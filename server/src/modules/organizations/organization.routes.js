@@ -25,6 +25,7 @@ import candidateGroupsRouter from "../candidateGroups/index.js";
 import assessmentAssignmentsRouter from "../assessmentAssignments/index.js";
 import attemptsRouter from "../attempts/index.js";
 import answersRouter from "../answers/index.js";
+import evaluationsRouter from "../evaluations/index.js";
 import { requireAuth } from "../../middleware/auth.middleware.js";
 import {
   requirePlatformPermission,
@@ -117,5 +118,8 @@ router.use("/:organizationId", assessmentAssignmentsRouter);
 // --- Attempt & Runtime Sub-routes ---
 router.use("/:organizationId/candidate", attemptsRouter);
 router.use("/:organizationId/candidate", answersRouter);
+
+// --- Evaluation & Result Sub-routes ---
+router.use("/:organizationId", evaluationsRouter);
 
 export default router;
