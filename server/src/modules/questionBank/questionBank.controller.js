@@ -164,3 +164,11 @@ export const exportQuestions = asyncHandler(async (req, res) => {
 
   return res.status(200).json(new ApiResponse(200, result.data, "Questions exported successfully"));
 });
+
+export const getQuestionVersions = asyncHandler(async (req, res) => {
+  const organizationId = req.params.organizationId || req.organizationId;
+  const questionId = req.params.questionId || req.params.id;
+
+  const versions = await QuestionBankService.getQuestionVersions(organizationId, questionId);
+  return res.status(200).json(new ApiResponse(200, versions, "Question versions retrieved successfully"));
+});

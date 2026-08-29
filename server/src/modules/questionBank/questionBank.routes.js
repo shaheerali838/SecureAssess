@@ -10,6 +10,7 @@ import {
   getQuestion,
   updateQuestion,
   deleteQuestion,
+  getQuestionVersions,
   importQuestions,
   exportQuestions,
 } from "./questionBank.controller.js";
@@ -180,6 +181,18 @@ router.patch(
     PERMISSIONS.QUESTIONS_UPDATE
   ),
   updateQuestion
+);
+
+// GET /api/v1/organizations/:organizationId/questions/:questionId/versions
+router.get(
+  "/questions/:questionId/versions",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.QUESTIONS_VIEW,
+    PERMISSIONS.QUESTIONS_VIEW
+  ),
+  getQuestionVersions
 );
 
 // DELETE /api/v1/organizations/:organizationId/questions/:questionId

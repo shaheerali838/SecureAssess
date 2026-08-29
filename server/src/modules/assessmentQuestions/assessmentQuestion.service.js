@@ -213,4 +213,74 @@ export class AssessmentQuestionService {
     const updated = await AssessmentQuestion.find({ organizationId, assessmentId }).sort({ order: 1 });
     return AssessmentQuestionMapper.toAdminDTOList(updated);
   }
+
+  static async bulkAddQuestions(organizationId, assessmentId, sectionId, questionIds) {
+    await this.assertEditableAssessment(organizationId, assessmentId);
+
+    const section = await AssessmentSection.findOne({
+      _id: sectionId,
+      assessmentId,
+      organizationId,
+    });
+    if (!section) {
+      throw new ApiError(400, "Section not found in this assessment");
+    }
+
+    const questions = await Question.find({
+      _id: { $in: questionIds },
+      organizationId,
+      status: "ACTIVE",
+    });
+
+    const results = [];
+    let currentOrder = await AssessmentQuestion.countDocuments({ assessmentId, sectionId });
+
+    for (const q of questions) {
+      currentOrder += 1;
+      const snapshot = {
+        type: q.type,
+        title: q.title || "",
+        prompt: q.prompt,
+        description: q.description || "",
+        content: q.content || {},
+        options: q.options || [],
+        correctAnswer: q.correctAnswer || q.answer,
+        explanation: q.explanation || "",
+        difficulty: q.difficulty || "MEDIUM",
+        marks: q.points || q.marks || 1,
+        points: q.points || q.marks || 1,
+        negativeMarks: q.negativeMarks || 0,
+        coding: q.coding || null,
+        fileUpload: q.fileUpload || null,
+        version: q.version || 1,
+      };
+
+      const aq = await AssessmentQuestion.create({
+        organizationId,
+        assessmentId,
+        sectionId,
+        questionId: q._id,
+        questionVersion: q.version || 1,
+        order: currentOrder,
+        marks: q.points || q.marks || 1,
+        points: q.points || q.marks || 1,
+        negativeMarks: q.negativeMarks || 0,
+        isRequired: true,
+        type: q.type,
+        title: q.title || "",
+        prompt: q.prompt,
+        options: q.options || [],
+        correctAnswer: q.correctAnswer || q.answer,
+        explanation: q.explanation || "",
+        difficulty: q.difficulty || "MEDIUM",
+        snapshotVersion: q.version || 1,
+        snapshot,
+        metadata: q.metadata || {},
+      });
+      results.push(aq);
+    }
+
+    await this.recalculateTotalPoints(assessmentId);
+    return AssessmentQuestionMapper.toAdminDTOList(results);
+  }
 }

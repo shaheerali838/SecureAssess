@@ -11,7 +11,7 @@ const questionCategorySchema = new mongoose.Schema(
     questionBankId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "QuestionBank",
-      required: [true, "Question Bank ID is required"],
+      default: null,
       index: true,
     },
     name: {

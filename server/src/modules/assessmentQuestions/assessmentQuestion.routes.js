@@ -5,6 +5,7 @@ import {
   updateAssessmentQuestion,
   removeAssessmentQuestion,
   reorderQuestions,
+  bulkAddQuestions,
 } from "./assessmentQuestion.controller.js";
 import { requireAuth } from "../../middleware/auth.middleware.js";
 import { requireTenantContext } from "../../middleware/tenant.middleware.js";
@@ -12,6 +13,17 @@ import { requireOrganizationOrPlatformPermission } from "../../middleware/permis
 import { PERMISSIONS } from "../../constants/permissions.js";
 
 const router = express.Router({ mergeParams: true });
+
+router.post(
+  "/bulk",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.ASSESSMENTS_UPDATE,
+    PERMISSIONS.ASSESSMENTS_UPDATE
+  ),
+  bulkAddQuestions
+);
 
 router.patch(
   "/reorder",

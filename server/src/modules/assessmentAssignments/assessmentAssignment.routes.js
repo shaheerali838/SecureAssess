@@ -5,6 +5,8 @@ import {
   getAssignments,
   getAssignmentById,
   revokeAssignment,
+  cancelAssignment,
+  rescheduleAssignment,
   getMyAssignments,
   getMyAssessment,
 } from "./assessmentAssignment.controller.js";
@@ -71,10 +73,34 @@ router.patch(
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
+    PERMISSIONS.ASSESSMENT_ASSIGNMENTS_CANCEL,
+    PERMISSIONS.ASSESSMENT_ASSIGNMENTS_CANCEL
+  ),
+  revokeAssignment
+);
+
+// PATCH /api/v1/organizations/:organizationId/assessment-assignments/:assignmentId/cancel
+router.patch(
+  "/assessment-assignments/:assignmentId/cancel",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.ASSESSMENT_ASSIGNMENTS_CANCEL,
+    PERMISSIONS.ASSESSMENT_ASSIGNMENTS_CANCEL
+  ),
+  cancelAssignment
+);
+
+// PATCH /api/v1/organizations/:organizationId/assessment-assignments/:assignmentId/reschedule
+router.patch(
+  "/assessment-assignments/:assignmentId/reschedule",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
     PERMISSIONS.ASSESSMENT_ASSIGNMENTS_UPDATE,
     PERMISSIONS.ASSESSMENT_ASSIGNMENTS_UPDATE
   ),
-  revokeAssignment
+  rescheduleAssignment
 );
 
 // --- Candidate Self Assessment Endpoints ---

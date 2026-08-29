@@ -354,4 +354,13 @@ node server/tests/integration/step32_reports_analytics.test.js
 
 # Audit Logs & Security Activity (Step 33)
 node server/tests/integration/step33_audit_logs.test.js
+
+# Complete Question Bank Engine (Step 35)
+node server/tests/integration/step35_question_bank_engine.test.js
+
+# Assessment Builder & Assessment Lifecycle (Step 36)
+node server/tests/integration/step36_assessment_builder_lifecycle.test.js
+
+# Assessment Assignment & Candidate Scheduling (Step 37)
+node server/tests/integration/step37_assessment_assignment_scheduling.test.js
 ```

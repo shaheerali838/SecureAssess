@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import QuestionBank from "./questionBank.model.js";
 import Question from "./question.model.js";
+import QuestionVersion from "./questionVersion.model.js";
 import QuestionCategory from "../questionCategories/questionCategory.model.js";
 import Subject from "../subjects/subject.model.js";
 import QuestionTag from "../questionTags/questionTag.model.js";
@@ -247,6 +248,16 @@ export class QuestionBankService {
 
     await QuestionBank.findByIdAndUpdate(questionBankId, { $inc: { questionCount: 1 } });
 
+    // 3. Create initial QuestionVersion (v1) snapshot
+    await QuestionVersion.create({
+      organizationId,
+      questionId: question._id,
+      version: 1,
+      snapshot: question.toObject(),
+      changeReason: "Initial question creation",
+      changedBy: userId,
+    });
+
     return QuestionMapper.toAdminDTO(question);
   }
 
@@ -364,7 +375,29 @@ export class QuestionBankService {
       throw new ApiError(404, "Question not found in this organization");
     }
 
+    // Record new QuestionVersion snapshot
+    await QuestionVersion.create({
+      organizationId,
+      questionId: question._id,
+      version: question.version,
+      snapshot: question.toObject(),
+      changeReason: updateData.changeReason || "Question update",
+      changedBy: userId,
+    });
+
     return QuestionMapper.toAdminDTO(question);
+  }
+
+  static async getQuestionVersions(organizationId, questionId) {
+    if (!mongoose.Types.ObjectId.isValid(questionId)) {
+      throw new ApiError(400, "Invalid question ID format");
+    }
+
+    const versions = await QuestionVersion.find({ organizationId, questionId })
+      .sort({ version: -1 })
+      .populate("changedBy", "firstName lastName email");
+
+    return versions;
   }
 
   static async deleteQuestion(organizationId, questionId) {

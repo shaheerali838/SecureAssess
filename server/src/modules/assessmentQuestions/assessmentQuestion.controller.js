@@ -73,3 +73,17 @@ export const reorderQuestions = asyncHandler(async (req, res) => {
   );
   return res.status(200).json(new ApiResponse(200, result, "Questions reordered successfully"));
 });
+
+export const bulkAddQuestions = asyncHandler(async (req, res) => {
+  const organizationId = req.params.organizationId || req.organizationId;
+  const { assessmentId } = req.params;
+  const { sectionId, questionIds } = req.body;
+
+  const result = await AssessmentQuestionService.bulkAddQuestions(
+    organizationId,
+    assessmentId,
+    sectionId,
+    questionIds || []
+  );
+  return res.status(201).json(new ApiResponse(201, result, "Questions added to assessment in bulk successfully"));
+});

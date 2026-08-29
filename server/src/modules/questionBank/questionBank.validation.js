@@ -60,17 +60,55 @@ export class QuestionBankValidator {
       errors.push("Invalid subjectId format");
     }
 
-    // Type-specific field validations
-    if (type === QUESTION_TYPES.SINGLE_CHOICE || type === QUESTION_TYPES.MULTIPLE_CHOICE) {
-      if (Array.isArray(body.options) && body.options.length > 0) {
+    // Type-specific field validations (Step 35.9)
+    if (type === QUESTION_TYPES.SINGLE_CHOICE) {
+      if (!Array.isArray(body.options) || body.options.length < 2) {
+        errors.push("SINGLE_CHOICE questions require at least 2 options");
+      } else {
         const optionIds = body.options.map((opt) => opt.id);
         const uniqueIds = new Set(optionIds);
         if (uniqueIds.size !== optionIds.length) {
           errors.push("Option IDs must be unique (e.g. A, B, C, D)");
         }
       }
+    } else if (type === QUESTION_TYPES.MULTIPLE_CHOICE) {
+      if (!Array.isArray(body.options) || body.options.length < 2) {
+        errors.push("MULTIPLE_CHOICE questions require at least 2 options");
+      }
+    } else if (type === QUESTION_TYPES.TRUE_FALSE) {
+      if (body.correctAnswer === undefined && body.answer === undefined && (!body.options || body.options.length === 0)) {
+        errors.push("TRUE_FALSE question requires a valid correct answer or true/false options");
+      }
+    } else if (type === QUESTION_TYPES.CODING) {
+      if (body.coding && body.coding.testCases && !Array.isArray(body.coding.testCases)) {
+        errors.push("Coding test cases must be an array");
+      }
+    } else if (type === QUESTION_TYPES.FILE_UPLOAD) {
+      if (body.fileUpload && body.fileUpload.maxFileSize && typeof body.fileUpload.maxFileSize !== "number") {
+        errors.push("maxFileSize must be a number in bytes");
+      }
     }
 
     return { isValid: errors.length === 0, errors };
   }
 }
+
+export const createQuestionBankSchema = {
+  validate: (body) => {
+    const res = QuestionBankValidator.validateQuestionBank(body);
+    return {
+      error: res.isValid ? null : { details: res.errors.map((e) => ({ message: e })) },
+      value: body,
+    };
+  },
+};
+
+export const createQuestionSchema = {
+  validate: (body) => {
+    const res = QuestionBankValidator.validateQuestion(body);
+    return {
+      error: res.isValid ? null : { details: res.errors.map((e) => ({ message: e })) },
+      value: body,
+    };
+  },
+};

@@ -102,7 +102,8 @@ Nested under `/api/v1/organizations/:organizationId`:
 | `POST` | `.../questions` | Organization-level question creation with `questionBankId`. | `questions.create` |
 | `GET` | `.../questions` | Organization-wide question search & multi-criteria filter (`?q=`, `?type=`, `?difficulty=`, `?subjectId=`, `?categoryId=`). | `questions.view` |
 | `GET` | `.../questions/:id` | Retrieves single question with options, metadata, and versioning. | `questions.view` |
-| `PATCH` | `.../questions/:id` | Updates question prompt & settings (increments version). | `questions.update` |
+| `PATCH` | `.../questions/:id` | Updates question prompt & settings (increments version and writes snapshot). | `questions.update` |
+| `GET` | `.../questions/:id/versions` | Retrieves complete question version history and audit snapshots. | `questions.view` |
 | `DELETE` | `.../questions/:id` | Archives question from active question bank. | `questions.delete` |
 | `POST` | `.../question-tags` | Creates question taxonomy tag. | `question_tags.create` |
 | `GET` | `.../question-tags` | Lists question tags. | `question_tags.view` |
@@ -131,8 +132,8 @@ Nested under `/api/v1/organizations/:organizationId`:
 | `GET` | `.../assessments/:id/sections` | Lists assessment sections. | `assessments.view` |
 | `PATCH` | `.../assessments/:id/sections/reorder` | Reorders sections within assessment. | `assessments.update` |
 | `PATCH` | `.../assessments/:id/sections/:secId` | Updates section title, instructions, or points. | `assessments.update` |
-| `DELETE` | `.../assessments/:id/sections/:secId` | Deletes section from assessment. | `assessments.update` |
 | `POST` | `.../assessments/:id/questions` | Adds question snapshot to assessment section (immutable copy). | `assessments.update` |
+| `POST` | `.../assessments/:id/questions/bulk` | Bulk adds multiple question snapshots into an assessment section. | `assessments.update` |
 | `GET` | `.../assessments/:id/questions` | Lists assessment questions in section/assessment. | `assessments.view` |
 | `PATCH` | `.../assessments/:id/questions/reorder` | Reorders question snapshots within assessment. | `assessments.update` |
 | `PATCH` | `.../assessments/:id/questions/:qId` | Updates marks, negativeMarks, or isRequired flag on snapshot. | `assessments.update` |
@@ -168,7 +169,9 @@ Nested under `/api/v1/organizations/:organizationId`:
 | `POST` | `.../assessments/:id/assignments/group` | Batch assigns published assessment to entire candidate group. | `assessment_assignments.create` |
 | `GET` | `.../assessments/:id/assignments` | Lists assignments for an assessment. | `assessment_assignments.view` |
 | `GET` | `.../assessment-assignments/:id` | Retrieves assignment details. | `assessment_assignments.view` |
-| `PATCH` | `.../assessment-assignments/:id/revoke` | Revokes candidate assignment (`REVOKED`). | `assessment_assignments.update` |
+| `PATCH` | `.../assessment-assignments/:id/cancel` | Cancels candidate assignment (`CANCELLED`). | `assessment_assignments.cancel` |
+| `PATCH` | `.../assessment-assignments/:id/reschedule` | Reschedules candidate assignment window (`availableFrom`/`availableUntil`). | `assessment_assignments.update` |
+| `PATCH` | `.../assessment-assignments/:id/revoke` | Revokes candidate assignment (`REVOKED`). | `assessment_assignments.cancel` |
 | `GET` | `.../candidate-portal/assignments` | Candidate views their own assigned exams. | `requireAuth` |
 | `GET` | `.../candidate-portal/assessments/:id` | Candidate retrieves authorized exam metadata. | `requireAuth` |
 

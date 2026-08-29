@@ -68,6 +68,31 @@ export const revokeAssignment = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, assignment, "Assignment revoked successfully"));
 });
 
+export const cancelAssignment = asyncHandler(async (req, res) => {
+  const { organizationId, assignmentId } = req.params;
+  const userId = req.user?.id || req.user?._id;
+  const reason = req.body.reason || "Cancelled by examiner";
+  const assignment = await AssessmentAssignmentService.cancelAssignment(
+    organizationId,
+    assignmentId,
+    reason,
+    userId
+  );
+  return res.status(200).json(new ApiResponse(200, assignment, "Assignment cancelled successfully"));
+});
+
+export const rescheduleAssignment = asyncHandler(async (req, res) => {
+  const { organizationId, assignmentId } = req.params;
+  const userId = req.user?.id || req.user?._id;
+  const assignment = await AssessmentAssignmentService.rescheduleAssignment(
+    organizationId,
+    assignmentId,
+    req.body,
+    userId
+  );
+  return res.status(200).json(new ApiResponse(200, assignment, "Assignment rescheduled successfully"));
+});
+
 /**
  * Candidate View & Candidate Authorization Endpoints
  */
