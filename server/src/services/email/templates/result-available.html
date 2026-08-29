@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Assessment Result Available</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0f172a; color: #e2e8f0; margin: 0; padding: 40px 20px; }
+    .container { max-width: 580px; margin: 0 auto; background-color: #1e293b; border-radius: 12px; padding: 32px; border: 1px solid #334155; }
+    .header { text-align: center; margin-bottom: 24px; }
+    .title { color: #10b981; font-size: 20px; font-weight: bold; margin-bottom: 8px; }
+    .details { background-color: #0f172a; border-radius: 8px; padding: 16px; margin: 20px 0; font-size: 14px; border: 1px solid #334155; }
+    .btn { display: inline-block; background-color: #10b981; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 14px; text-align: center; margin-top: 16px; }
+    .footer { text-align: center; margin-top: 32px; font-size: 12px; color: #64748b; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="title">SecureAssess Examination Results</div>
+    </div>
+    <p>Hello <strong>{{candidateName}}</strong>,</p>
+    <p>Your official examination result for <strong>{{assessmentTitle}}</strong> is now available.</p>
+    
+    <div class="details">
+      <div><strong>Score:</strong> {{obtainedMarks}} / {{totalMarks}} ({{percentage}}%)</div>
+      <div><strong>Status:</strong> {{status}}</div>
+      <div><strong>Grade:</strong> {{grade}}</div>
+    </div>
+
+    <div style="text-align: center;">
+      <a href="{{resultUrl}}" class="btn">View Result & Certificate</a>
+    </div>
+
+    <div class="footer">
+      &copy; SecureAssess Enterprise Examination Engine. All rights reserved.
+    </div>
+  </div>
+</body>
+</html>

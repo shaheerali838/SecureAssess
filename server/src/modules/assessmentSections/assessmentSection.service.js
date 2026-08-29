@@ -5,9 +5,6 @@ import { EDITABLE_ASSESSMENT_STATUSES } from "../../constants/assessmentStatuses
 import { ApiError } from "../../utils/ApiError.js";
 
 export class AssessmentSectionService {
-  /**
-   * Helper: Asserts that assessment exists in organization and is editable
-   */
   static async assertEditableAssessment(organizationId, assessmentId) {
     if (!mongoose.Types.ObjectId.isValid(assessmentId)) {
       throw new ApiError(400, "Invalid assessment ID format");
@@ -47,10 +44,10 @@ export class AssessmentSectionService {
       instructions: data.instructions || "",
       points: data.points || 0,
       questionLimit: data.questionLimit || 0,
+      duration: data.duration || 0,
       settings: data.settings || {},
     });
 
-    // Increment assessment version
     assessment.version = (assessment.version || 1) + 1;
     await assessment.save();
 
@@ -84,6 +81,7 @@ export class AssessmentSectionService {
     if (updateData.instructions !== undefined) safeUpdate.instructions = updateData.instructions;
     if (updateData.points !== undefined) safeUpdate.points = updateData.points;
     if (updateData.questionLimit !== undefined) safeUpdate.questionLimit = updateData.questionLimit;
+    if (updateData.duration !== undefined) safeUpdate.duration = updateData.duration;
     if (updateData.settings) safeUpdate.settings = updateData.settings;
 
     const section = await AssessmentSection.findOneAndUpdate(
@@ -123,5 +121,26 @@ export class AssessmentSectionService {
     await assessment.save();
 
     return { success: true, message: "Section deleted successfully" };
+  }
+
+  static async reorderSections(organizationId, assessmentId, sectionsList) {
+    await this.assertEditableAssessment(organizationId, assessmentId);
+
+    if (!Array.isArray(sectionsList)) {
+      throw new ApiError(400, "Sections array is required for reordering");
+    }
+
+    for (const item of sectionsList) {
+      const id = item.id || item._id || item.sectionId;
+      if (id && mongoose.Types.ObjectId.isValid(id) && item.order !== undefined) {
+        await AssessmentSection.updateOne(
+          { _id: id, assessmentId, organizationId },
+          { $set: { order: item.order } }
+        );
+      }
+    }
+
+    const updated = await AssessmentSection.find({ organizationId, assessmentId }).sort({ order: 1 });
+    return updated;
   }
 }

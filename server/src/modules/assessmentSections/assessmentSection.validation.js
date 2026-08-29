@@ -1,4 +1,8 @@
 export class AssessmentSectionValidator {
+  static validate(body) {
+    return this.validateCreate(body);
+  }
+
   static validateCreate(body) {
     const errors = [];
     if (!body || typeof body !== "object") {

@@ -11,14 +11,22 @@ export const validateRequest = (schema, source = "body") => {
         const errorMessages = error.details.map((detail) => detail.message);
         return next(new ApiError(400, "Validation failed", errorMessages));
       }
-      req[source] = value;
+      if (source === "body") {
+        req.body = value;
+      } else if (value && typeof value === "object") {
+        Object.assign(req[source], value);
+      }
     } else if (typeof schema.safeParse === "function") {
       const result = schema.safeParse(req[source]);
       if (!result.success) {
         const errorMessages = result.error.errors.map((e) => `${e.path.join(".")}: ${e.message}`);
         return next(new ApiError(400, "Validation failed", errorMessages));
       }
-      req[source] = result.data;
+      if (source === "body") {
+        req.body = result.data;
+      } else if (result.data && typeof result.data === "object") {
+        Object.assign(req[source], result.data);
+      }
     }
 
     next();

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
+    .container { max-width: 580px; margin: 0 auto; background: #1e293b; border-radius: 12px; padding: 32px; border: 1px solid #334155; }
+    .title { color: #eab308; font-size: 24px; font-weight: bold; margin: 0; }
+    .content { line-height: 1.6; color: #cbd5e1; font-size: 15px; margin-top: 16px; }
+    .highlight-box { background: #0f172a; border: 1px solid #eab308; border-radius: 8px; padding: 16px; margin: 20px 0; }
+    .btn { display: inline-block; background: #eab308; color: #0f172a !important; font-weight: bold; text-decoration: none; padding: 12px 28px; border-radius: 8px; margin-top: 16px; }
+    .footer { margin-top: 32px; font-size: 12px; color: #64748b; text-align: center; border-top: 1px solid #334155; padding-top: 16px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="title">SecureAssess Reminder</h1>
+    <div class="content">
+      <p>Hello <strong>{{candidateName}}</strong>,</p>
+      <p>This is a reminder that the deadline for <strong>{{assessmentName}}</strong> is approaching rapidly.</p>
+      <div class="highlight-box">
+        <p style="margin: 4px 0;"><strong>Remaining Time:</strong> {{remainingTime}}</p>
+        <p style="margin: 4px 0;"><strong>Deadline:</strong> {{deadline}}</p>
+      </div>
+      <a href="{{assessmentUrl}}" class="btn">Resume / Start Attempt</a>
+    </div>
+    <div class="footer">
+      <p>© 2026 SecureAssess. AI-Powered Examination & Integrity Platform.</p>
+    </div>
+  </div>
+</body>
+</html>

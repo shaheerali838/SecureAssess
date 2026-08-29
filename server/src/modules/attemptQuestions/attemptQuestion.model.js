@@ -23,6 +23,12 @@ const attemptQuestionSchema = new mongoose.Schema(
       required: [true, "Attempt ID is required"],
       index: true,
     },
+    assessmentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Assessment",
+      default: null,
+      index: true,
+    },
     assessmentQuestionId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "AssessmentQuestion",
@@ -34,9 +40,26 @@ const attemptQuestionSchema = new mongoose.Schema(
       ref: "Question",
       required: [true, "Question ID is required"],
     },
+    sectionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AssessmentSection",
+      default: null,
+    },
     order: {
       type: Number,
       required: true,
+    },
+    marks: {
+      type: Number,
+      default: 1,
+    },
+    points: {
+      type: Number,
+      default: 1,
+    },
+    negativeMarks: {
+      type: Number,
+      default: 0,
     },
     type: {
       type: String,
@@ -52,16 +75,18 @@ const attemptQuestionSchema = new mongoose.Schema(
       type: [attemptQuestionOptionSchema],
       default: [],
     },
-    points: {
-      type: Number,
-      required: true,
-      min: 0,
-      default: 1,
+    questionSnapshot: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
     },
     status: {
       type: String,
       enum: ["NOT_VISITED", "VISITED", "ANSWERED", "FLAGGED_FOR_REVIEW"],
       default: "NOT_VISITED",
+    },
+    flagged: {
+      type: Boolean,
+      default: false,
     },
     visitedAt: {
       type: Date,

@@ -36,9 +36,32 @@ const assessmentQuestionSchema = new mongoose.Schema(
       required: [true, "Original Question ID is required"],
       index: true,
     },
+    questionVersion: {
+      type: Number,
+      default: 1,
+    },
     order: {
       type: Number,
       default: 1,
+    },
+    marks: {
+      type: Number,
+      default: 1,
+      min: 0,
+    },
+    points: {
+      type: Number,
+      default: 1,
+      min: 0,
+    },
+    negativeMarks: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    isRequired: {
+      type: Boolean,
+      default: true,
     },
     type: {
       type: String,
@@ -66,12 +89,6 @@ const assessmentQuestionSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
-    points: {
-      type: Number,
-      required: true,
-      min: 0,
-      default: 1,
-    },
     difficulty: {
       type: String,
       default: "MEDIUM",
@@ -79,6 +96,14 @@ const assessmentQuestionSchema = new mongoose.Schema(
     snapshotVersion: {
       type: Number,
       default: 1,
+    },
+    snapshot: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
+    settings: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
     },
     metadata: {
       type: mongoose.Schema.Types.Mixed,

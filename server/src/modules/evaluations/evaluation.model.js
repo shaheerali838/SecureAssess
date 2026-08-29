@@ -1,5 +1,60 @@
 import mongoose from "mongoose";
 
+const questionResultSchema = new mongoose.Schema(
+  {
+    attemptQuestionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AttemptQuestion",
+      required: true,
+    },
+    questionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Question",
+      required: true,
+    },
+    questionType: {
+      type: String,
+      required: true,
+    },
+    marksAvailable: {
+      type: Number,
+      required: true,
+      default: 1,
+    },
+    marksAwarded: {
+      type: Number,
+      default: 0,
+    },
+    status: {
+      type: String,
+      enum: ["EVALUATED", "NEEDS_MANUAL_REVIEW", "PENDING_EVALUATION"],
+      default: "EVALUATED",
+    },
+    candidateAnswer: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    correctAnswerUsed: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    evaluatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    evaluatedAt: {
+      type: Date,
+      default: null,
+    },
+    feedback: {
+      type: String,
+      default: "",
+    },
+  },
+  { _id: false }
+);
+
 const evaluationSchema = new mongoose.Schema(
   {
     organizationId: {
@@ -12,6 +67,7 @@ const evaluationSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Attempt",
       required: [true, "Attempt ID is required"],
+      unique: true,
       index: true,
     },
     assessmentId: {
@@ -28,42 +84,56 @@ const evaluationSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["PENDING", "IN_PROGRESS", "COMPLETED", "FAILED"],
+      enum: ["PENDING", "PROCESSING", "PARTIALLY_GRADED", "COMPLETED", "FAILED"],
       default: "PENDING",
       index: true,
     },
-    startedAt: {
-      type: Date,
-      default: Date.now,
-    },
-    completedAt: {
-      type: Date,
-      default: null,
-    },
-    evaluationType: {
+    gradingMethod: {
       type: String,
-      enum: ["AUTOMATIC", "MANUAL", "HYBRID", "AI_ASSISTED"],
+      enum: ["AUTOMATIC", "MANUAL", "HYBRID"],
       default: "AUTOMATIC",
     },
-    totalQuestions: {
+    objectiveScore: {
       type: Number,
       default: 0,
     },
-    evaluatedQuestions: {
+    subjectiveScore: {
       type: Number,
       default: 0,
     },
-    totalPoints: {
+    totalScore: {
       type: Number,
       default: 0,
     },
-    earnedPoints: {
+    totalMarks: {
       type: Number,
       default: 0,
     },
     percentage: {
       type: Number,
       default: 0,
+    },
+    passed: {
+      type: Boolean,
+      default: false,
+    },
+    evaluatedAt: {
+      type: Date,
+      default: null,
+    },
+    evaluatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    pendingManualReview: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    questionResults: {
+      type: [questionResultSchema],
+      default: [],
     },
     version: {
       type: Number,
@@ -79,8 +149,9 @@ const evaluationSchema = new mongoose.Schema(
   }
 );
 
-evaluationSchema.index({ organizationId: 1, attemptId: 1 });
-evaluationSchema.index({ attemptId: 1, version: -1 });
+evaluationSchema.index({ organizationId: 1, status: 1 });
+evaluationSchema.index({ organizationId: 1, pendingManualReview: 1 });
+evaluationSchema.index({ assessmentId: 1, status: 1 });
 
 const Evaluation =
   mongoose.models.Evaluation || mongoose.model("Evaluation", evaluationSchema);

@@ -5,11 +5,13 @@ import {
   getAssessment,
   updateAssessment,
   deleteAssessment,
-  submitForReview,
-  approveAssessment,
   publishAssessment,
-  closeAssessment,
   archiveAssessment,
+  duplicateAssessment,
+  previewAssessment,
+  assignCandidates,
+  getAssignments,
+  removeAssignment,
 } from "./assessment.controller.js";
 import sectionsRouter from "../assessmentSections/index.js";
 import questionsRouter from "../assessmentQuestions/index.js";
@@ -82,33 +84,7 @@ router.delete(
   deleteAssessment
 );
 
-// --- Lifecycle Transition Routes ---
-
-// POST /api/v1/organizations/:organizationId/assessments/:assessmentId/submit-for-review
-router.post(
-  "/:assessmentId/submit-for-review",
-  requireAuth,
-  requireTenantContext,
-  requireOrganizationOrPlatformPermission(
-    PERMISSIONS.ASSESSMENTS_UPDATE,
-    PERMISSIONS.ASSESSMENTS_UPDATE
-  ),
-  submitForReview
-);
-
-// POST /api/v1/organizations/:organizationId/assessments/:assessmentId/approve
-router.post(
-  "/:assessmentId/approve",
-  requireAuth,
-  requireTenantContext,
-  requireOrganizationOrPlatformPermission(
-    PERMISSIONS.ASSESSMENTS_APPROVE || PERMISSIONS.ASSESSMENTS_UPDATE,
-    PERMISSIONS.ASSESSMENTS_APPROVE || PERMISSIONS.ASSESSMENTS_UPDATE
-  ),
-  approveAssessment
-);
-
-// POST /api/v1/organizations/:organizationId/assessments/:assessmentId/publish
+// --- Lifecycle Actions ---
 router.post(
   "/:assessmentId/publish",
   requireAuth,
@@ -120,19 +96,6 @@ router.post(
   publishAssessment
 );
 
-// POST /api/v1/organizations/:organizationId/assessments/:assessmentId/close
-router.post(
-  "/:assessmentId/close",
-  requireAuth,
-  requireTenantContext,
-  requireOrganizationOrPlatformPermission(
-    PERMISSIONS.ASSESSMENTS_UPDATE,
-    PERMISSIONS.ASSESSMENTS_UPDATE
-  ),
-  closeAssessment
-);
-
-// POST /api/v1/organizations/:organizationId/assessments/:assessmentId/archive
 router.post(
   "/:assessmentId/archive",
   requireAuth,
@@ -142,6 +105,62 @@ router.post(
     PERMISSIONS.ASSESSMENTS_DELETE
   ),
   archiveAssessment
+);
+
+router.post(
+  "/:assessmentId/duplicate",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.ASSESSMENTS_CREATE,
+    PERMISSIONS.ASSESSMENTS_CREATE
+  ),
+  duplicateAssessment
+);
+
+router.get(
+  "/:assessmentId/preview",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.ASSESSMENTS_VIEW,
+    PERMISSIONS.ASSESSMENTS_VIEW
+  ),
+  previewAssessment
+);
+
+// --- Candidate Assignments ---
+router.post(
+  "/:assessmentId/assign",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.ASSESSMENTS_UPDATE || PERMISSIONS.ASSESSMENTS_CREATE,
+    PERMISSIONS.ASSESSMENTS_UPDATE || PERMISSIONS.ASSESSMENTS_CREATE
+  ),
+  assignCandidates
+);
+
+router.get(
+  "/:assessmentId/assignments",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.ASSESSMENTS_VIEW,
+    PERMISSIONS.ASSESSMENTS_VIEW
+  ),
+  getAssignments
+);
+
+router.delete(
+  "/:assessmentId/assignments/:candidateId",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.ASSESSMENTS_UPDATE || PERMISSIONS.ASSESSMENTS_DELETE,
+    PERMISSIONS.ASSESSMENTS_UPDATE || PERMISSIONS.ASSESSMENTS_DELETE
+  ),
+  removeAssignment
 );
 
 // --- Sub-routes for Sections & Questions ---

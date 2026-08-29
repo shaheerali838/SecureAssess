@@ -1,34 +1,6 @@
 import mongoose from "mongoose";
 import { QUESTION_TYPE_LIST, QUESTION_TYPES } from "../../constants/questionTypes.js";
 
-const structuredAnswerSchema = new mongoose.Schema(
-  {
-    selectedOptionId: {
-      type: String,
-      default: null,
-      trim: true,
-    },
-    selectedOptionIds: {
-      type: [String],
-      default: [],
-    },
-    text: {
-      type: String,
-      default: "",
-    },
-    code: {
-      type: String,
-      default: "",
-    },
-    language: {
-      type: String,
-      default: "",
-      trim: true,
-    },
-  },
-  { _id: false }
-);
-
 const answerSchema = new mongoose.Schema(
   {
     organizationId: {
@@ -56,9 +28,9 @@ const answerSchema = new mongoose.Schema(
       index: true,
     },
     answer: {
-      type: structuredAnswerSchema,
+      type: mongoose.Schema.Types.Mixed,
       required: true,
-      default: () => ({}),
+      default: null,
     },
     answerType: {
       type: String,
@@ -67,6 +39,10 @@ const answerSchema = new mongoose.Schema(
       required: true,
     },
     isAnswered: {
+      type: Boolean,
+      default: true,
+    },
+    isFinal: {
       type: Boolean,
       default: false,
     },

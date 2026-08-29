@@ -1,63 +1,48 @@
 import express from "express";
 import {
   startAttempt,
+  getAttempts,
   getAttempt,
   getAttemptQuestions,
   getAttemptQuestion,
+  saveAnswer,
+  flagQuestion,
   heartbeat,
   submitAttempt,
+  terminateAttempt,
 } from "./attempt.controller.js";
 import { requireAuth } from "../../middleware/auth.middleware.js";
-import { requireTenantContext } from "../../middleware/tenant.middleware.js";
 
 const router = express.Router({ mergeParams: true });
 
-// POST /api/v1/organizations/:organizationId/candidate/assignments/:assignmentId/attempts
-router.post(
-  "/assignments/:assignmentId/attempts",
-  requireAuth,
-  requireTenantContext,
-  startAttempt
-);
+// Start a new attempt or resume active attempt
+router.post("/start", requireAuth, startAttempt);
+router.post("/assignments/:assignmentId/start", requireAuth, startAttempt);
 
-// GET /api/v1/organizations/:organizationId/candidate/attempts/:attemptId
-router.get(
-  "/attempts/:attemptId",
-  requireAuth,
-  requireTenantContext,
-  getAttempt
-);
+// List attempts for authenticated candidate
+router.get("/", requireAuth, getAttempts);
 
-// GET /api/v1/organizations/:organizationId/candidate/attempts/:attemptId/questions
-router.get(
-  "/attempts/:attemptId/questions",
-  requireAuth,
-  requireTenantContext,
-  getAttemptQuestions
-);
+// Get specific attempt details
+router.get("/:attemptId", requireAuth, getAttempt);
 
-// GET /api/v1/organizations/:organizationId/candidate/attempts/:attemptId/questions/:attemptQuestionId
-router.get(
-  "/attempts/:attemptId/questions/:attemptQuestionId",
-  requireAuth,
-  requireTenantContext,
-  getAttemptQuestion
-);
+// Questions in attempt
+router.get("/:attemptId/questions", requireAuth, getAttemptQuestions);
+router.get("/:attemptId/questions/:questionId", requireAuth, getAttemptQuestion);
 
-// POST /api/v1/organizations/:organizationId/candidate/attempts/:attemptId/heartbeat
-router.post(
-  "/attempts/:attemptId/heartbeat",
-  requireAuth,
-  requireTenantContext,
-  heartbeat
-);
+// Save candidate answer (Autosave & Updates)
+router.put("/:attemptId/questions/:questionId/answer", requireAuth, saveAnswer);
+router.post("/:attemptId/questions/:questionId/answer", requireAuth, saveAnswer);
 
-// POST /api/v1/organizations/:organizationId/candidate/attempts/:attemptId/submit
-router.post(
-  "/attempts/:attemptId/submit",
-  requireAuth,
-  requireTenantContext,
-  submitAttempt
-);
+// Flag question for review
+router.patch("/:attemptId/questions/:questionId/flag", requireAuth, flagQuestion);
+
+// Heartbeat
+router.post("/:attemptId/heartbeat", requireAuth, heartbeat);
+
+// Final Submission
+router.post("/:attemptId/submit", requireAuth, submitAttempt);
+
+// Terminate Attempt (Proctor / Policy)
+router.post("/:attemptId/terminate", requireAuth, terminateAttempt);
 
 export default router;

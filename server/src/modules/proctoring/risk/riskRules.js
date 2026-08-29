@@ -1,0 +1,133 @@
+import {
+  PROCTORING_EVENT_TYPES,
+  EVENT_SEVERITIES,
+  RISK_LEVELS,
+} from "../../../constants/proctoringConstants.js";
+
+export const RISK_POINT_RULES = Object.freeze({
+  [PROCTORING_EVENT_TYPES.TAB_SWITCH]: {
+    points: 5,
+    severity: EVENT_SEVERITIES.LOW,
+  },
+  [PROCTORING_EVENT_TYPES.WINDOW_BLUR]: {
+    points: 5,
+    severity: EVENT_SEVERITIES.LOW,
+  },
+  [PROCTORING_EVENT_TYPES.FULLSCREEN_EXIT]: {
+    points: 10,
+    severity: EVENT_SEVERITIES.MEDIUM,
+  },
+  [PROCTORING_EVENT_TYPES.FULLSCREEN_EXITED]: {
+    points: 10,
+    severity: EVENT_SEVERITIES.MEDIUM,
+  },
+  [PROCTORING_EVENT_TYPES.NO_FACE_DETECTED]: {
+    points: 10,
+    severity: EVENT_SEVERITIES.MEDIUM,
+  },
+  [PROCTORING_EVENT_TYPES.FACE_NOT_DETECTED]: {
+    points: 10,
+    severity: EVENT_SEVERITIES.MEDIUM,
+  },
+  [PROCTORING_EVENT_TYPES.MULTIPLE_FACES]: {
+    points: 30,
+    severity: EVENT_SEVERITIES.HIGH,
+  },
+  [PROCTORING_EVENT_TYPES.MULTIPLE_FACES_DETECTED]: {
+    points: 30,
+    severity: EVENT_SEVERITIES.HIGH,
+  },
+  [PROCTORING_EVENT_TYPES.FACE_CHANGED]: {
+    points: 30,
+    severity: EVENT_SEVERITIES.HIGH,
+  },
+  [PROCTORING_EVENT_TYPES.SCREEN_SHARE_STOPPED]: {
+    points: 25,
+    severity: EVENT_SEVERITIES.HIGH,
+  },
+  [PROCTORING_EVENT_TYPES.CAMERA_DISABLED]: {
+    points: 20,
+    severity: EVENT_SEVERITIES.HIGH,
+  },
+  [PROCTORING_EVENT_TYPES.MICROPHONE_DISABLED]: {
+    points: 15,
+    severity: EVENT_SEVERITIES.MEDIUM,
+  },
+  [PROCTORING_EVENT_TYPES.SUSPICIOUS_AUDIO]: {
+    points: 20,
+    severity: EVENT_SEVERITIES.HIGH,
+  },
+  [PROCTORING_EVENT_TYPES.SUSPICIOUS_OBJECT]: {
+    points: 20,
+    severity: EVENT_SEVERITIES.HIGH,
+  },
+  [PROCTORING_EVENT_TYPES.DEVTOOLS_DETECTED]: {
+    points: 25,
+    severity: EVENT_SEVERITIES.HIGH,
+  },
+  [PROCTORING_EVENT_TYPES.COPY_ATTEMPT]: {
+    points: 5,
+    severity: EVENT_SEVERITIES.LOW,
+  },
+  [PROCTORING_EVENT_TYPES.PASTE_ATTEMPT]: {
+    points: 10,
+    severity: EVENT_SEVERITIES.MEDIUM,
+  },
+  [PROCTORING_EVENT_TYPES.RIGHT_CLICK]: {
+    points: 2,
+    severity: EVENT_SEVERITIES.INFO,
+  },
+  [PROCTORING_EVENT_TYPES.NETWORK_DISCONNECTED]: {
+    points: 5,
+    severity: EVENT_SEVERITIES.LOW,
+  },
+  [PROCTORING_EVENT_TYPES.SESSION_INTERRUPTED]: {
+    points: 5,
+    severity: EVENT_SEVERITIES.LOW,
+  },
+
+  // Informational Events (0 points)
+  [PROCTORING_EVENT_TYPES.PROCTORING_STARTED]: {
+    points: 0,
+    severity: EVENT_SEVERITIES.INFO,
+  },
+  [PROCTORING_EVENT_TYPES.PROCTORING_ENDED]: {
+    points: 0,
+    severity: EVENT_SEVERITIES.INFO,
+  },
+  [PROCTORING_EVENT_TYPES.FULLSCREEN_ENTERED]: {
+    points: 0,
+    severity: EVENT_SEVERITIES.INFO,
+  },
+  [PROCTORING_EVENT_TYPES.SCREEN_SHARE_STARTED]: {
+    points: 0,
+    severity: EVENT_SEVERITIES.INFO,
+  },
+  [PROCTORING_EVENT_TYPES.CAMERA_ENABLED]: {
+    points: 0,
+    severity: EVENT_SEVERITIES.INFO,
+  },
+  [PROCTORING_EVENT_TYPES.MICROPHONE_ENABLED]: {
+    points: 0,
+    severity: EVENT_SEVERITIES.INFO,
+  },
+  [PROCTORING_EVENT_TYPES.NETWORK_RECONNECTED]: {
+    points: 0,
+    severity: EVENT_SEVERITIES.INFO,
+  },
+  [PROCTORING_EVENT_TYPES.WINDOW_FOCUS]: {
+    points: 0,
+    severity: EVENT_SEVERITIES.INFO,
+  },
+  [PROCTORING_EVENT_TYPES.PROCTOR_WARNING]: {
+    points: 0,
+    severity: EVENT_SEVERITIES.INFO,
+  },
+});
+
+export const calculateRiskLevel = (score) => {
+  if (score >= 70) return RISK_LEVELS.CRITICAL;
+  if (score >= 40) return RISK_LEVELS.HIGH;
+  if (score >= 20) return RISK_LEVELS.MEDIUM;
+  return RISK_LEVELS.LOW;
+};

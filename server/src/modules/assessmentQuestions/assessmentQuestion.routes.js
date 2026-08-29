@@ -4,6 +4,7 @@ import {
   getAssessmentQuestions,
   updateAssessmentQuestion,
   removeAssessmentQuestion,
+  reorderQuestions,
 } from "./assessmentQuestion.controller.js";
 import { requireAuth } from "../../middleware/auth.middleware.js";
 import { requireTenantContext } from "../../middleware/tenant.middleware.js";
@@ -12,50 +13,57 @@ import { PERMISSIONS } from "../../constants/permissions.js";
 
 const router = express.Router({ mergeParams: true });
 
-// POST /api/v1/organizations/:organizationId/assessments/:assessmentId/questions
+router.patch(
+  "/reorder",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.ASSESSMENTS_UPDATE,
+    PERMISSIONS.ASSESSMENTS_UPDATE
+  ),
+  reorderQuestions
+);
+
 router.post(
   "/",
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
-    PERMISSIONS.ASSESSMENT_QUESTIONS_ADD,
-    PERMISSIONS.ASSESSMENT_QUESTIONS_ADD
+    PERMISSIONS.ASSESSMENTS_UPDATE,
+    PERMISSIONS.ASSESSMENTS_UPDATE
   ),
   addQuestionToAssessment
 );
 
-// GET /api/v1/organizations/:organizationId/assessments/:assessmentId/questions
 router.get(
   "/",
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
-    PERMISSIONS.ASSESSMENT_QUESTIONS_VIEW,
-    PERMISSIONS.ASSESSMENT_QUESTIONS_VIEW
+    PERMISSIONS.ASSESSMENTS_VIEW,
+    PERMISSIONS.ASSESSMENTS_VIEW
   ),
   getAssessmentQuestions
 );
 
-// PATCH /api/v1/organizations/:organizationId/assessments/:assessmentId/questions/:assessmentQuestionId
 router.patch(
-  "/:assessmentQuestionId",
+  "/:questionId",
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
-    PERMISSIONS.ASSESSMENT_QUESTIONS_UPDATE,
-    PERMISSIONS.ASSESSMENT_QUESTIONS_UPDATE
+    PERMISSIONS.ASSESSMENTS_UPDATE,
+    PERMISSIONS.ASSESSMENTS_UPDATE
   ),
   updateAssessmentQuestion
 );
 
-// DELETE /api/v1/organizations/:organizationId/assessments/:assessmentId/questions/:assessmentQuestionId
 router.delete(
-  "/:assessmentQuestionId",
+  "/:questionId",
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
-    PERMISSIONS.ASSESSMENT_QUESTIONS_REMOVE,
-    PERMISSIONS.ASSESSMENT_QUESTIONS_REMOVE
+    PERMISSIONS.ASSESSMENTS_UPDATE,
+    PERMISSIONS.ASSESSMENTS_UPDATE
   ),
   removeAssessmentQuestion
 );

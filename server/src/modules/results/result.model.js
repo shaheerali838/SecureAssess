@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import { RESULT_STATUSES, RESULT_STATUS_LIST } from "../../constants/resultStatuses.js";
 
 const resultSchema = new mongoose.Schema(
   {
@@ -9,17 +8,17 @@ const resultSchema = new mongoose.Schema(
       required: [true, "Organization ID is required"],
       index: true,
     },
+    assessmentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Assessment",
+      required: [true, "Assessment ID is required"],
+      index: true,
+    },
     attemptId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Attempt",
       required: [true, "Attempt ID is required"],
       unique: true,
-      index: true,
-    },
-    assessmentId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Assessment",
-      required: [true, "Assessment ID is required"],
       index: true,
     },
     candidateId: {
@@ -34,17 +33,11 @@ const resultSchema = new mongoose.Schema(
       required: [true, "Evaluation ID is required"],
       index: true,
     },
-    status: {
-      type: String,
-      enum: RESULT_STATUS_LIST,
-      default: RESULT_STATUSES.COMPLETED,
-      index: true,
-    },
-    totalPoints: {
+    totalMarks: {
       type: Number,
       default: 0,
     },
-    earnedPoints: {
+    obtainedMarks: {
       type: Number,
       default: 0,
     },
@@ -52,13 +45,23 @@ const resultSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
-    grade: {
+    status: {
       type: String,
-      default: "",
+      enum: ["PENDING", "PROCESSING", "READY", "PUBLISHED", "WITHHELD", "CANCELLED"],
+      default: "READY",
+      index: true,
     },
     passed: {
       type: Boolean,
       default: false,
+    },
+    rank: {
+      type: Number,
+      default: null,
+    },
+    grade: {
+      type: String,
+      default: "",
     },
     published: {
       type: Boolean,
@@ -73,10 +76,6 @@ const resultSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       default: null,
-    },
-    generatedAt: {
-      type: Date,
-      default: Date.now,
     },
     metadata: {
       type: mongoose.Schema.Types.Mixed,

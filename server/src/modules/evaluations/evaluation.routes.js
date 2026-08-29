@@ -1,6 +1,11 @@
 import express from "express";
 import {
   evaluateAttempt,
+  getPendingEvaluations,
+  getEvaluationById,
+  gradeQuestion,
+  finalizeEvaluation,
+  recalculateEvaluation,
   regradeAttempt,
   publishResult,
   getEvaluationDetails,
@@ -13,8 +18,63 @@ import { PERMISSIONS } from "../../constants/permissions.js";
 
 const router = express.Router({ mergeParams: true });
 
-// --- Examiner / Staff Evaluation Endpoints ---
-// POST /api/v1/organizations/:organizationId/attempts/:attemptId/evaluate
+// --- Standalone & Nested Staff Evaluation Endpoints ---
+router.get(
+  "/pending",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.EVALUATIONS_VIEW,
+    PERMISSIONS.EVALUATIONS_VIEW
+  ),
+  getPendingEvaluations
+);
+
+router.get(
+  "/:evaluationId",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.EVALUATIONS_VIEW,
+    PERMISSIONS.EVALUATIONS_VIEW
+  ),
+  getEvaluationById
+);
+
+router.post(
+  "/:evaluationId/questions/:questionId/grade",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.EVALUATIONS_UPDATE,
+    PERMISSIONS.EVALUATIONS_UPDATE
+  ),
+  gradeQuestion
+);
+
+router.post(
+  "/:evaluationId/finalize",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.EVALUATIONS_UPDATE,
+    PERMISSIONS.EVALUATIONS_UPDATE
+  ),
+  finalizeEvaluation
+);
+
+router.post(
+  "/:evaluationId/recalculate",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.EVALUATIONS_UPDATE,
+    PERMISSIONS.EVALUATIONS_UPDATE
+  ),
+  recalculateEvaluation
+);
+
+// --- Attempts Evaluation Sub-routes ---
 router.post(
   "/attempts/:attemptId/evaluate",
   requireAuth,
@@ -26,7 +86,6 @@ router.post(
   evaluateAttempt
 );
 
-// POST /api/v1/organizations/:organizationId/attempts/:attemptId/regrade
 router.post(
   "/attempts/:attemptId/regrade",
   requireAuth,
@@ -38,7 +97,6 @@ router.post(
   regradeAttempt
 );
 
-// POST /api/v1/organizations/:organizationId/attempts/:attemptId/publish-result
 router.post(
   "/attempts/:attemptId/publish-result",
   requireAuth,
@@ -50,7 +108,6 @@ router.post(
   publishResult
 );
 
-// GET /api/v1/organizations/:organizationId/attempts/:attemptId/evaluation
 router.get(
   "/attempts/:attemptId/evaluation",
   requireAuth,
@@ -63,11 +120,9 @@ router.get(
 );
 
 // --- Candidate Result Endpoint ---
-// GET /api/v1/organizations/:organizationId/candidate/attempts/:attemptId/result
 router.get(
   "/candidate/attempts/:attemptId/result",
   requireAuth,
-  requireTenantContext,
   getCandidateResult
 );
 

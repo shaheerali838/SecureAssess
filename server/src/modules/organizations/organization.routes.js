@@ -26,6 +26,10 @@ import assessmentAssignmentsRouter from "../assessmentAssignments/index.js";
 import attemptsRouter from "../attempts/index.js";
 import answersRouter from "../answers/index.js";
 import evaluationsRouter from "../evaluations/index.js";
+import proctoringRouter from "../proctoring/index.js";
+import reportsRouter from "../reports/index.js";
+import certificatesRouter from "../certificates/index.js";
+import interviewsRouter from "../interviews/index.js";
 import { requireAuth } from "../../middleware/auth.middleware.js";
 import {
   requirePlatformPermission,
@@ -103,8 +107,8 @@ router.use("/:organizationId/departments", departmentsRouter);
 router.use("/:organizationId/programs", programsRouter);
 router.use("/:organizationId/subjects", subjectsRouter);
 
-// --- Organization Question Banks & Question Tags Sub-routes ---
-router.use("/:organizationId/question-banks", questionBankRouter);
+// --- Organization Question Banks, Questions & Question Tags Sub-routes ---
+router.use("/:organizationId", questionBankRouter);
 router.use("/:organizationId/question-tags", questionTagsRouter);
 
 // --- Organization Assessments Sub-routes ---
@@ -121,5 +125,17 @@ router.use("/:organizationId/candidate", answersRouter);
 
 // --- Evaluation & Result Sub-routes ---
 router.use("/:organizationId", evaluationsRouter);
+
+// --- Proctoring Sub-routes ---
+router.use("/:organizationId", proctoringRouter);
+
+// --- Reports & Analytics Sub-routes ---
+router.use("/:organizationId", reportsRouter);
+
+// --- Certificates & Credentials Sub-routes ---
+router.use("/:organizationId", certificatesRouter);
+
+// --- Live Interviews & WebRTC Sub-routes ---
+router.use("/:organizationId", interviewsRouter);
 
 export default router;

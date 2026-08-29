@@ -6,12 +6,17 @@ import { ENV } from "./config/env.js";
 import { corsOptions } from "./config/cors.js";
 import { logger } from "./config/logger.js";
 
+import { attachInterviewSignaling } from "./modules/interviews/index.js";
+
 const server = http.createServer(app);
 
 // Socket.io WebRTC & Proctoring Signaling Server
 const io = new SocketIOServer(server, {
   cors: corsOptions,
 });
+
+// Attach specialized WebRTC interview signaling namespace (/interviews)
+attachInterviewSignaling(io);
 
 io.on("connection", (socket) => {
   logger.info(`[Socket] Client connected: ${socket.id}`);

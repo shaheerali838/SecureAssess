@@ -84,6 +84,16 @@ const attemptSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    terminationReason: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    proctoringSessionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ProctoringSession",
+      default: null,
+    },
     metadata: {
       type: mongoose.Schema.Types.Mixed,
       default: {},

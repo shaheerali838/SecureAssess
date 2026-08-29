@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
+    .container { max-width: 580px; margin: 0 auto; background: #1e293b; border-radius: 12px; padding: 32px; border: 1px solid #334155; }
+    .header { border-bottom: 1px solid #334155; padding-bottom: 16px; margin-bottom: 24px; }
+    .title { color: #6366f1; font-size: 24px; font-weight: bold; margin: 0; }
+    .badge { background: #312e81; color: #818cf8; padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; display: inline-block; margin-top: 8px; }
+    .content { line-height: 1.6; color: #cbd5e1; font-size: 15px; }
+    .highlight-box { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 16px; margin: 20px 0; }
+    .btn { display: inline-block; background: #6366f1; color: #ffffff !important; font-weight: 600; text-decoration: none; padding: 12px 28px; border-radius: 8px; margin-top: 16px; }
+    .footer { margin-top: 32px; font-size: 12px; color: #64748b; text-align: center; border-top: 1px solid #334155; padding-top: 16px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1 class="title">SecureAssess</h1>
+      <span class="badge">Assessment Assigned</span>
+    </div>
+    <div class="content">
+      <p>Hello <strong>{{candidateName}}</strong>,</p>
+      <p>You have been assigned to take the examination: <strong>{{assessmentName}}</strong> by <strong>{{organizationName}}</strong>.</p>
+      <div class="highlight-box">
+        <p style="margin: 4px 0;"><strong>Start Date:</strong> {{startDate}}</p>
+        <p style="margin: 4px 0;"><strong>Deadline:</strong> {{deadline}}</p>
+      </div>
+      <p>Please make sure you have a functional webcam, microphone, and a quiet environment before starting the proctored attempt.</p>
+      <a href="{{assessmentUrl}}" class="btn">Start Assessment</a>
+    </div>
+    <div class="footer">
+      <p>© 2026 SecureAssess. AI-Powered Examination & Integrity Platform.</p>
+    </div>
+  </div>
+</body>
+</html>

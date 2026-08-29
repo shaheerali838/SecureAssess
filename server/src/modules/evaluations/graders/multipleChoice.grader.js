@@ -1,19 +1,40 @@
 /**
- * Multiple Choice Question Grader (with Partial Credit & Negative Marking Support)
+ * Multiple Choice Question Grader (Supports EXACT_MATCH, PARTIAL_CREDIT, ALL_OR_NOTHING)
  */
 export const gradeMultipleChoice = (questionSnapshot, candidateAnswer, assessmentSettings = {}) => {
-  const maxPoints = questionSnapshot.points || 1;
-  const allowPartialCredit = assessmentSettings.allowPartialCredit !== false;
-  const negativeMarkingPenalty = assessmentSettings.negativeMarkingPenalty || 0;
-  const enableNegativeMarking = Boolean(assessmentSettings.negativeMarking);
+  const maxPoints = questionSnapshot.marks || questionSnapshot.points || 1;
+  const negativeMarks = questionSnapshot.negativeMarks || assessmentSettings.negativeMarkingPenalty || 0;
+  
+  // Extract grading policy from any of the potential setting locations
+  const gradingPolicy =
+    assessmentSettings.multipleChoiceGradingPolicy ||
+    assessmentSettings.gradingSettings?.multipleChoiceGradingPolicy ||
+    questionSnapshot.multipleChoiceGradingPolicy ||
+    questionSnapshot.snapshot?.multipleChoiceGradingPolicy ||
+    "PARTIAL_CREDIT"; // Default to partial credit for multi-select
 
-  const selectedOptionIds = Array.isArray(candidateAnswer?.answer?.selectedOptionIds)
-    ? candidateAnswer.answer.selectedOptionIds.map(String)
-    : [];
+  const rawAns = candidateAnswer?.answer !== undefined ? candidateAnswer.answer : candidateAnswer;
+  let selectedOptionIds = [];
 
-  const correctAnswers = Array.isArray(questionSnapshot.correctAnswer)
-    ? questionSnapshot.correctAnswer.map(String)
-    : [String(questionSnapshot.correctAnswer)];
+  if (Array.isArray(rawAns)) {
+    selectedOptionIds = rawAns.map(String);
+  } else if (rawAns && typeof rawAns === "object") {
+    selectedOptionIds = (rawAns.selectedOptionIds || []).map(String);
+  } else if (typeof rawAns === "string" && rawAns.length > 0) {
+    selectedOptionIds = [rawAns];
+  }
+
+  const rawCorrect = questionSnapshot.correctAnswer || questionSnapshot.snapshot?.correctAnswer;
+  let correctOptionIds = [];
+  if (rawCorrect) {
+    if (Array.isArray(rawCorrect.optionIds)) {
+      correctOptionIds = rawCorrect.optionIds.map(String);
+    } else if (Array.isArray(rawCorrect)) {
+      correctOptionIds = rawCorrect.map(String);
+    } else if (typeof rawCorrect === "string") {
+      correctOptionIds = [rawCorrect];
+    }
+  }
 
   if (selectedOptionIds.length === 0) {
     return {
@@ -26,14 +47,14 @@ export const gradeMultipleChoice = (questionSnapshot, candidateAnswer, assessmen
     };
   }
 
-  const correctSelected = selectedOptionIds.filter((id) => correctAnswers.includes(id));
-  const incorrectSelected = selectedOptionIds.filter((id) => !correctAnswers.includes(id));
+  const correctlySelected = selectedOptionIds.filter((id) => correctOptionIds.includes(id));
+  const incorrectlySelected = selectedOptionIds.filter((id) => !correctOptionIds.includes(id));
 
-  // Exact Match
-  if (
-    correctSelected.length === correctAnswers.length &&
-    incorrectSelected.length === 0
-  ) {
+  const isExactMatch =
+    correctlySelected.length === correctOptionIds.length &&
+    incorrectlySelected.length === 0;
+
+  if (isExactMatch) {
     return {
       earnedPoints: maxPoints,
       scorePercentage: 100,
@@ -44,33 +65,33 @@ export const gradeMultipleChoice = (questionSnapshot, candidateAnswer, assessmen
     };
   }
 
-  // Partial Match
-  if (allowPartialCredit && correctSelected.length > 0 && incorrectSelected.length === 0) {
-    const fraction = correctSelected.length / correctAnswers.length;
-    const earnedPoints = Number((maxPoints * fraction).toFixed(2));
-    const scorePercentage = Number((fraction * 100).toFixed(2));
-
+  if ((gradingPolicy === "PARTIAL_CREDIT" || gradingPolicy === "PARTIAL") && correctOptionIds.length > 0) {
+    const fractionPerOption = maxPoints / correctOptionIds.length;
+    let earned = correctlySelected.length * fractionPerOption;
+    if (incorrectlySelected.length > 0) {
+      earned -= incorrectlySelected.length * fractionPerOption * 0.5;
+    }
+    earned = Math.max(0, Number(earned.toFixed(2)));
     return {
-      earnedPoints,
-      scorePercentage,
+      earnedPoints: earned,
+      scorePercentage: Math.round((earned / maxPoints) * 100),
       isCorrect: false,
       status: "EVALUATED",
       evaluationType: "AUTOMATIC",
-      feedback: `Partially correct (${correctSelected.length}/${correctAnswers.length} options)`,
+      feedback: `Partially correct (${correctlySelected.length}/${correctOptionIds.length} matching)`,
     };
   }
 
-  // Incorrect
-  const earnedPoints = enableNegativeMarking
-    ? -Math.abs(negativeMarkingPenalty)
+  const penalty = Boolean(questionSnapshot.negativeMarks > 0 || assessmentSettings.negativeMarking)
+    ? -Math.abs(negativeMarks)
     : 0;
 
   return {
-    earnedPoints,
+    earnedPoints: penalty,
     scorePercentage: 0,
     isCorrect: false,
     status: "EVALUATED",
     evaluationType: "AUTOMATIC",
-    feedback: "Incorrect options selected",
+    feedback: "Incorrect selection combination",
   };
 };

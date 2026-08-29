@@ -158,6 +158,20 @@ export const PERMISSIONS = Object.freeze({
   REPORTS_EXPORT: "reports.export",
   REPORTS_VIEW_OWN: "reports.view_own",
 
+  // --- Interview Permissions ---
+  INTERVIEWS_CREATE: "interviews.create",
+  INTERVIEWS_VIEW: "interviews.view",
+  INTERVIEWS_UPDATE: "interviews.update",
+  INTERVIEWS_DELETE: "interviews.delete",
+  INTERVIEWS_JOIN: "interviews.join",
+  INTERVIEWS_START: "interviews.start",
+  INTERVIEWS_END: "interviews.end",
+  INTERVIEWS_MANAGE_PARTICIPANTS: "interviews.manage_participants",
+  INTERVIEWS_RECORD: "interviews.record",
+  INTERVIEWS_VIEW_RECORDINGS: "interviews.view_recordings",
+  INTERVIEWS_EVALUATE: "interviews.evaluate",
+  INTERVIEWS_VIEW_OWN: "interviews.view_own",
+
   // --- Audit Logs Permissions ---
   AUDIT_LOGS_VIEW: "audit_logs.view",
   AUDIT_LOGS_EXPORT: "audit_logs.export",

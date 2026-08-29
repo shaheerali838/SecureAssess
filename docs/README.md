@@ -8,8 +8,9 @@ SecureAssess is an enterprise-grade, multi-tenant B2B SaaS platform for online e
 
 | Document | Purpose |
 | :--- | :--- |
-| [**Architecture & Design (ARCHITECTURE.md)**](./ARCHITECTURE.md) | High-level system topology, decoupled identity model, RBAC matrix, request lifecycle, WebRTC signaling, and runtime execution pipeline. |
+| [**Formal Project Proposal (PROJECT_PROPOSAL.md)**](./PROJECT_PROPOSAL.md) | Complete academic capstone project proposal including literature review, problem formulation, methodology, and component specifications. |
 | [**Phase-by-Phase Summary (PHASE_BY_PHASE_SUMMARY.md)**](./PHASE_BY_PHASE_SUMMARY.md) | Detailed chronological breakdown of all 20 milestones from Phase 0 to Step 19. |
+| [**Architecture & Design (ARCHITECTURE.md)**](./ARCHITECTURE.md) | High-level system topology, decoupled identity model, RBAC matrix, request lifecycle, WebRTC signaling, and runtime execution pipeline. |
 | [**REST & Real-Time API (API.md)**](./API.md) | Comprehensive route index across all 19 completed modules, HTTP request/response payloads, authentication guards, and Socket.io events. |
 | [**Data Model & Schemas (DATA_MODEL.md)**](./DATA_MODEL.md) | Mongoose schema definitions, field types, relationships, indexes, and multi-tenant scoping rules. |
 | [**Environment & Setup Guide (SETUP.md)**](./SETUP.md) | Prerequisites, environment variables specification, step-by-step installation, and database seeding procedures. |

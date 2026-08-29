@@ -22,14 +22,14 @@ export const createAssessment = asyncHandler(async (req, res) => {
 
 export const getAssessments = asyncHandler(async (req, res) => {
   const organizationId = req.params.organizationId || req.organizationId;
-  const result = await AssessmentService.getAssessments(organizationId, req.query, req);
+  const result = await AssessmentService.getAssessments(organizationId, req.query, req.user);
   return res.status(200).json(new ApiResponse(200, result, "Assessments retrieved successfully"));
 });
 
 export const getAssessment = asyncHandler(async (req, res) => {
   const organizationId = req.params.organizationId || req.organizationId;
-  const { assessmentId } = req.params;
-  const assessment = await AssessmentService.getAssessment(organizationId, assessmentId, req);
+  const assessmentId = req.params.assessmentId || req.params.id;
+  const assessment = await AssessmentService.getAssessment(organizationId, assessmentId, req.user);
   return res.status(200).json(new ApiResponse(200, assessment, "Assessment retrieved successfully"));
 });
 
@@ -40,7 +40,7 @@ export const updateAssessment = asyncHandler(async (req, res) => {
   }
 
   const organizationId = req.params.organizationId || req.organizationId;
-  const { assessmentId } = req.params;
+  const assessmentId = req.params.assessmentId || req.params.id;
   const userId = req.user?.id || req.user?._id;
   const assessment = await AssessmentService.updateAssessment(
     organizationId,
@@ -53,43 +53,74 @@ export const updateAssessment = asyncHandler(async (req, res) => {
 
 export const deleteAssessment = asyncHandler(async (req, res) => {
   const organizationId = req.params.organizationId || req.organizationId;
-  const { assessmentId } = req.params;
+  const assessmentId = req.params.assessmentId || req.params.id;
   const result = await AssessmentService.deleteAssessment(organizationId, assessmentId);
   return res.status(200).json(new ApiResponse(200, result, "Assessment archived successfully"));
 });
 
 // Lifecycle Action Handlers
-export const submitForReview = asyncHandler(async (req, res) => {
-  const organizationId = req.params.organizationId || req.organizationId;
-  const { assessmentId } = req.params;
-  const assessment = await AssessmentService.submitForReview(organizationId, assessmentId, req);
-  return res.status(200).json(new ApiResponse(200, assessment, "Assessment submitted for review"));
-});
-
-export const approveAssessment = asyncHandler(async (req, res) => {
-  const organizationId = req.params.organizationId || req.organizationId;
-  const { assessmentId } = req.params;
-  const assessment = await AssessmentService.approveAssessment(organizationId, assessmentId, req);
-  return res.status(200).json(new ApiResponse(200, assessment, "Assessment approved"));
-});
-
 export const publishAssessment = asyncHandler(async (req, res) => {
   const organizationId = req.params.organizationId || req.organizationId;
-  const { assessmentId } = req.params;
-  const assessment = await AssessmentService.publishAssessment(organizationId, assessmentId, req);
+  const assessmentId = req.params.assessmentId || req.params.id;
+  const userId = req.user?.id || req.user?._id;
+  const assessment = await AssessmentService.publishAssessment(organizationId, assessmentId, userId);
   return res.status(200).json(new ApiResponse(200, assessment, "Assessment published successfully"));
-});
-
-export const closeAssessment = asyncHandler(async (req, res) => {
-  const organizationId = req.params.organizationId || req.organizationId;
-  const { assessmentId } = req.params;
-  const assessment = await AssessmentService.closeAssessment(organizationId, assessmentId, req);
-  return res.status(200).json(new ApiResponse(200, assessment, "Assessment closed"));
 });
 
 export const archiveAssessment = asyncHandler(async (req, res) => {
   const organizationId = req.params.organizationId || req.organizationId;
-  const { assessmentId } = req.params;
-  const assessment = await AssessmentService.archiveAssessment(organizationId, assessmentId, req);
+  const assessmentId = req.params.assessmentId || req.params.id;
+  const userId = req.user?.id || req.user?._id;
+  const assessment = await AssessmentService.archiveAssessment(organizationId, assessmentId, userId);
   return res.status(200).json(new ApiResponse(200, assessment, "Assessment archived"));
+});
+
+export const duplicateAssessment = asyncHandler(async (req, res) => {
+  const organizationId = req.params.organizationId || req.organizationId;
+  const assessmentId = req.params.assessmentId || req.params.id;
+  const userId = req.user?.id || req.user?._id;
+  const assessment = await AssessmentService.duplicateAssessment(organizationId, assessmentId, userId);
+  return res.status(201).json(new ApiResponse(201, assessment, "Assessment duplicated successfully"));
+});
+
+export const previewAssessment = asyncHandler(async (req, res) => {
+  const organizationId = req.params.organizationId || req.organizationId;
+  const assessmentId = req.params.assessmentId || req.params.id;
+  const result = await AssessmentService.previewAssessment(organizationId, assessmentId);
+  return res.status(200).json(new ApiResponse(200, result, "Assessment preview generated"));
+});
+
+export const assignCandidates = asyncHandler(async (req, res) => {
+  const organizationId = req.params.organizationId || req.organizationId;
+  const assessmentId = req.params.assessmentId || req.params.id;
+  const userId = req.user?.id || req.user?._id;
+
+  const result = await AssessmentService.assignCandidates(
+    organizationId,
+    assessmentId,
+    req.body,
+    userId
+  );
+  return res.status(200).json(new ApiResponse(200, result, "Candidates assigned successfully"));
+});
+
+export const getAssignments = asyncHandler(async (req, res) => {
+  const organizationId = req.params.organizationId || req.organizationId;
+  const assessmentId = req.params.assessmentId || req.params.id;
+
+  const result = await AssessmentService.getAssignments(
+    organizationId,
+    assessmentId,
+    req.query
+  );
+  return res.status(200).json(new ApiResponse(200, result, "Assessment assignments retrieved"));
+});
+
+export const removeAssignment = asyncHandler(async (req, res) => {
+  const organizationId = req.params.organizationId || req.organizationId;
+  const assessmentId = req.params.assessmentId || req.params.id;
+  const { candidateId } = req.params;
+
+  await AssessmentService.removeAssignment(organizationId, assessmentId, candidateId);
+  return res.status(200).json(new ApiResponse(200, null, "Candidate assignment removed"));
 });

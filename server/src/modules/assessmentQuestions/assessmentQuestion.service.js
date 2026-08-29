@@ -9,9 +9,6 @@ import { ORGANIZATION_ROLES } from "../../constants/roles.js";
 import { ApiError } from "../../utils/ApiError.js";
 
 export class AssessmentQuestionService {
-  /**
-   * Helper: Asserts that assessment exists in organization and is editable
-   */
   static async assertEditableAssessment(organizationId, assessmentId) {
     if (!mongoose.Types.ObjectId.isValid(assessmentId)) {
       throw new ApiError(400, "Invalid assessment ID format");
@@ -36,23 +33,17 @@ export class AssessmentQuestionService {
     return assessment;
   }
 
-  /**
-   * Recalculates total points of the assessment and updates version
-   */
   static async recalculateTotalPoints(assessmentId) {
     const questions = await AssessmentQuestion.find({ assessmentId });
-    const totalPoints = questions.reduce((sum, q) => sum + (q.points || 0), 0);
+    const totalPoints = questions.reduce((sum, q) => sum + (q.points || q.marks || 0), 0);
     await Assessment.findByIdAndUpdate(assessmentId, {
       $set: { totalPoints },
       $inc: { version: 1 },
     });
   }
 
-  /**
-   * Takes an immutable snapshot of the Question and adds it to the assessment section
-   */
   static async addQuestionToAssessment(organizationId, assessmentId, data) {
-    const assessment = await this.assertEditableAssessment(organizationId, assessmentId);
+    await this.assertEditableAssessment(organizationId, assessmentId);
 
     // 1. Verify Section belongs to this assessment and organization
     const section = await AssessmentSection.findOne({
@@ -76,27 +67,51 @@ export class AssessmentQuestionService {
       throw new ApiError(400, "Only ACTIVE questions can be added to an assessment");
     }
 
-    // 3. Determine order
+    // 3. Determine order and marks
     const count = await AssessmentQuestion.countDocuments({ assessmentId, sectionId: section._id });
     const order = data.order !== undefined ? data.order : count + 1;
-    const points = data.points !== undefined ? data.points : question.points;
+    const points = data.marks !== undefined ? data.marks : (data.points !== undefined ? data.points : question.points || 1);
+    const negativeMarks = data.negativeMarks !== undefined ? data.negativeMarks : (question.negativeMarks || 0);
 
     // 4. Create immutable Question Snapshot
+    const snapshot = {
+      type: question.type,
+      title: question.title || "",
+      prompt: question.prompt,
+      description: question.description || "",
+      content: question.content || {},
+      options: question.options || [],
+      correctAnswer: question.correctAnswer || question.answer,
+      explanation: question.explanation || "",
+      difficulty: question.difficulty || "MEDIUM",
+      marks: points,
+      points,
+      negativeMarks,
+      coding: question.coding || null,
+      fileUpload: question.fileUpload || null,
+      version: question.version || 1,
+    };
+
     const assessmentQuestion = await AssessmentQuestion.create({
       organizationId,
       assessmentId,
       sectionId: section._id,
       questionId: question._id,
+      questionVersion: question.version || 1,
       order,
+      marks: points,
+      points,
+      negativeMarks,
+      isRequired: data.isRequired !== undefined ? data.isRequired : true,
       type: question.type,
       title: question.title || "",
       prompt: question.prompt,
       options: question.options || [],
-      correctAnswer: question.correctAnswer,
+      correctAnswer: question.correctAnswer || question.answer,
       explanation: question.explanation || "",
-      points,
       difficulty: question.difficulty || "MEDIUM",
       snapshotVersion: question.version || 1,
+      snapshot,
       metadata: question.metadata || {},
     });
 
@@ -132,8 +147,16 @@ export class AssessmentQuestionService {
     }
 
     const safeUpdate = {};
-    if (updateData.points !== undefined) safeUpdate.points = updateData.points;
+    if (updateData.marks !== undefined) {
+      safeUpdate.marks = updateData.marks;
+      safeUpdate.points = updateData.marks;
+    } else if (updateData.points !== undefined) {
+      safeUpdate.points = updateData.points;
+      safeUpdate.marks = updateData.points;
+    }
+    if (updateData.negativeMarks !== undefined) safeUpdate.negativeMarks = updateData.negativeMarks;
     if (updateData.order !== undefined) safeUpdate.order = updateData.order;
+    if (updateData.isRequired !== undefined) safeUpdate.isRequired = updateData.isRequired;
 
     const updated = await AssessmentQuestion.findOneAndUpdate(
       { _id: assessmentQuestionId, assessmentId, organizationId },
@@ -149,15 +172,15 @@ export class AssessmentQuestionService {
     return AssessmentQuestionMapper.toAdminDTO(updated);
   }
 
-  static async removeAssessmentQuestion(organizationId, assessmentId, assessmentQuestionId) {
+  static async removeAssessmentQuestion(organizationId, assessmentId, questionId) {
     await this.assertEditableAssessment(organizationId, assessmentId);
 
-    if (!mongoose.Types.ObjectId.isValid(assessmentQuestionId)) {
-      throw new ApiError(400, "Invalid assessment question ID format");
+    if (!mongoose.Types.ObjectId.isValid(questionId)) {
+      throw new ApiError(400, "Invalid question ID format");
     }
 
     const deleted = await AssessmentQuestion.findOneAndDelete({
-      _id: assessmentQuestionId,
+      _id: questionId,
       assessmentId,
       organizationId,
     });
@@ -168,5 +191,26 @@ export class AssessmentQuestionService {
 
     await this.recalculateTotalPoints(assessmentId);
     return { success: true, message: "Question removed from assessment successfully" };
+  }
+
+  static async reorderQuestions(organizationId, assessmentId, questionsList) {
+    await this.assertEditableAssessment(organizationId, assessmentId);
+
+    if (!Array.isArray(questionsList)) {
+      throw new ApiError(400, "Questions array is required for reordering");
+    }
+
+    for (const item of questionsList) {
+      const id = item.id || item._id || item.questionId;
+      if (id && mongoose.Types.ObjectId.isValid(id) && item.order !== undefined) {
+        await AssessmentQuestion.updateOne(
+          { _id: id, assessmentId, organizationId },
+          { $set: { order: item.order } }
+        );
+      }
+    }
+
+    const updated = await AssessmentQuestion.find({ organizationId, assessmentId }).sort({ order: 1 });
+    return AssessmentQuestionMapper.toAdminDTOList(updated);
   }
 }

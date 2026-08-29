@@ -10,7 +10,6 @@ import Answer from "../answers/answer.model.js";
 import Candidate from "../candidates/candidate.model.js";
 import { getGraderForType } from "./graders/index.js";
 import { ATTEMPT_STATUSES } from "../../constants/attemptStatuses.js";
-import { RESULT_STATUSES } from "../../constants/resultStatuses.js";
 import { ApiError } from "../../utils/ApiError.js";
 
 const calculateGrade = (percentage) => {
@@ -24,26 +23,33 @@ const calculateGrade = (percentage) => {
 
 export class EvaluationService {
   /**
-   * Evaluates a submitted or expired attempt and generates/updates the result
+   * Automatically grades an attempt upon submission or manual trigger
    */
   static async evaluateAttempt(attemptId, options = {}) {
     if (!mongoose.Types.ObjectId.isValid(attemptId)) {
       throw new ApiError(400, "Invalid attempt ID format");
     }
 
-    // 1. Load Attempt
     const attempt = await Attempt.findById(attemptId);
     if (!attempt) {
       throw new ApiError(404, "Attempt not found for evaluation");
     }
 
-    if (![ATTEMPT_STATUSES.SUBMITTED, ATTEMPT_STATUSES.EXPIRED, ATTEMPT_STATUSES.COMPLETED].includes(attempt.status)) {
-      throw new ApiError(400, `Cannot evaluate attempt in '${attempt.status}' status. Attempt must be SUBMITTED or EXPIRED.`);
+    if (
+      ![
+        ATTEMPT_STATUSES.SUBMITTED,
+        ATTEMPT_STATUSES.EXPIRED,
+        ATTEMPT_STATUSES.COMPLETED,
+      ].includes(attempt.status)
+    ) {
+      throw new ApiError(
+        400,
+        `Cannot evaluate attempt in '${attempt.status}' status. Attempt must be SUBMITTED or EXPIRED.`,
+      );
     }
 
     const { organizationId, assessmentId, candidateId } = attempt;
 
-    // 2. Load Assessment & AssessmentQuestions (for authoritative correct answers)
     const assessment = await Assessment.findById(assessmentId);
     if (!assessment) {
       throw new ApiError(404, "Associated assessment not found");
@@ -59,8 +65,9 @@ export class EvaluationService {
       answersMap.set(ans.attemptQuestionId.toString(), ans);
     });
 
-    // Fetch authoritative assessment question snapshots
-    const assessmentQuestionIds = attemptQuestions.map((aq) => aq.assessmentQuestionId);
+    const assessmentQuestionIds = attemptQuestions.map(
+      (aq) => aq.assessmentQuestionId,
+    );
     const authoritativeQuestions = await AssessmentQuestion.find({
       _id: { $in: assessmentQuestionIds },
     });
@@ -69,101 +76,97 @@ export class EvaluationService {
       authoritativeMap.set(q._id.toString(), q);
     });
 
-    // 3. Create or Update Evaluation Document
-    let evaluation = await Evaluation.findOne({ attemptId, organizationId });
-    const version = evaluation ? evaluation.version + 1 : 1;
-
-    if (!evaluation) {
-      evaluation = await Evaluation.create({
-        organizationId,
-        attemptId: attempt._id,
-        assessmentId,
-        candidateId,
-        status: "IN_PROGRESS",
-        startedAt: new Date(),
-        version,
-      });
-    } else {
-      evaluation.status = "IN_PROGRESS";
-      evaluation.version = version;
-      await evaluation.save();
-    }
-
-    let totalPoints = 0;
-    let earnedPoints = 0;
+    let totalMarks = 0;
+    let objectiveScore = 0;
+    let subjectiveScore = 0;
     let hasManualReview = false;
+    const questionResults = [];
 
-    // 4. Grade Each Question via Grader Strategy (Rule 14 & 15)
     for (const attQuestion of attemptQuestions) {
-      const authQuestion = authoritativeMap.get(attQuestion.assessmentQuestionId.toString()) || attQuestion;
+      const authQuestion =
+        authoritativeMap.get(attQuestion.assessmentQuestionId.toString()) ||
+        attQuestion;
       const candidateAnswer = answersMap.get(attQuestion._id.toString());
-      const maxPoints = authQuestion.points || 1;
-      totalPoints += maxPoints;
+      const marksAvailable =
+        authQuestion.marks || authQuestion.points || attQuestion.marks || 1;
+      totalMarks += marksAvailable;
 
-      const grader = getGraderForType(authQuestion.type);
-      const gradeResult = grader(authQuestion, candidateAnswer, assessment.settings || {});
+      const combinedSettings = {
+        ...(assessment.settings || {}),
+        ...(assessment.gradingSettings || {}),
+      };
+      const grader = getGraderForType(authQuestion.type || attQuestion.type);
+      const gradeResult = grader(
+        authQuestion,
+        candidateAnswer,
+        combinedSettings,
+      );
 
-      if (gradeResult.status === "NEEDS_MANUAL_REVIEW") {
+      const isManual =
+        gradeResult.status === "NEEDS_MANUAL_REVIEW" ||
+        gradeResult.evaluationType === "MANUAL";
+      if (isManual) {
         hasManualReview = true;
+      } else {
+        objectiveScore += Number(gradeResult.earnedPoints || 0);
       }
 
-      earnedPoints += Number(gradeResult.earnedPoints || 0);
+      const qResult = {
+        attemptQuestionId: attQuestion._id,
+        questionId: authQuestion.questionId || attQuestion.questionId,
+        questionType: authQuestion.type || attQuestion.type,
+        marksAvailable,
+        marksAwarded: isManual ? 0 : Number(gradeResult.earnedPoints || 0),
+        status: isManual ? "NEEDS_MANUAL_REVIEW" : "EVALUATED",
+        candidateAnswer: candidateAnswer?.answer || null,
+        correctAnswerUsed:
+          authQuestion.correctAnswer ||
+          authQuestion.snapshot?.correctAnswer ||
+          null,
+        evaluatedBy: options.evaluatorUserId || null,
+        evaluatedAt: isManual ? null : new Date(),
+        feedback: gradeResult.feedback || "",
+      };
 
-      // Save EvaluationItem
+      questionResults.push(qResult);
+
+      // Save EvaluationItem for query granularities
       await EvaluationItem.findOneAndUpdate(
-        { evaluationId: evaluation._id, attemptQuestionId: attQuestion._id },
+        { attemptId: attempt._id, attemptQuestionId: attQuestion._id },
         {
           $set: {
             organizationId,
-            evaluationId: evaluation._id,
             attemptId: attempt._id,
             attemptQuestionId: attQuestion._id,
             questionId: authQuestion.questionId || attQuestion.questionId,
-            points: maxPoints,
-            earnedPoints: gradeResult.earnedPoints,
-            scorePercentage: gradeResult.scorePercentage,
-            status: gradeResult.status,
-            evaluationType: gradeResult.evaluationType,
-            feedback: gradeResult.feedback || "",
+            points: marksAvailable,
+            earnedPoints: qResult.marksAwarded,
+            scorePercentage: gradeResult.scorePercentage || 0,
+            status: qResult.status,
+            evaluationType: isManual ? "MANUAL" : "AUTOMATIC",
+            feedback: qResult.feedback,
             evaluatedAt: new Date(),
           },
         },
-        { upsert: true, returnDocument: "after" }
+        { upsert: true, returnDocument: "after" },
       );
     }
 
-    // Floor earnedPoints at 0 if negative marking reduced it below 0
-    earnedPoints = Math.max(0, Number(earnedPoints.toFixed(2)));
-    totalPoints = Number(totalPoints.toFixed(2));
-
-    const percentage = totalPoints > 0
-      ? Number(((earnedPoints / totalPoints) * 100).toFixed(2))
-      : 0;
-
-    const passingScore = assessment.passingScore || 60;
+    objectiveScore = Math.max(0, Number(objectiveScore.toFixed(2)));
+    totalMarks = Number(totalMarks.toFixed(2));
+    const totalScore = Math.max(
+      0,
+      Number((objectiveScore + subjectiveScore).toFixed(2)),
+    );
+    const percentage =
+      totalMarks > 0 ? Number(((totalScore / totalMarks) * 100).toFixed(2)) : 0;
+    const passingScore =
+      assessment.gradingSettings?.passingScore || assessment.passingScore || 60;
     const passed = percentage >= passingScore;
-    const grade = calculateGrade(percentage);
 
-    // 5. Finalize Evaluation
-    evaluation.status = "COMPLETED";
-    evaluation.completedAt = new Date();
-    evaluation.evaluationType = hasManualReview ? "HYBRID" : "AUTOMATIC";
-    evaluation.totalQuestions = attemptQuestions.length;
-    evaluation.evaluatedQuestions = attemptQuestions.length;
-    evaluation.totalPoints = totalPoints;
-    evaluation.earnedPoints = earnedPoints;
-    evaluation.percentage = percentage;
-    await evaluation.save();
+    const evaluationStatus = hasManualReview ? "PARTIALLY_GRADED" : "COMPLETED";
 
-    // 6. Generate or Update Result (Rule 18 & 21)
-    const isAutoPublish = Boolean(assessment.settings?.showResultImmediately);
-    const resultStatus = hasManualReview
-      ? RESULT_STATUSES.NEEDS_MANUAL_REVIEW
-      : passed
-      ? RESULT_STATUSES.PASS
-      : RESULT_STATUSES.FAIL;
-
-    const result = await Result.findOneAndUpdate(
+    const evaluation = await Evaluation.findOneAndUpdate(
       { attemptId: attempt._id },
       {
         $set: {
@@ -171,136 +174,265 @@ export class EvaluationService {
           attemptId: attempt._id,
           assessmentId,
           candidateId,
-          evaluationId: evaluation._id,
-          status: resultStatus,
-          totalPoints,
-          earnedPoints,
+          status: evaluationStatus,
+          gradingMethod: hasManualReview ? "HYBRID" : "AUTOMATIC",
+          objectiveScore,
+          subjectiveScore,
+          totalScore,
+          totalMarks,
           percentage,
-          grade,
           passed,
+          evaluatedAt: hasManualReview ? null : new Date(),
+          evaluatedBy: options.evaluatorUserId || null,
+          pendingManualReview: hasManualReview,
+          questionResults,
+        },
+        $inc: { version: 1 },
+      },
+      { upsert: true, returnDocument: "after" },
+    );
+
+    // If fully completed without manual review required, create/update Result
+    if (!hasManualReview) {
+      const isAutoPublish = Boolean(
+        assessment.resultSettings?.visibility === "IMMEDIATE" ||
+        assessment.settings?.showResultImmediately,
+      );
+      const grade = calculateGrade(percentage);
+
+      await Result.findOneAndUpdate(
+        { attemptId: attempt._id },
+        {
+          $set: {
+            organizationId,
+            assessmentId,
+            attemptId: attempt._id,
+            candidateId,
+            evaluationId: evaluation._id,
+            totalMarks,
+            obtainedMarks: totalScore,
+            percentage,
+            grade,
+            passed,
+            status: "READY",
+            published: isAutoPublish,
+            publishedAt: isAutoPublish ? new Date() : null,
+          },
+        },
+        { upsert: true, returnDocument: "after" },
+      );
+    }
+
+    return evaluation;
+  }
+
+  static async getPendingEvaluations(organizationId, query = {}) {
+    const filter = { organizationId, pendingManualReview: true };
+    if (query.assessmentId) filter.assessmentId = query.assessmentId;
+
+    const page = Math.max(1, parseInt(query.page) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(query.limit) || 20));
+    const skip = (page - 1) * limit;
+
+    const [items, total] = await Promise.all([
+      Evaluation.find(filter)
+        .populate("assessmentId", "title code")
+        .populate("candidateId", "firstName lastName candidateCode email")
+        .sort({ createdAt: 1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Evaluation.countDocuments(filter),
+    ]);
+
+    return {
+      items,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    };
+  }
+
+  static async getEvaluationById(organizationId, evaluationId) {
+    if (!mongoose.Types.ObjectId.isValid(evaluationId)) {
+      throw new ApiError(400, "Invalid evaluation ID format");
+    }
+
+    const evaluation = await Evaluation.findOne({
+      _id: evaluationId,
+      organizationId,
+    })
+      .populate("assessmentId", "title code duration gradingSettings")
+      .populate("candidateId", "firstName lastName candidateCode email");
+
+    if (!evaluation) {
+      throw new ApiError(404, "Evaluation not found in this organization");
+    }
+
+    return evaluation;
+  }
+
+  static async gradeQuestion(
+    organizationId,
+    evaluationId,
+    questionId,
+    gradePayload,
+    examinerUserId,
+  ) {
+    if (!mongoose.Types.ObjectId.isValid(evaluationId)) {
+      throw new ApiError(400, "Invalid evaluation ID format");
+    }
+
+    const evaluation = await Evaluation.findOne({
+      _id: evaluationId,
+      organizationId,
+    });
+    if (!evaluation) {
+      throw new ApiError(404, "Evaluation not found");
+    }
+
+    const marksAwarded = Number(gradePayload.marksAwarded);
+    if (isNaN(marksAwarded) || marksAwarded < 0) {
+      throw new ApiError(400, "marksAwarded must be a non-negative number");
+    }
+
+    const targetIndex = evaluation.questionResults.findIndex(
+      (qr) =>
+        qr.questionId.toString() === questionId.toString() ||
+        qr.attemptQuestionId.toString() === questionId.toString(),
+    );
+
+    if (targetIndex === -1) {
+      throw new ApiError(404, "Question not found in evaluation results");
+    }
+
+    const targetQR = evaluation.questionResults[targetIndex];
+    if (marksAwarded > targetQR.marksAvailable) {
+      throw new ApiError(
+        400,
+        `marksAwarded (${marksAwarded}) cannot exceed marksAvailable (${targetQR.marksAvailable})`,
+      );
+    }
+
+    targetQR.marksAwarded = marksAwarded;
+    targetQR.status = "EVALUATED";
+    targetQR.feedback = gradePayload.feedback || targetQR.feedback;
+    targetQR.evaluatedBy = examinerUserId;
+    targetQR.evaluatedAt = new Date();
+
+    // Recalculate subjective & total score
+    let subScore = 0;
+    let anyPending = false;
+
+    evaluation.questionResults.forEach((qr) => {
+      if (qr.status === "NEEDS_MANUAL_REVIEW") {
+        anyPending = true;
+      }
+      if (
+        ["ESSAY", "SHORT_ANSWER", "CODING", "VIDEO_RESPONSE"].includes(
+          qr.questionType,
+        )
+      ) {
+        subScore += qr.marksAwarded || 0;
+      }
+    });
+
+    evaluation.subjectiveScore = Number(subScore.toFixed(2));
+    evaluation.totalScore = Math.max(
+      0,
+      Number(
+        (evaluation.objectiveScore + evaluation.subjectiveScore).toFixed(2),
+      ),
+    );
+    evaluation.percentage =
+      evaluation.totalMarks > 0
+        ? Number(
+            ((evaluation.totalScore / evaluation.totalMarks) * 100).toFixed(2),
+          )
+        : 0;
+
+    const assessment = await Assessment.findById(evaluation.assessmentId);
+    const passingScore = assessment?.gradingSettings?.passingScore || 60;
+    evaluation.passed = evaluation.percentage >= passingScore;
+    evaluation.pendingManualReview = anyPending;
+    evaluation.status = anyPending ? "PARTIALLY_GRADED" : "COMPLETED";
+    evaluation.version += 1;
+
+    await evaluation.save();
+    return evaluation;
+  }
+
+  static async finalizeEvaluation(
+    organizationId,
+    evaluationId,
+    examinerUserId,
+  ) {
+    const evaluation = await Evaluation.findOne({
+      _id: evaluationId,
+      organizationId,
+    });
+    if (!evaluation) {
+      throw new ApiError(404, "Evaluation not found");
+    }
+
+    const assessment = await Assessment.findById(evaluation.assessmentId);
+    const passingScore = assessment?.gradingSettings?.passingScore || 60;
+    const grade = calculateGrade(evaluation.percentage);
+
+    evaluation.status = "COMPLETED";
+    evaluation.pendingManualReview = false;
+    evaluation.evaluatedAt = new Date();
+    evaluation.evaluatedBy = examinerUserId;
+    await evaluation.save();
+
+    const isAutoPublish = Boolean(
+      assessment?.resultSettings?.visibility === "IMMEDIATE" ||
+      assessment?.settings?.showResultImmediately,
+    );
+
+    const result = await Result.findOneAndUpdate(
+      { attemptId: evaluation.attemptId },
+      {
+        $set: {
+          organizationId,
+          assessmentId: evaluation.assessmentId,
+          attemptId: evaluation.attemptId,
+          candidateId: evaluation.candidateId,
+          evaluationId: evaluation._id,
+          totalMarks: evaluation.totalMarks,
+          obtainedMarks: evaluation.totalScore,
+          percentage: evaluation.percentage,
+          grade,
+          passed: evaluation.percentage >= passingScore,
+          status: "READY",
           published: isAutoPublish,
           publishedAt: isAutoPublish ? new Date() : null,
-          generatedAt: new Date(),
+          publishedBy: examinerUserId,
         },
       },
-      { upsert: true, returnDocument: "after" }
+      { upsert: true, returnDocument: "after" },
     );
 
     return { evaluation, result };
   }
 
-  /**
-   * Regrades an attempt with version tracking (Rule 24)
-   */
-  static async regradeAttempt(organizationId, attemptId, userId = null) {
-    if (!mongoose.Types.ObjectId.isValid(attemptId)) {
-      throw new ApiError(400, "Invalid attempt ID format");
-    }
-
-    const attempt = await Attempt.findOne({ _id: attemptId, organizationId });
-    if (!attempt) {
-      throw new ApiError(404, "Attempt not found in this organization");
-    }
-
-    const output = await this.evaluateAttempt(attempt._id, { regradedBy: userId });
-    return output;
-  }
-
-  /**
-   * Publishes an assessment attempt result to make it visible to the candidate (Rule 21)
-   */
-  static async publishResult(organizationId, attemptId, userId = null) {
-    if (!mongoose.Types.ObjectId.isValid(attemptId)) {
-      throw new ApiError(400, "Invalid attempt ID format");
-    }
-
-    const result = await Result.findOneAndUpdate(
-      { attemptId, organizationId },
-      {
-        $set: {
-          published: true,
-          publishedAt: new Date(),
-          publishedBy: userId,
-        },
-      },
-      { returnDocument: "after" }
-    );
-
-    if (!result) {
-      throw new ApiError(404, "Result not found for this attempt");
-    }
-
-    return result;
-  }
-
-  /**
-   * Examiner View: Detailed evaluation & question-level score breakdown (Rule 23)
-   */
-  static async getEvaluationDetails(organizationId, attemptId) {
-    if (!mongoose.Types.ObjectId.isValid(attemptId)) {
-      throw new ApiError(400, "Invalid attempt ID format");
-    }
-
-    const [evaluation, result, items] = await Promise.all([
-      Evaluation.findOne({ attemptId, organizationId }),
-      Result.findOne({ attemptId, organizationId }),
-      EvaluationItem.find({ attemptId, organizationId })
-        .populate("attemptQuestionId", "order type prompt options points")
-        .populate("questionId", "prompt correctAnswer explanation"),
-    ]);
-
-    if (!evaluation) {
-      throw new ApiError(404, "Evaluation records not found for this attempt");
-    }
-
-    return {
-      evaluation,
-      result,
-      items,
-    };
-  }
-
-  /**
-   * Candidate View: Sanitized result delivery (Rule 22 & 30)
-   */
-  static async getCandidateResult(userId, organizationId, attemptId) {
-    if (!mongoose.Types.ObjectId.isValid(attemptId)) {
-      throw new ApiError(400, "Invalid attempt ID format");
-    }
-
-    const candidate = await Candidate.findOne({ userId, organizationId });
-    if (!candidate) {
-      throw new ApiError(403, "Access denied");
-    }
-
-    const result = await Result.findOne({
-      attemptId,
+  static async recalculateEvaluation(
+    organizationId,
+    evaluationId,
+    examinerUserId,
+  ) {
+    const evaluation = await Evaluation.findOne({
+      _id: evaluationId,
       organizationId,
-      candidateId: candidate._id,
-    }).populate("assessmentId", "title");
+    });
+    if (!evaluation) throw new ApiError(404, "Evaluation not found");
 
-    if (!result) {
-      throw new ApiError(404, "Result not found");
-    }
-
-    if (!result.published) {
-      return {
-        status: RESULT_STATUSES.WITHHELD,
-        published: false,
-        message: "Result has not been published yet by the examiner",
-      };
-    }
-
-    return {
-      status: RESULT_STATUSES.PUBLISHED,
-      published: true,
-      assessmentTitle: result.assessmentId?.title || "",
-      totalPoints: result.totalPoints,
-      earnedPoints: result.earnedPoints,
-      percentage: result.percentage,
-      grade: result.grade,
-      passed: result.passed,
-      publishedAt: result.publishedAt,
-    };
+    const reEvaluated = await this.evaluateAttempt(evaluation.attemptId, {
+      evaluatorUserId: examinerUserId,
+    });
+    return reEvaluated;
   }
 }
