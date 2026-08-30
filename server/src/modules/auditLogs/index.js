@@ -1,9 +1,8 @@
-import express from "express";
-const router = express.Router();
+import auditLogRoutes from "./auditLog.routes.js";
 
-// Module: auditLogs
-router.get("/", (req, res) => {
-  res.json({ success: true, message: "auditLogs module initialized" });
-});
+export { default as AuditLog } from "./auditLog.model.js";
+export { AuditLogService } from "./auditLog.service.js";
+export * from "./auditLog.constants.js";
+export * from "./auditLog.controller.js";
 
-export default router;
+export default auditLogRoutes;

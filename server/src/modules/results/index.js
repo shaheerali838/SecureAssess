@@ -1,9 +1,6 @@
-import express from "express";
-const router = express.Router();
+import Result from "./result.model.js";
+import resultRoutes from "./result.routes.js";
+import { ResultService } from "./result.service.js";
 
-// Module: results
-router.get("/", (req, res) => {
-  res.json({ success: true, message: "results module initialized" });
-});
-
-export default router;
+export { Result, ResultService };
+export default resultRoutes;

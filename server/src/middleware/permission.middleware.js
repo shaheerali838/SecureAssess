@@ -3,6 +3,8 @@ import { PLATFORM_ROLES, ROLE_SCOPES } from "../constants/roles.js";
 import Role from "../modules/roles/role.model.js";
 import Permission from "../modules/permissions/permission.model.js";
 import UserMembership from "../modules/users/userMembership.model.js";
+import { AuditLogService } from "../modules/auditLogs/auditLog.service.js";
+import { AUDIT_ACTIONS, AUDIT_RESOURCES, AUDIT_STATUSES } from "../modules/auditLogs/auditLog.constants.js";
 
 /**
  * Platform Authorization Guard:
@@ -21,6 +23,19 @@ export const requirePlatformPermission = (...requiredPermissions) => {
 
     // 2. Non-platform users are strictly blocked from platform operations
     if (req.user.platformRole !== PLATFORM_ROLES.PLATFORM_ADMIN) {
+      AuditLogService.createSecurityAuditLog({
+        actorId: req.user.id || req.user._id,
+        action: AUDIT_ACTIONS.PERMISSION_DENIED,
+        resource: AUDIT_RESOURCES.PLATFORM,
+        description: `Unauthorized attempt to access platform-scoped operation: ${req.originalUrl || req.url}`,
+        metadata: { path: req.originalUrl || req.url, method: req.method },
+        ipAddress: req.ip || req.connection?.remoteAddress,
+        userAgent: req.headers["user-agent"],
+        requestId: req.requestId,
+        status: AUDIT_STATUSES.DENIED,
+        errorCode: "ERR_PLATFORM_SCOPE_REQUIRED",
+      }).catch(() => {});
+
       return next(
         new ApiError(
           403,
@@ -44,6 +59,19 @@ export const requirePlatformPermission = (...requiredPermissions) => {
       const hasAll = requiredPermissions.every((perm) => assignedKeys.includes(perm));
 
       if (!hasAll) {
+        AuditLogService.createSecurityAuditLog({
+          actorId: req.user.id || req.user._id,
+          action: AUDIT_ACTIONS.PERMISSION_DENIED,
+          resource: AUDIT_RESOURCES.PLATFORM,
+          description: `Missing platform permissions: [${requiredPermissions.join(", ")}]`,
+          metadata: { path: req.originalUrl, requiredPermissions, assignedKeys },
+          ipAddress: req.ip || req.connection?.remoteAddress,
+          userAgent: req.headers["user-agent"],
+          requestId: req.requestId,
+          status: AUDIT_STATUSES.DENIED,
+          errorCode: "ERR_MISSING_PLATFORM_PERMISSION",
+        }).catch(() => {});
+
         return next(
           new ApiError(
             403,
@@ -90,7 +118,12 @@ export const requireOrganizationOrPlatformPermission = (platformPerm, orgPerm) =
     }
 
     // 3. Organization Membership Context Check
-    const targetOrgId = req.params.organizationId || req.body.organizationId || req.headers["x-organization-id"];
+    const targetOrgId =
+      req.params.organizationId ||
+      req.organizationId ||
+      req.query?.organizationId ||
+      req.headers["x-organization-id"] ||
+      req.body?.organizationId;
     if (!targetOrgId) {
       return next(new ApiError(400, "Organization ID parameter is required"));
     }
@@ -106,6 +139,21 @@ export const requireOrganizationOrPlatformPermission = (platformPerm, orgPerm) =
       });
 
       if (!membership) {
+        AuditLogService.createSecurityAuditLog({
+          organizationId: targetOrgId,
+          actorId: req.user.id || req.user._id,
+          action: AUDIT_ACTIONS.TENANT_ACCESS_DENIED,
+          resource: AUDIT_RESOURCES.ORGANIZATION,
+          resourceId: targetOrgId,
+          description: `User attempted cross-tenant access to organization without active membership`,
+          metadata: { targetOrgId, path: req.originalUrl, method: req.method },
+          ipAddress: req.ip || req.connection?.remoteAddress,
+          userAgent: req.headers["user-agent"],
+          requestId: req.requestId,
+          status: AUDIT_STATUSES.DENIED,
+          errorCode: "ERR_CROSS_TENANT_ACCESS",
+        }).catch(() => {});
+
         return next(
           new ApiError(403, "Forbidden. You do not have an active membership in this organization.")
         );
@@ -118,6 +166,21 @@ export const requireOrganizationOrPlatformPermission = (platformPerm, orgPerm) =
 
       const userOrgPerms = (role.permissions || []).map((p) => p.key);
       if (orgPerm && !userOrgPerms.includes(orgPerm)) {
+        AuditLogService.createSecurityAuditLog({
+          organizationId: targetOrgId,
+          actorId: req.user.id || req.user._id,
+          action: AUDIT_ACTIONS.PERMISSION_DENIED,
+          resource: AUDIT_RESOURCES.ORGANIZATION,
+          resourceId: targetOrgId,
+          description: `User lacks required organization permission: '${orgPerm}'`,
+          metadata: { targetOrgId, requiredPerm: orgPerm, path: req.originalUrl, method: req.method },
+          ipAddress: req.ip || req.connection?.remoteAddress,
+          userAgent: req.headers["user-agent"],
+          requestId: req.requestId,
+          status: AUDIT_STATUSES.DENIED,
+          errorCode: "ERR_MISSING_ORG_PERMISSION",
+        }).catch(() => {});
+
         return next(
           new ApiError(403, `Forbidden. Missing required organization permission: '${orgPerm}'`)
         );

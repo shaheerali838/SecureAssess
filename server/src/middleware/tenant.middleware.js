@@ -3,6 +3,7 @@ import Organization from "../modules/organizations/organization.model.js";
 import UserMembership from "../modules/users/userMembership.model.js";
 import { PLATFORM_ROLES } from "../constants/roles.js";
 import { ApiError } from "../utils/ApiError.js";
+import { AuditLogService } from "../modules/auditLogs/auditLog.service.js";
 
 /**
  * Passive global tenant resolver (does not block requests)
@@ -37,7 +38,22 @@ export const requireTenantContext = async (req, res, next) => {
       req.query?.organizationId ||
       null;
 
+    const isPlatformStaff =
+      req.user.platformRole === PLATFORM_ROLES.PLATFORM_OWNER ||
+      req.user.platformRole === PLATFORM_ROLES.PLATFORM_ADMIN;
+
     if (!rawOrgId) {
+      if (isPlatformStaff) {
+        req.organization = null;
+        req.organizationId = null;
+        req.tenantId = null;
+        req.organizationRole = {
+          name: req.user.platformRole,
+          scope: "PLATFORM",
+          permissions: [],
+        };
+        return next();
+      }
       return next(new ApiError(400, "Organization ID context is required"));
     }
 
@@ -49,10 +65,6 @@ export const requireTenantContext = async (req, res, next) => {
     if (!organization) {
       return next(new ApiError(404, "Organization not found"));
     }
-
-    const isPlatformStaff =
-      req.user.platformRole === PLATFORM_ROLES.PLATFORM_OWNER ||
-      req.user.platformRole === PLATFORM_ROLES.PLATFORM_ADMIN;
 
     if (isPlatformStaff) {
       req.organization = organization;
@@ -85,6 +97,21 @@ export const requireTenantContext = async (req, res, next) => {
     });
 
     if (!membership) {
+      AuditLogService.createSecurityAuditLog({
+        organizationId: organization._id,
+        actorId: req.user.id || req.user._id,
+        action: "TENANT_ACCESS_DENIED",
+        resource: "ORGANIZATION",
+        resourceId: organization._id,
+        description: "User attempted cross-tenant access to organization without active membership",
+        metadata: { path: req.originalUrl, method: req.method, targetOrgId: organization._id },
+        ipAddress: req.ip || req.connection?.remoteAddress,
+        userAgent: req.headers["user-agent"],
+        requestId: req.requestId,
+        status: "DENIED",
+        errorCode: "ERR_CROSS_TENANT_ACCESS",
+      }).catch(() => {});
+
       return next(
         new ApiError(
           403,

@@ -1,9 +1,10 @@
-import express from "express";
-const router = express.Router();
+import router from "./evaluation.routes.js";
+import Evaluation from "./evaluation.model.js";
+import { EvaluationService } from "./evaluation.service.js";
 
-// Module: evaluations
-router.get("/", (req, res) => {
-  res.json({ success: true, message: "evaluations module initialized" });
-});
+export {
+  Evaluation,
+  EvaluationService,
+};
 
 export default router;

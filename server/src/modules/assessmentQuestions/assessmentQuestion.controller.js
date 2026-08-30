@@ -10,7 +10,8 @@ export const addQuestionToAssessment = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Validation failed", errors);
   }
 
-  const { organizationId, assessmentId } = req.params;
+  const organizationId = req.params.organizationId || req.organizationId;
+  const { assessmentId } = req.params;
   const question = await AssessmentQuestionService.addQuestionToAssessment(
     organizationId,
     assessmentId,
@@ -20,12 +21,13 @@ export const addQuestionToAssessment = asyncHandler(async (req, res) => {
 });
 
 export const getAssessmentQuestions = asyncHandler(async (req, res) => {
-  const { organizationId, assessmentId } = req.params;
+  const organizationId = req.params.organizationId || req.organizationId;
+  const { assessmentId } = req.params;
   const questions = await AssessmentQuestionService.getAssessmentQuestions(
     organizationId,
     assessmentId,
     req.query,
-    req
+    req.user
   );
   return res.status(200).json(new ApiResponse(200, questions, "Assessment questions retrieved successfully"));
 });
@@ -36,22 +38,52 @@ export const updateAssessmentQuestion = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Validation failed", errors);
   }
 
-  const { organizationId, assessmentId, assessmentQuestionId } = req.params;
+  const organizationId = req.params.organizationId || req.organizationId;
+  const { assessmentId, questionId } = req.params;
+  const targetId = questionId || req.params.assessmentQuestionId;
   const updated = await AssessmentQuestionService.updateAssessmentQuestion(
     organizationId,
     assessmentId,
-    assessmentQuestionId,
+    targetId,
     req.body
   );
   return res.status(200).json(new ApiResponse(200, updated, "Assessment question updated successfully"));
 });
 
 export const removeAssessmentQuestion = asyncHandler(async (req, res) => {
-  const { organizationId, assessmentId, assessmentQuestionId } = req.params;
+  const organizationId = req.params.organizationId || req.organizationId;
+  const { assessmentId, questionId } = req.params;
+  const targetId = questionId || req.params.assessmentQuestionId;
   const result = await AssessmentQuestionService.removeAssessmentQuestion(
     organizationId,
     assessmentId,
-    assessmentQuestionId
+    targetId
   );
   return res.status(200).json(new ApiResponse(200, result, "Assessment question removed successfully"));
+});
+
+export const reorderQuestions = asyncHandler(async (req, res) => {
+  const organizationId = req.params.organizationId || req.organizationId;
+  const { assessmentId } = req.params;
+  const questionsList = req.body.questions || req.body;
+  const result = await AssessmentQuestionService.reorderQuestions(
+    organizationId,
+    assessmentId,
+    questionsList
+  );
+  return res.status(200).json(new ApiResponse(200, result, "Questions reordered successfully"));
+});
+
+export const bulkAddQuestions = asyncHandler(async (req, res) => {
+  const organizationId = req.params.organizationId || req.organizationId;
+  const { assessmentId } = req.params;
+  const { sectionId, questionIds } = req.body;
+
+  const result = await AssessmentQuestionService.bulkAddQuestions(
+    organizationId,
+    assessmentId,
+    sectionId,
+    questionIds || []
+  );
+  return res.status(201).json(new ApiResponse(201, result, "Questions added to assessment in bulk successfully"));
 });

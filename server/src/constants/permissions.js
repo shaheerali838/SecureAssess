@@ -58,6 +58,17 @@ export const PERMISSIONS = Object.freeze({
   SUBJECTS_UPDATE: "subjects.update",
   SUBJECTS_DELETE: "subjects.delete",
 
+  // --- Candidate Permissions ---
+  CANDIDATES_CREATE: "candidates.create",
+  CANDIDATES_VIEW: "candidates.view",
+  CANDIDATES_UPDATE: "candidates.update",
+  CANDIDATES_DELETE: "candidates.delete",
+
+  CANDIDATE_GROUPS_CREATE: "candidate_groups.create",
+  CANDIDATE_GROUPS_VIEW: "candidate_groups.view",
+  CANDIDATE_GROUPS_UPDATE: "candidate_groups.update",
+  CANDIDATE_GROUPS_DELETE: "candidate_groups.delete",
+
   // --- Question Bank Permissions ---
   QUESTION_BANKS_CREATE: "question_banks.create",
   QUESTION_BANKS_VIEW: "question_banks.view",
@@ -146,6 +157,20 @@ export const PERMISSIONS = Object.freeze({
   REPORTS_GENERATE: "reports.generate",
   REPORTS_EXPORT: "reports.export",
   REPORTS_VIEW_OWN: "reports.view_own",
+
+  // --- Interview Permissions ---
+  INTERVIEWS_CREATE: "interviews.create",
+  INTERVIEWS_VIEW: "interviews.view",
+  INTERVIEWS_UPDATE: "interviews.update",
+  INTERVIEWS_DELETE: "interviews.delete",
+  INTERVIEWS_JOIN: "interviews.join",
+  INTERVIEWS_START: "interviews.start",
+  INTERVIEWS_END: "interviews.end",
+  INTERVIEWS_MANAGE_PARTICIPANTS: "interviews.manage_participants",
+  INTERVIEWS_RECORD: "interviews.record",
+  INTERVIEWS_VIEW_RECORDINGS: "interviews.view_recordings",
+  INTERVIEWS_EVALUATE: "interviews.evaluate",
+  INTERVIEWS_VIEW_OWN: "interviews.view_own",
 
   // --- Audit Logs Permissions ---
   AUDIT_LOGS_VIEW: "audit_logs.view",

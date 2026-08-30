@@ -1,9 +1,2 @@
-import express from "express";
-const router = express.Router();
-
-// Module: subscriptions
-router.get("/", (req, res) => {
-  res.json({ success: true, message: "subscriptions module initialized" });
-});
-
+import router from "./subscription.routes.js";
 export default router;

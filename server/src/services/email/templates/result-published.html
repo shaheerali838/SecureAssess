@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
+    .container { max-width: 580px; margin: 0 auto; background: #1e293b; border-radius: 12px; padding: 32px; border: 1px solid #334155; }
+    .title { color: #10b981; font-size: 24px; font-weight: bold; margin: 0; }
+    .content { line-height: 1.6; color: #cbd5e1; font-size: 15px; margin-top: 16px; }
+    .score-card { background: #0f172a; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0; border: 1px solid #334155; }
+    .score { font-size: 36px; font-weight: bold; color: #10b981; margin: 8px 0; }
+    .btn { display: inline-block; background: #10b981; color: #ffffff !important; font-weight: 600; text-decoration: none; padding: 12px 28px; border-radius: 8px; margin-top: 16px; }
+    .footer { margin-top: 32px; font-size: 12px; color: #64748b; text-align: center; border-top: 1px solid #334155; padding-top: 16px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="title">Result Published</h1>
+    <div class="content">
+      <p>Hello <strong>{{candidateName}}</strong>,</p>
+      <p>Your examination results for <strong>{{assessmentName}}</strong> have been published by <strong>{{organizationName}}</strong>.</p>
+      <div class="score-card">
+        <div style="font-size: 14px; color: #94a3b8;">Final Score</div>
+        <div class="score">{{score}}%</div>
+        <div style="font-size: 16px; font-weight: 600; color: {{statusColor}};">{{status}} (Grade: {{grade}})</div>
+      </div>
+      <a href="{{resultUrl}}" class="btn">View Detailed Breakdown</a>
+    </div>
+    <div class="footer">
+      <p>© 2026 SecureAssess. AI-Powered Examination & Integrity Platform.</p>
+    </div>
+  </div>
+</body>
+</html>

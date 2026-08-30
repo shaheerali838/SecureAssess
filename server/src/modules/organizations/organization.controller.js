@@ -36,8 +36,9 @@ export const listOrganizations = asyncHandler(async (req, res) => {
  * GET /api/v1/organizations/:organizationId - Get single organization by ID
  */
 export const getOrganizationById = asyncHandler(async (req, res) => {
+  const organizationId = req.params.organizationId || req.organizationId;
   const organization = await OrganizationService.getOrganizationById(
-    req.params.organizationId,
+    organizationId,
     req.user
   );
 
@@ -50,13 +51,14 @@ export const getOrganizationById = asyncHandler(async (req, res) => {
  * PATCH /api/v1/organizations/:organizationId - Update organization details
  */
 export const updateOrganization = asyncHandler(async (req, res) => {
+  const organizationId = req.params.organizationId || req.organizationId;
   const { isValid, errors } = OrganizationValidator.validateUpdate(req.body);
   if (!isValid) {
     throw new ApiError(400, "Validation failed", errors);
   }
 
   const organization = await OrganizationService.updateOrganization(
-    req.params.organizationId,
+    organizationId,
     req.body,
     req.user
   );
@@ -70,13 +72,14 @@ export const updateOrganization = asyncHandler(async (req, res) => {
  * PATCH /api/v1/organizations/:organizationId/status - Update organization lifecycle status
  */
 export const updateOrganizationStatus = asyncHandler(async (req, res) => {
+  const organizationId = req.params.organizationId || req.organizationId;
   const { isValid, errors } = OrganizationValidator.validateStatusUpdate(req.body);
   if (!isValid) {
     throw new ApiError(400, "Validation failed", errors);
   }
 
   const organization = await OrganizationService.updateOrganizationStatus(
-    req.params.organizationId,
+    organizationId,
     req.body.status,
     req.user
   );
@@ -87,13 +90,104 @@ export const updateOrganizationStatus = asyncHandler(async (req, res) => {
 });
 
 /**
+ * POST /api/v1/organizations/:organizationId/suspend - Suspend organization
+ */
+export const suspendOrganization = asyncHandler(async (req, res) => {
+  const organizationId = req.params.organizationId || req.organizationId;
+  const organization = await OrganizationService.updateOrganizationStatus(
+    organizationId,
+    "SUSPENDED",
+    req.user
+  );
+  return res.status(200).json(new ApiResponse(200, organization, "Organization suspended successfully"));
+});
+
+/**
+ * POST /api/v1/organizations/:organizationId/activate - Activate organization
+ */
+export const activateOrganization = asyncHandler(async (req, res) => {
+  const organizationId = req.params.organizationId || req.organizationId;
+  const organization = await OrganizationService.updateOrganizationStatus(
+    organizationId,
+    "ACTIVE",
+    req.user
+  );
+  return res.status(200).json(new ApiResponse(200, organization, "Organization activated successfully"));
+});
+
+/**
  * DELETE /api/v1/organizations/:organizationId - Soft delete / deactivate organization
  */
 export const deleteOrganization = asyncHandler(async (req, res) => {
+  const organizationId = req.params.organizationId || req.organizationId;
   const result = await OrganizationService.deleteOrganization(
-    req.params.organizationId,
+    organizationId,
     req.user
   );
 
   return res.status(200).json(new ApiResponse(200, result, "Organization deactivated successfully"));
+});
+
+/**
+ * POST /api/v1/organizations/:organizationId/members/invite - Invite staff member
+ */
+export const inviteStaffMember = asyncHandler(async (req, res) => {
+  const organizationId = req.params.organizationId || req.organizationId;
+  const inviterUserId = req.user?.id || req.user?._id;
+  const result = await OrganizationService.inviteStaffMember(
+    organizationId,
+    req.body,
+    inviterUserId
+  );
+  return res.status(201).json(new ApiResponse(201, result, "Staff invitation sent successfully"));
+});
+
+/**
+ * GET /api/v1/organizations/:organizationId/members - List members
+ */
+export const listMembers = asyncHandler(async (req, res) => {
+  const organizationId = req.params.organizationId || req.organizationId;
+  const result = await OrganizationService.listMembers(organizationId, req.query);
+  return res.status(200).json(new ApiResponse(200, result, "Members retrieved successfully"));
+});
+
+/**
+ * PATCH /api/v1/organizations/:organizationId/members/:membershipId - Update member
+ */
+export const updateMember = asyncHandler(async (req, res) => {
+  const organizationId = req.params.organizationId || req.organizationId;
+  const { membershipId } = req.params;
+  const actorUserId = req.user?.id || req.user?._id;
+  const result = await OrganizationService.updateMember(
+    organizationId,
+    membershipId,
+    req.body,
+    actorUserId
+  );
+  return res.status(200).json(new ApiResponse(200, result, "Member updated successfully"));
+});
+
+/**
+ * DELETE /api/v1/organizations/:organizationId/members/:membershipId - Remove member
+ */
+export const removeMember = asyncHandler(async (req, res) => {
+  const organizationId = req.params.organizationId || req.organizationId;
+  const { membershipId } = req.params;
+  const actorUserId = req.user?.id || req.user?._id;
+  const result = await OrganizationService.removeMember(
+    organizationId,
+    membershipId,
+    actorUserId
+  );
+  return res.status(200).json(new ApiResponse(200, result, "Member removed successfully"));
+});
+
+/**
+ * POST /api/v1/organizations/:organizationId/switch - Switch organization context
+ */
+export const switchOrganization = asyncHandler(async (req, res) => {
+  const { organizationId } = req.params;
+  const userId = req.user?.id || req.user?._id;
+  const result = await OrganizationService.switchOrganization(organizationId, userId);
+  return res.status(200).json(new ApiResponse(200, result, "Organization context switched successfully"));
 });

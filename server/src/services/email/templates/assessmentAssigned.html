@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+    .container { max-width: 600px; margin: 0 auto; background: #1e293b; border-radius: 8px; padding: 32px; border: 1px solid #334155; }
+    .header { text-align: center; border-bottom: 1px solid #334155; padding-bottom: 20px; }
+    .header h1 { color: #38bdf8; margin: 0; font-size: 24px; }
+    .content { padding: 24px 0; line-height: 1.6; font-size: 15px; color: #cbd5e1; }
+    .card { background: #0f172a; padding: 20px; border-radius: 6px; margin: 20px 0; border: 1px solid #334155; }
+    .btn { display: inline-block; background: #2563eb; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: 600; margin-top: 16px; text-align: center; }
+    .footer { text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #334155; padding-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>New Assessment Assigned</h1>
+    </div>
+    <div class="content">
+      <p>Hello,</p>
+      <p>You have been assigned a new examination on SecureAssess.</p>
+      <div class="card">
+        <h3 style="margin-top:0; color:#38bdf8;">{{assessmentTitle}}</h3>
+        <p><strong>Access Code:</strong> <span style="font-family:monospace; font-size:16px; color:#38bdf8;">{{accessCode}}</span></p>
+        <p><strong>Available Until:</strong> {{availableUntil}}</p>
+      </div>
+      <p>Please ensure your webcam and microphone are operational prior to entering the assessment room.</p>
+    </div>
+    <div class="footer">
+      <p>&copy; 2026 SecureAssess. Trusted Assessments. Confident Decisions.</p>
+    </div>
+  </div>
+</body>
+</html>

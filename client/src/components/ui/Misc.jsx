@@ -1,64 +1,62 @@
 import React, { useState } from 'react';
-import { X, CheckCircle, AlertCircle, Info } from 'lucide-react';
-import { Card } from './Card';
-
-const sizeClasses = {
-  sm: 'max-w-md',
-  md: 'max-w-lg',
-  lg: 'max-w-2xl',
-  xl: 'max-w-4xl',
-};
+import { X, CheckCircle, AlertCircle, Info, Check } from 'lucide-react';
+import { Card, CardHeader, CardBody } from './Card';
 
 export function Modal({ open, onClose, title, subtitle, children, footer, size = 'md' }) {
   if (!open) return null;
+  const sizes = {
+    sm: 'max-w-md',
+    md: 'max-w-lg',
+    lg: 'max-w-2xl',
+    xl: 'max-w-4xl',
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-      <div className="absolute inset-0 bg-accent-950/60 backdrop-blur-sm" onClick={onClose} />
-      <div
-        className={`relative w-full ${sizeClasses[size] || sizeClasses.md} bg-white dark:bg-accent-900 rounded-2xl shadow-strong border border-accent-200 dark:border-accent-800 max-h-[90vh] flex flex-col animate-scale-in text-accent-900 dark:text-white`}
-      >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-accent-950/60 backdrop-blur-sm transition-opacity" onClick={onClose} />
+      <div className={`relative w-full ${sizes[size]} bg-white dark:bg-accent-900 rounded-2xl border border-accent-200 dark:border-accent-800 shadow-strong overflow-hidden animate-scale-in`}>
         {(title || subtitle) && (
-          <div className="flex items-start justify-between p-5 border-b border-accent-100 dark:border-accent-800">
+          <div className="flex items-start justify-between p-6 border-b border-accent-100 dark:border-accent-800">
             <div>
-              {title && <h2 className="text-base font-bold text-accent-900 dark:text-white">{title}</h2>}
-              {subtitle && <p className="text-xs text-accent-500 dark:text-accent-400 mt-0.5">{subtitle}</p>}
+              {title && <h3 className="text-base font-bold text-accent-900 dark:text-white">{title}</h3>}
+              {subtitle && <p className="text-xs text-accent-500 dark:text-accent-400 mt-0.5 leading-relaxed">{subtitle}</p>}
             </div>
-            <button
-              onClick={onClose}
-              className="text-accent-400 hover:text-accent-700 dark:hover:text-white hover:bg-accent-100 dark:hover:bg-accent-800 rounded-lg p-1.5 transition-colors cursor-pointer"
-            >
-              <X size={18} />
+            <button onClick={onClose} className="p-1.5 text-accent-400 hover:text-accent-700 dark:hover:text-white hover:bg-accent-100 dark:hover:bg-accent-800 rounded-xl transition-colors cursor-pointer">
+              <X size={16} />
             </button>
           </div>
         )}
-        <div className="flex-1 overflow-y-auto p-5">{children}</div>
-        {footer && (
-          <div className="flex items-center justify-end gap-3 p-5 border-t border-accent-100 dark:border-accent-800">
-            {footer}
-          </div>
-        )}
+        <div className="p-6 max-h-[calc(100vh-200px)] overflow-y-auto">{children}</div>
+        {footer && <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-accent-100 dark:border-accent-800 bg-accent-50/50 dark:bg-accent-950/50">{footer}</div>}
       </div>
     </div>
   );
 }
 
-export function Tabs({ tabs = [], active, onChange, className = '' }) {
+export function Tabs({ tabs, active, onChange, size = 'md' }) {
   return (
-    <div className={`flex items-center gap-1 border-b border-accent-200 dark:border-accent-800 overflow-x-auto no-scrollbar ${className}`}>
+    <div className="flex border-b border-accent-200 dark:border-accent-800 gap-6">
       {tabs.map((tab) => {
-        const isActive = active === tab.key;
+        const isActive = active === tab.id;
         return (
           <button
-            key={tab.key}
-            onClick={() => onChange(tab.key)}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
+            key={tab.id}
+            onClick={() => onChange(tab.id)}
+            className={`pb-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
               isActive
                 ? 'border-primary-600 dark:border-primary-400 text-primary-600 dark:text-primary-400'
-                : 'border-transparent text-accent-500 hover:text-accent-800 dark:hover:text-accent-200 hover:border-accent-300 dark:hover:border-accent-700'
+                : 'border-transparent text-accent-500 dark:text-accent-400 hover:text-accent-800 dark:hover:text-white'
             }`}
           >
             {tab.icon}
             <span>{tab.label}</span>
+            {tab.badge !== undefined && (
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                isActive ? 'bg-primary-100 text-primary-700 dark:bg-primary-950 dark:text-primary-300' : 'bg-accent-100 text-accent-600 dark:bg-accent-800 dark:text-accent-400'
+              }`}>
+                {tab.badge}
+              </span>
+            )}
           </button>
         );
       })}
@@ -66,57 +64,74 @@ export function Tabs({ tabs = [], active, onChange, className = '' }) {
   );
 }
 
-export function ProgressRing({ value, max = 100, size = 120, strokeWidth = 8, color = '#2563eb', label, sublabel }) {
+export function ProgressRing({ progress = 0, size = 60, strokeWidth = 5, color = '#2563eb', trackColor = 'currentColor', label, showPercent = true }) {
   const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (value / max) * circumference;
+  const circumference = radius * 2 * Math.PI;
+  const offset = circumference - (progress / 100) * circumference;
 
   return (
-    <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="currentColor" className="text-accent-100 dark:text-accent-800" strokeWidth={strokeWidth} />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke={color}
-          strokeWidth={strokeWidth}
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          className="transition-all duration-700 ease-out"
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        {label && <span className="text-xl font-bold font-display text-accent-900 dark:text-white">{label}</span>}
-        {sublabel && <span className="text-[11px] text-accent-500 dark:text-accent-400 font-medium">{sublabel}</span>}
+    <div className="flex flex-col items-center">
+      <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
+        <svg width={size} height={size} className="transform -rotate-90">
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            strokeWidth={strokeWidth}
+            fill="transparent"
+            className="text-accent-100 dark:text-accent-800"
+            stroke={trackColor}
+          />
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            strokeWidth={strokeWidth}
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            strokeLinecap="round"
+            fill="transparent"
+            stroke={color}
+            className="transition-all duration-700 ease-out"
+          />
+        </svg>
+        {showPercent && (
+          <span className="absolute text-xs font-bold font-mono text-accent-900 dark:text-white">
+            {Math.round(progress)}%
+          </span>
+        )}
       </div>
+      {label && <span className="text-[11px] text-accent-500 dark:text-accent-400 mt-1 font-medium">{label}</span>}
     </div>
   );
 }
 
-export function ProgressBar({ value, max = 100, color = 'primary', size = 'md', showLabel, label, className = '' }) {
-  const percentage = Math.min((value / max) * 100, 100);
-  const colorClasses = {
-    primary: 'bg-primary-500',
+export function ProgressBar({ value = 0, max = 100, color = 'primary', size = 'md', showLabel = false }) {
+  const percentage = Math.min(100, Math.max(0, (value / max) * 100));
+  const colors = {
+    primary: 'bg-primary-600',
+    secondary: 'bg-secondary-600',
     success: 'bg-success-500',
     warning: 'bg-warning-500',
     danger: 'bg-danger-500',
-    secondary: 'bg-secondary-500',
+  };
+  const heights = {
+    sm: 'h-1.5',
+    md: 'h-2.5',
+    lg: 'h-4',
   };
 
   return (
-    <div className={`w-full ${className}`}>
-      {(showLabel || label) && (
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-xs text-accent-600 dark:text-accent-400 font-medium">{label || `${value} / ${max}`}</span>
-          <span className="text-xs font-bold text-accent-800 dark:text-accent-200">{Math.round(percentage)}%</span>
+    <div className="w-full">
+      {showLabel && (
+        <div className="flex justify-between text-xs font-medium text-accent-600 dark:text-accent-400 mb-1">
+          <span>Progress</span>
+          <span className="font-mono">{Math.round(percentage)}%</span>
         </div>
       )}
-      <div className={`w-full ${size === 'sm' ? 'h-1.5' : 'h-2'} bg-accent-100 dark:bg-accent-800 rounded-full overflow-hidden`}>
+      <div className={`w-full bg-accent-100 dark:bg-accent-800 rounded-full overflow-hidden ${heights[size] || heights.md}`}>
         <div
-          className={`h-full ${colorClasses[color] || colorClasses.primary} rounded-full transition-all duration-700 ease-out`}
+          className={`h-full rounded-full transition-all duration-500 ease-out ${colors[color] || colors.primary}`}
           style={{ width: `${percentage}%` }}
         />
       </div>
@@ -156,6 +171,7 @@ export function Toast({ message, type = 'success', onClose }) {
     success: <CheckCircle size={16} className="text-success-500" />,
     danger: <AlertCircle size={16} className="text-danger-500" />,
     info: <Info size={16} className="text-info-500" />,
+    warning: <AlertCircle size={16} className="text-warning-500" />,
   };
 
   return (
@@ -167,7 +183,7 @@ export function Toast({ message, type = 'success', onClose }) {
           setVisible(false);
           onClose?.();
         }}
-        className="text-accent-400 hover:text-accent-700 dark:hover:text-white ml-2"
+        className="text-accent-400 hover:text-accent-700 dark:hover:text-white ml-2 cursor-pointer"
       >
         <X size={14} />
       </button>
@@ -190,36 +206,144 @@ export function EmptyState({ icon, title, description, action }) {
   );
 }
 
+/* =========================================================================
+   Universal Enterprise Skeleton Loaders Suite
+   ========================================================================= */
+
 export function Skeleton({ className = '' }) {
   return <div className={`skeleton ${className}`} />;
 }
 
-export function SkeletonTable({ rows = 5, cols = 6 }) {
+export function SkeletonTable({ rows = 5, cols = 5 }) {
   return (
-    <div className="space-y-3">
-      {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="flex gap-4">
-          {Array.from({ length: cols }).map((_, j) => (
-            <Skeleton key={j} className="h-4 flex-1 rounded-lg" />
-          ))}
-        </div>
+    <div className="bg-white dark:bg-accent-900 rounded-2xl border border-accent-200 dark:border-accent-800 overflow-hidden">
+      <div className="p-4 border-b border-accent-100 dark:border-accent-800 flex gap-4 bg-accent-50/50 dark:bg-accent-900/50">
+        {Array.from({ length: cols }).map((_, j) => (
+          <Skeleton key={j} className="h-4 flex-1 rounded-md" />
+        ))}
+      </div>
+      <div className="divide-y divide-accent-100 dark:divide-accent-800 p-4 space-y-3">
+        {Array.from({ length: rows }).map((_, i) => (
+          <div key={i} className="flex items-center gap-4 py-2">
+            <Skeleton className="w-8 h-8 rounded-xl shrink-0" />
+            {Array.from({ length: cols - 1 }).map((_, j) => (
+              <Skeleton key={j} className={`h-4 flex-1 rounded-md ${j === cols - 2 ? 'w-16' : ''}`} />
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function SkeletonCards({ count = 6 }) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {Array.from({ length: count }).map((_, i) => (
+        <Card key={i}>
+          <div className="p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <Skeleton className="w-10 h-10 rounded-xl" />
+              <Skeleton className="w-20 h-6 rounded-lg" />
+            </div>
+            <Skeleton className="h-5 w-3/4 rounded-lg" />
+            <Skeleton className="h-4 w-full rounded-md" />
+            <Skeleton className="h-4 w-2/3 rounded-md" />
+            <div className="grid grid-cols-3 gap-2 pt-3 border-t border-accent-100 dark:border-accent-800">
+              <Skeleton className="h-8 rounded-lg" />
+              <Skeleton className="h-8 rounded-lg" />
+              <Skeleton className="h-8 rounded-lg" />
+            </div>
+          </div>
+        </Card>
       ))}
     </div>
   );
 }
 
-export function SkeletonCards({ count = 4 }) {
+export function SkeletonMetrics({ count = 4 }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       {Array.from({ length: count }).map((_, i) => (
-        <Card key={i}>
-          <div className="p-5">
-            <Skeleton className="w-10 h-10 rounded-xl mb-3" />
-            <Skeleton className="h-6 w-20 mb-2 rounded-lg" />
-            <Skeleton className="h-4 w-32 rounded-lg" />
+        <Card key={i} className="p-5">
+          <div className="flex items-center justify-between mb-3">
+            <Skeleton className="w-10 h-10 rounded-xl" />
+            <Skeleton className="w-12 h-5 rounded-full" />
+          </div>
+          <Skeleton className="h-7 w-24 mb-1 rounded-lg" />
+          <Skeleton className="h-4 w-32 rounded-md" />
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+export function SkeletonList({ count = 5 }) {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: count }).map((_, i) => (
+        <Card key={i} className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3.5 flex-1">
+              <Skeleton className="w-10 h-10 rounded-xl shrink-0" />
+              <div className="space-y-1.5 flex-1 max-w-md">
+                <Skeleton className="h-4 w-48 rounded-md" />
+                <Skeleton className="h-3 w-64 rounded-md" />
+              </div>
+            </div>
+            <Skeleton className="w-24 h-7 rounded-xl shrink-0" />
           </div>
         </Card>
       ))}
+    </div>
+  );
+}
+
+export function SkeletonDashboard() {
+  return (
+    <div className="space-y-6">
+      <SkeletonMetrics count={4} />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card className="lg:col-span-2 p-5">
+          <Skeleton className="h-6 w-48 mb-4 rounded-lg" />
+          <Skeleton className="h-56 w-full rounded-xl" />
+        </Card>
+        <Card className="p-5">
+          <Skeleton className="h-6 w-36 mb-4 rounded-lg" />
+          <div className="flex justify-center py-6">
+            <Skeleton className="w-36 h-36 rounded-full" />
+          </div>
+        </Card>
+      </div>
+      <SkeletonTable rows={4} cols={5} />
+    </div>
+  );
+}
+
+export function SkeletonProfile() {
+  return (
+    <div className="space-y-6">
+      <Card className="p-6">
+        <div className="flex items-center gap-4">
+          <Skeleton className="w-16 h-16 rounded-2xl shrink-0" />
+          <div className="space-y-2 flex-1">
+            <Skeleton className="h-6 w-48 rounded-lg" />
+            <Skeleton className="h-4 w-64 rounded-md" />
+          </div>
+          <Skeleton className="w-28 h-9 rounded-xl shrink-0" />
+        </div>
+      </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="p-5 space-y-4">
+          <Skeleton className="h-5 w-32 rounded-lg" />
+          <Skeleton className="h-28 w-full rounded-xl" />
+          <Skeleton className="h-20 w-full rounded-xl" />
+        </Card>
+        <Card className="lg:col-span-2 p-5 space-y-4">
+          <Skeleton className="h-5 w-40 rounded-lg" />
+          <SkeletonTable rows={4} cols={4} />
+        </Card>
+      </div>
     </div>
   );
 }

@@ -31,6 +31,12 @@ const questionBankSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    categoryId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "QuestionCategory",
+      default: null,
+      index: true,
+    },
     departmentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Department",
@@ -47,9 +53,19 @@ const questionBankSchema = new mongoose.Schema(
       required: [true, "Owner ID is required"],
       index: true,
     },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
     status: {
       type: String,
-      enum: ["ACTIVE", "ARCHIVED"],
+      enum: ["ACTIVE", "ARCHIVED", "DELETED"],
       default: "ACTIVE",
       index: true,
     },
@@ -58,9 +74,22 @@ const questionBankSchema = new mongoose.Schema(
       enum: ["PRIVATE", "ORGANIZATION"],
       default: "ORGANIZATION",
     },
+    questionCount: {
+      type: Number,
+      default: 0,
+    },
     settings: {
       type: mongoose.Schema.Types.Mixed,
       default: {},
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
     },
   },
   {

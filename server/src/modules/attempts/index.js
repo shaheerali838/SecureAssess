@@ -1,9 +1,12 @@
-import express from "express";
-const router = express.Router();
+import router from "./attempt.routes.js";
+import Attempt from "./attempt.model.js";
+import { AttemptService } from "./attempt.service.js";
+import { AttemptValidator } from "./attempt.validation.js";
 
-// Module: attempts
-router.get("/", (req, res) => {
-  res.json({ success: true, message: "attempts module initialized" });
-});
+export {
+  Attempt,
+  AttemptService,
+  AttemptValidator,
+};
 
 export default router;

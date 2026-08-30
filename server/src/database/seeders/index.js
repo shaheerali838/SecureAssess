@@ -2,6 +2,7 @@ import { connectDatabase, disconnectDatabase } from "../../config/db.js";
 import { seedRBAC } from "./rbac.seeder.js";
 import { seedPlatformOwner } from "./admin.seeder.js";
 import { seedDemoAccounts } from "./demo.seeder.js";
+import { seedAssessmentsAndQuestions } from "./assessment.seeder.js";
 import { logger } from "../../config/logger.js";
 
 export const runSeeders = async () => {
@@ -17,6 +18,9 @@ export const runSeeders = async () => {
 
     // 3. Seed Demo Tenant Organization & Multi-Role Persona Accounts
     await seedDemoAccounts();
+
+    // 4. Seed Live Assessments & Question Bank
+    await seedAssessmentsAndQuestions();
 
     logger.info("[Seeder] Database seeding completed successfully!");
   } catch (error) {

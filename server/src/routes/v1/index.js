@@ -9,6 +9,13 @@ import resultsRoutes from "../../modules/results/index.js";
 import organizationsRoutes from "../../modules/organizations/index.js";
 import questionBankRoutes from "../../modules/questionBank/index.js";
 import platformRoutes from "../../modules/platform/index.js";
+import notificationsRoutes from "../../modules/notifications/index.js";
+import evaluationsRoutes from "../../modules/evaluations/index.js";
+import reportsRoutes from "../../modules/reports/index.js";
+import auditLogRoutes from "../../modules/auditLogs/index.js";
+import subscriptionsRoutes from "../../modules/subscriptions/index.js";
+import candidatesRoutes from "../../modules/candidates/index.js";
+import { verifyPublicCertificate } from "../../modules/certificates/certificate.controller.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 
 const router = express.Router();
@@ -27,15 +34,26 @@ router.get("/health", (req, res) => {
     .json(new ApiResponse(statusCode, statusData, "Platform health status"));
 });
 
+// Public Credential Verification Endpoint
+router.get("/public/certificates/verify/:verificationCode", verifyPublicCertificate);
+router.get("/verify/certificates/:verificationCode", verifyPublicCertificate);
+
 // Core API v1 routes
 router.use("/platform", platformRoutes);
 router.use("/auth", authRoutes);
 router.use("/users", usersRoutes);
 router.use("/assessments", assessmentsRoutes);
 router.use("/attempts", attemptsRoutes);
+router.use("/evaluations", evaluationsRoutes);
 router.use("/proctoring", proctoringRoutes);
 router.use("/results", resultsRoutes);
 router.use("/organizations", organizationsRoutes);
 router.use("/questions", questionBankRoutes);
+router.use("/notifications", notificationsRoutes);
+router.use("/subscriptions", subscriptionsRoutes);
+router.use("/candidate-portal", candidatesRoutes);
+router.use("/candidates", candidatesRoutes);
+router.use("/reports", reportsRoutes);
+router.use("/audit-logs", auditLogRoutes);
 
 export default router;

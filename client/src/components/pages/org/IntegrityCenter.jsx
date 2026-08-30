@@ -1,41 +1,104 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ShieldCheck, AlertCircle, Download, ChevronRight,
-  Activity, Eye, Clock,
+  Activity, Eye, Clock, Radio, RefreshCw
 } from 'lucide-react';
 import {
   Card, CardHeader, CardBody, MetricCard, Badge, RiskBadge, Button,
-  SearchBar, PageHeader, Select, DonutChart, BarChart,
+  SearchBar, PageHeader, Select, DonutChart, BarChart, Toast
 } from '@/components/ui';
-import { integrityFlags } from '@/data';
+import { integrityFlags as defaultFlags } from '@/data';
+import socketService from '@/services/socketService';
 
 export function IntegrityCenter({ onNavigate }) {
+  const [flags, setFlags] = useState(defaultFlags);
   const [search, setSearch] = useState('');
-  const filtered = integrityFlags.filter((f) =>
-    f.participant.toLowerCase().includes(search.toLowerCase()) ||
-    f.title.toLowerCase().includes(search.toLowerCase())
-  );
+  const [riskFilter, setRiskFilter] = useState('all');
+  const [liveIncidentToast, setLiveIncidentToast] = useState(null);
+  const [liveSocketConnected, setLiveSocketConnected] = useState(false);
+
+  useEffect(() => {
+    const socket = socketService.connect();
+    if (socket) {
+      setLiveSocketConnected(true);
+      socketService.joinRoom('org_proctoring_hub', 'examiner_01', 'proctor');
+
+      const handleIncomingAnomaly = (data) => {
+        const newFlag = {
+          id: Date.now(),
+          participant: data.metadata?.participant || 'Candidate',
+          assessment: data.metadata?.assessment || 'Live Assessment',
+          type: data.eventType || 'TAB_BLUR',
+          title: data.eventType === 'TAB_BLUR' ? 'Browser Tab Focus Loss' : 'Suspicious Clipboard Activity',
+          description: data.metadata?.details || 'Live telemetry detected abnormal examinee window focus.',
+          riskLevel: data.metadata?.riskLevel || 'Medium',
+          timestamp: 'Just now',
+          status: 'Under Review',
+        };
+
+        setFlags((prev) => [newFlag, ...prev]);
+        setLiveIncidentToast({
+          type: 'warning',
+          text: `🚨 Live Alert: ${newFlag.title} detected for ${newFlag.participant}`,
+        });
+      };
+
+      socketService.on('candidate-anomaly', handleIncomingAnomaly);
+      socketService.on('proctor-event', handleIncomingAnomaly);
+
+      return () => {
+        socketService.off('candidate-anomaly', handleIncomingAnomaly);
+        socketService.off('proctor-event', handleIncomingAnomaly);
+      };
+    }
+  }, []);
+
+  const filtered = flags.filter((f) => {
+    const participant = (f.participant || '').toLowerCase();
+    const title = (f.title || '').toLowerCase();
+    const matchesSearch = participant.includes(search.toLowerCase()) || title.includes(search.toLowerCase());
+    const matchesRisk = riskFilter === 'all' || (f.riskLevel || '').toLowerCase() === riskFilter.toLowerCase();
+    return matchesSearch && matchesRisk;
+  });
+
+  const highRiskCount = flags.filter(f => f.riskLevel === 'High').length;
+  const mediumRiskCount = flags.filter(f => f.riskLevel === 'Medium').length;
+  const lowRiskCount = flags.filter(f => f.riskLevel === 'Low').length;
 
   return (
     <div className="space-y-6">
+      {liveIncidentToast && (
+        <Toast
+          type={liveIncidentToast.type}
+          message={liveIncidentToast.text}
+          onClose={() => setLiveIncidentToast(null)}
+        />
+      )}
+
       <PageHeader
         title="Proctoring & Integrity Center"
         subtitle="Telemetry signals, automated anti-cheat detections, and invigilator review queues."
         icon={<ShieldCheck size={22} className="text-primary-600 dark:text-primary-400" />}
         breadcrumbs={[{ label: 'Dashboard', onClick: () => onNavigate('org-dashboard') }, { label: 'Integrity' }]}
         actions={
-          <Button variant="outline" size="sm" icon={<Download size={15} />}>
-            Export Audit Logs
-          </Button>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-success-50 dark:bg-success-950/60 border border-success-200 dark:border-success-800/40 text-xs font-semibold text-success-700 dark:text-success-300">
+              <Radio size={14} className="animate-pulse text-success-500" />
+              <span>Live Socket Stream</span>
+            </div>
+            <Button variant="outline" size="sm" icon={<Download size={15} />}>
+              Export Audit Logs
+            </Button>
+          </div>
         }
       />
 
       {/* Metrics */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard label="Sessions Analyzed" value="182" icon={<Activity size={20} />} color="primary" />
-        <MetricCard label="Clean / Low Risk" value="149" icon={<ShieldCheck size={20} />} color="success" />
-        <MetricCard label="Medium Flags" value="26" icon={<AlertCircle size={20} />} color="warning" />
-        <MetricCard label="High Risk Incidents" value="7" icon={<AlertCircle size={20} />} color="danger" />
+        <MetricCard label="Sessions Analyzed" value={180 + flags.length} icon={<Activity size={20} />} color="primary" />
+        <MetricCard label="Clean / Low Risk" value={140 + lowRiskCount} icon={<ShieldCheck size={20} />} color="success" />
+        <MetricCard label="Medium Flags" value={mediumRiskCount} icon={<AlertCircle size={20} />} color="warning" />
+        <MetricCard label="High Risk Incidents" value={highRiskCount} icon={<AlertCircle size={20} />} color="danger" />
       </div>
 
       {/* Charts */}
@@ -44,12 +107,12 @@ export function IntegrityCenter({ onNavigate }) {
           <CardHeader title="Risk Profile Breakdown" icon={<ShieldCheck size={18} />} />
           <CardBody>
             <DonutChart
-              centerValue="182"
-              centerLabel="Sessions"
+              centerValue={String(flags.length)}
+              centerLabel="Flags"
               data={[
-                { label: 'Low Risk', value: 149, color: '#22c55e' },
-                { label: 'Medium Risk', value: 26, color: '#f59e0b' },
-                { label: 'High Risk', value: 7, color: '#ef4444' },
+                { label: 'Low Risk', value: lowRiskCount || 1, color: '#22c55e' },
+                { label: 'Medium Risk', value: mediumRiskCount || 1, color: '#f59e0b' },
+                { label: 'High Risk', value: highRiskCount || 1, color: '#ef4444' },
               ]}
             />
           </CardBody>
@@ -86,6 +149,8 @@ export function IntegrityCenter({ onNavigate }) {
             <div className="flex flex-col sm:flex-row gap-3">
               <SearchBar value={search} onChange={setSearch} placeholder="Search by candidate or signal..." className="flex-1" />
               <Select
+                value={riskFilter}
+                onChange={(e) => setRiskFilter(e.target.value)}
                 options={[
                   { value: 'all', label: 'All Risk Levels' },
                   { value: 'low', label: 'Low Risk' },
@@ -118,46 +183,27 @@ export function IntegrityCenter({ onNavigate }) {
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <p className="text-xs font-bold text-accent-900 dark:text-white">{flag.title}</p>
+                    <span className="text-xs font-bold text-accent-900 dark:text-white">{flag.participant}</span>
+                    <span className="text-accent-300 dark:text-accent-700">·</span>
+                    <span className="text-xs text-accent-500 dark:text-accent-400">{flag.assessment}</span>
                     <RiskBadge level={flag.riskLevel} />
-                    <Badge variant="neutral">Confidence: {flag.confidence}</Badge>
+                    <Badge variant="neutral">{flag.type || 'Telemetry'}</Badge>
                   </div>
-                  <p className="text-[11px] text-accent-500 dark:text-accent-400 mb-1">
-                    {flag.participant} · {flag.session}
-                  </p>
-                  <p className="text-xs text-accent-700 dark:text-accent-300 line-clamp-1">{flag.context}</p>
-                  <div className="flex items-center gap-3 mt-2 text-[11px] text-accent-400 font-mono">
-                    <span className="flex items-center gap-1"><Clock size={11} /> {flag.timestamp}</span>
-                    <span className="flex items-center gap-1"><Activity size={11} /> {flag.source}</span>
-                  </div>
+                  <p className="text-xs font-semibold text-accent-800 dark:text-accent-200 mb-0.5">{flag.title}</p>
+                  <p className="text-[11px] text-accent-500 dark:text-accent-400 leading-relaxed">{flag.description}</p>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    icon={<Eye size={13} />}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onNavigate('org-integrity-evidence');
-                    }}
-                  >
-                    Evidence
-                  </Button>
-                  <ChevronRight size={15} className="text-accent-400" />
+                  <div className="flex items-center gap-1 text-[11px] text-accent-400 font-mono">
+                    <Clock size={12} /> {flag.timestamp}
+                  </div>
+                  <ChevronRight size={16} className="text-accent-400" />
                 </div>
               </div>
             ))}
           </div>
         </CardBody>
       </Card>
-
-      {/* Governance Disclaimer */}
-      <div className="p-4 bg-accent-50 dark:bg-accent-900/40 rounded-2xl border border-accent-200 dark:border-accent-800">
-        <p className="text-xs text-accent-600 dark:text-accent-400 italic leading-relaxed">
-          "Proctoring anomaly events serve as objective audit trails. Automated flags do not independently penalize examinees without human faculty review and verification."
-        </p>
-      </div>
     </div>
   );
 }

@@ -1,9 +1,14 @@
-import express from "express";
-const router = express.Router();
+import router from "./candidateGroup.routes.js";
+import CandidateGroup from "./candidateGroup.model.js";
+import CandidateGroupMember from "./candidateGroupMember.model.js";
+import { CandidateGroupService } from "./candidateGroup.service.js";
+import { CandidateGroupValidator } from "./candidateGroup.validation.js";
 
-// Module: candidateGroups
-router.get("/", (req, res) => {
-  res.json({ success: true, message: "candidateGroups module initialized" });
-});
+export {
+  CandidateGroup,
+  CandidateGroupMember,
+  CandidateGroupService,
+  CandidateGroupValidator,
+};
 
 export default router;

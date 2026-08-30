@@ -21,6 +21,54 @@ const questionOptionSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const codingConfigSchema = new mongoose.Schema(
+  {
+    languages: {
+      type: [String],
+      default: ["javascript", "python", "java", "cpp"],
+    },
+    starterCode: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
+    timeLimit: {
+      type: Number,
+      default: 2000, // ms
+    },
+    memoryLimit: {
+      type: Number,
+      default: 256, // MB
+    },
+    testCases: [
+      {
+        input: { type: String, default: "" },
+        expectedOutput: { type: String, default: "" },
+        isHidden: { type: Boolean, default: false },
+        points: { type: Number, default: 1 },
+      },
+    ],
+  },
+  { _id: false }
+);
+
+const fileUploadConfigSchema = new mongoose.Schema(
+  {
+    allowedExtensions: {
+      type: [String],
+      default: [".pdf", ".zip", ".docx"],
+    },
+    maxFileSize: {
+      type: Number,
+      default: 10485760, // 10MB in bytes
+    },
+    maxFiles: {
+      type: Number,
+      default: 1,
+    },
+  },
+  { _id: false }
+);
+
 const questionSchema = new mongoose.Schema(
   {
     organizationId: {
@@ -74,9 +122,21 @@ const questionSchema = new mongoose.Schema(
       required: [true, "Question prompt is required"],
       trim: true,
     },
+    description: {
+      type: String,
+      default: "",
+    },
+    content: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
     options: {
       type: [questionOptionSchema],
       default: [],
+    },
+    answer: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
     },
     correctAnswer: {
       type: mongoose.Schema.Types.Mixed,
@@ -88,15 +148,36 @@ const questionSchema = new mongoose.Schema(
     },
     difficulty: {
       type: String,
-      enum: ["EASY", "MEDIUM", "HARD"],
+      enum: ["EASY", "MEDIUM", "HARD", "EXPERT"],
       default: "MEDIUM",
       index: true,
     },
+    marks: {
+      type: Number,
+      default: 1,
+      min: 0,
+    },
     points: {
       type: Number,
-      required: true,
-      min: 0,
       default: 1,
+      min: 0,
+    },
+    negativeMarks: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    estimatedTime: {
+      type: Number,
+      default: 60, // seconds
+    },
+    coding: {
+      type: codingConfigSchema,
+      default: null,
+    },
+    fileUpload: {
+      type: fileUploadConfigSchema,
+      default: null,
     },
     tags: [
       {
@@ -104,10 +185,6 @@ const questionSchema = new mongoose.Schema(
         ref: "QuestionTag",
       },
     ],
-    timeLimit: {
-      type: Number,
-      default: 0, // 0 = unlimited seconds
-    },
     status: {
       type: String,
       enum: ["DRAFT", "ACTIVE", "ARCHIVED"],
@@ -129,9 +206,10 @@ const questionSchema = new mongoose.Schema(
 );
 
 // Compound indexes
-questionSchema.index({ questionBankId: 1, status: 1 });
-questionSchema.index({ organizationId: 1, type: 1 });
+questionSchema.index({ organizationId: 1, questionBankId: 1, status: 1 });
+questionSchema.index({ organizationId: 1, type: 1, difficulty: 1 });
 questionSchema.index({ organizationId: 1, tags: 1 });
+questionSchema.index({ organizationId: 1, subjectId: 1 });
 
 const Question =
   mongoose.models.Question || mongoose.model("Question", questionSchema);

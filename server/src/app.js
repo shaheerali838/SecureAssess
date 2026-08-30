@@ -5,6 +5,7 @@ import { corsOptions } from "./config/cors.js";
 import { securityHeaders } from "./middleware/security.middleware.js";
 import { rateLimiter } from "./middleware/rateLimit.middleware.js";
 import { tenantMiddleware } from "./middleware/tenant.middleware.js";
+import { requestIdMiddleware } from "./middleware/requestId.middleware.js";
 import { notFoundHandler } from "./middleware/notFound.middleware.js";
 import { errorHandler } from "./middleware/error.middleware.js";
 import rootRoutes from "./routes/index.js";
@@ -12,6 +13,7 @@ import rootRoutes from "./routes/index.js";
 const app = express();
 
 // Global Middlewares
+app.use(requestIdMiddleware);
 app.use(securityHeaders);
 app.use(cors(corsOptions));
 app.use(express.json({ limit: "16kb" }));
