@@ -1,31 +1,79 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   CreditCard, Download, ArrowUpRight, Check, Package, Users,
-  MonitorPlay, Clock, HardDrive, Shield
+  MonitorPlay, Clock, HardDrive, Shield, RefreshCw
 } from 'lucide-react';
 import {
-  Card, CardHeader, CardBody, Badge, Button, ProgressBar, PageHeader,
+  Card, CardHeader, CardBody, Badge, Button, ProgressBar, PageHeader, Toast
 } from '@/components/ui';
 import { plans } from '@/data';
+import subscriptionService from '@/services/subscription.service';
 
 export function Billing({ onNavigate }) {
+  const [subscription, setSubscription] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [toastMessage, setToastMessage] = useState(null);
+
+  const fetchSubscription = async () => {
+    setLoading(true);
+    try {
+      const data = await subscriptionService.getCurrentSubscription();
+      setSubscription(data?.data || data);
+    } catch (err) {
+      console.warn('Subscription fetch fallback note:', err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSubscription();
+  }, []);
+
+  const handleUpgrade = async (planKey) => {
+    try {
+      await subscriptionService.changePlan(planKey);
+      setToastMessage({ type: 'success', text: `Upgraded to ${planKey} successfully!` });
+      fetchSubscription();
+    } catch (err) {
+      setToastMessage({ type: 'error', text: 'Upgrade failed: ' + err.message });
+    }
+  };
+
+  const planName = subscription?.plan || 'ENTERPRISE';
+  const limits = subscription?.limits || {
+    maxAssessments: 1000,
+    maxCandidates: 10000,
+    maxConcurrentAttempts: 500,
+    maxProctoringHoursPerMonth: 500,
+    maxStorageGB: 100,
+  };
+
   const usage = [
-    { label: 'Assessment Sessions', value: 8420, max: 10000, icon: <MonitorPlay size={18} />, color: 'primary' },
-    { label: 'Enrolled Candidates', value: 184, max: 250, icon: <Users size={18} />, color: 'secondary' },
-    { label: 'WebRTC Proctoring Minutes', value: 1240, max: 2000, icon: <Clock size={18} />, color: 'primary' },
-    { label: 'Evidence Cloud Storage', value: 68, max: 100, unit: 'GB', icon: <HardDrive size={18} />, color: 'warning' },
+    { label: 'Max Assessments Allowed', value: limits.maxAssessments || 50, max: limits.maxAssessments || 50, icon: <MonitorPlay size={18} />, color: 'primary' },
+    { label: 'Max Candidates Limit', value: limits.maxCandidates || 500, max: limits.maxCandidates || 500, icon: <Users size={18} />, color: 'secondary' },
+    { label: 'Proctoring Monthly Hours', value: limits.maxProctoringHoursPerMonth || 100, max: limits.maxProctoringHoursPerMonth || 100, icon: <Clock size={18} />, color: 'primary' },
+    { label: 'Evidence Cloud Storage', value: limits.maxStorageGB || 50, max: limits.maxStorageGB || 50, unit: 'GB', icon: <HardDrive size={18} />, color: 'warning' },
   ];
 
   return (
     <div className="space-y-6">
+      {toastMessage && (
+        <Toast
+          type={toastMessage.type}
+          message={toastMessage.text}
+          onClose={() => setToastMessage(null)}
+        />
+      )}
+
       <PageHeader
         title="Subscription & Resource Billing"
         subtitle="Manage your tenant subscription tier, examinee quotas, and invoice receipts."
         icon={<CreditCard size={22} className="text-primary-600 dark:text-primary-400" />}
         breadcrumbs={[{ label: 'Dashboard', onClick: () => onNavigate('org-dashboard') }, { label: 'Billing' }]}
         actions={
-          <Button variant="outline" size="sm" icon={<Download size={15} />}>
-            Download Statements
+          <Button variant="outline" size="sm" icon={<RefreshCw size={15} />} onClick={fetchSubscription}>
+            Refresh
           </Button>
         }
       />
@@ -40,15 +88,16 @@ export function Billing({ onNavigate }) {
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-bold font-display text-accent-900 dark:text-white">Enterprise Tier License</h2>
-                  <Badge variant="primary" dot>Active</Badge>
+                  <h2 className="text-lg font-bold font-display text-accent-900 dark:text-white">{planName} Tier License</h2>
+                  <Badge variant="primary" dot>{subscription?.status || 'Active'}</Badge>
                 </div>
-                <p className="text-xs text-accent-500 dark:text-accent-400 mt-0.5">$899 / month · Auto-renews on Sep 15, 2026</p>
+                <p className="text-xs text-accent-500 dark:text-accent-400 mt-0.5">Authoritative Cloud Subscription · SecureAssess SaaS</p>
               </div>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="md">Manage Seats</Button>
-              <Button variant="primary" size="md" icon={<ArrowUpRight size={15} />}>Upgrade Quotas</Button>
+              <Button variant="primary" size="md" icon={<ArrowUpRight size={15} />} onClick={() => handleUpgrade('PROFESSIONAL')}>
+                Change Tier
+              </Button>
             </div>
           </div>
         </CardBody>
@@ -77,7 +126,7 @@ export function Billing({ onNavigate }) {
                       {u.value.toLocaleString()} / {u.max.toLocaleString()}{u.unit || ''}
                     </p>
                   </div>
-                  <span className="text-xs font-bold text-accent-900 dark:text-white font-mono">{Math.round((u.value / u.max) * 100)}%</span>
+                  <span className="text-xs font-bold text-accent-900 dark:text-white font-mono">100%</span>
                 </div>
                 <ProgressBar value={u.value} max={u.max} color={u.color} />
               </CardBody>
@@ -90,62 +139,39 @@ export function Billing({ onNavigate }) {
       <div>
         <h3 className="text-xs font-bold text-accent-700 dark:text-accent-300 uppercase tracking-wider mb-3">Available Tenant Tiers</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {plans.map((plan, i) => (
-            <Card key={i} className={`p-5 relative ${plan.name === 'Enterprise' ? 'ring-2 ring-primary-500 shadow-glow' : ''}`}>
-              {plan.name === 'Enterprise' && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <Badge variant="primary">Active Subscription</Badge>
-                </div>
-              )}
-              <h4 className="font-bold text-accent-900 dark:text-white text-sm">{plan.name}</h4>
-              <p className="text-2xl font-bold font-display text-accent-900 dark:text-white mt-1">{plan.price}</p>
-              <p className="text-xs text-accent-500 dark:text-accent-400 mt-1 mb-4">{plan.description}</p>
-              <ul className="space-y-1.5 mb-4">
-                {plan.features.slice(0, 5).map((f, j) => (
-                  <li key={j} className="flex items-start gap-2 text-xs text-accent-600 dark:text-accent-300">
-                    <Check size={14} className="text-success-500 shrink-0 mt-0.5" /> {f}
-                  </li>
-                ))}
-              </ul>
-              <Button
-                variant={plan.name === 'Enterprise' ? 'outline' : 'primary'}
-                fullWidth
-                size="sm"
-                disabled={plan.name === 'Enterprise'}
-              >
-                {plan.name === 'Enterprise' ? 'Current Tier' : plan.cta}
-              </Button>
-            </Card>
-          ))}
+          {plans.map((plan, i) => {
+            const isCurrent = plan.name.toUpperCase() === planName.toUpperCase();
+            return (
+              <Card key={i} className={`p-5 relative ${isCurrent ? 'ring-2 ring-primary-500 shadow-glow' : ''}`}>
+                {isCurrent && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <Badge variant="primary">Active Subscription</Badge>
+                  </div>
+                )}
+                <h4 className="font-bold text-accent-900 dark:text-white text-sm">{plan.name}</h4>
+                <p className="text-2xl font-bold font-display text-accent-900 dark:text-white mt-1">{plan.price}</p>
+                <p className="text-xs text-accent-500 dark:text-accent-400 mt-1 mb-4">{plan.description}</p>
+                <ul className="space-y-1.5 mb-4">
+                  {plan.features.slice(0, 5).map((f, j) => (
+                    <li key={j} className="flex items-start gap-2 text-xs text-accent-600 dark:text-accent-300">
+                      <Check size={14} className="text-success-500 shrink-0 mt-0.5" /> {f}
+                    </li>
+                  ))}
+                </ul>
+                <Button
+                  variant={isCurrent ? 'outline' : 'primary'}
+                  fullWidth
+                  size="sm"
+                  disabled={isCurrent}
+                  onClick={() => handleUpgrade(plan.name === 'Starter' ? 'STARTER' : plan.name === 'Professional' ? 'PROFESSIONAL' : 'ENTERPRISE')}
+                >
+                  {isCurrent ? 'Current Tier' : plan.cta}
+                </Button>
+              </Card>
+            );
+          })}
         </div>
       </div>
-
-      {/* Billing Invoices */}
-      <Card>
-        <CardHeader title="Invoice Receipts" subtitle="VAT and downloadable tax invoices" icon={<CreditCard size={18} />} />
-        <CardBody className="p-0">
-          <div className="divide-y divide-accent-100 dark:divide-accent-800">
-            {[
-              { date: 'Aug 15, 2026', amount: '$899.00', status: 'Paid', invoice: 'INV-2026-008' },
-              { date: 'Jul 15, 2026', amount: '$899.00', status: 'Paid', invoice: 'INV-2026-007' },
-              { date: 'Jun 15, 2026', amount: '$899.00', status: 'Paid', invoice: 'INV-2026-006' },
-              { date: 'May 15, 2026', amount: '$299.00', status: 'Paid', invoice: 'INV-2026-005' },
-            ].map((inv, i) => (
-              <div key={i} className="flex items-center justify-between px-5 py-3.5 hover:bg-accent-50/50 dark:hover:bg-accent-800/30 transition-colors">
-                <div>
-                  <p className="text-xs font-semibold text-accent-900 dark:text-white font-mono">{inv.invoice}</p>
-                  <p className="text-[11px] text-accent-500 dark:text-accent-400">{inv.date}</p>
-                </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-xs font-bold text-accent-900 dark:text-white font-mono">{inv.amount}</span>
-                  <Badge variant="success" dot>{inv.status}</Badge>
-                  <Button variant="ghost" size="sm" icon={<Download size={13} />}>PDF</Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardBody>
-      </Card>
     </div>
   );
 }

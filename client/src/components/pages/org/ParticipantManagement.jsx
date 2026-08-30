@@ -50,27 +50,28 @@ export function ParticipantManagement({ onNavigate }) {
     if (!name.trim() || !email.trim()) return;
     setIsSubmitting(true);
     try {
+      const parts = name.trim().split(' ');
+      const firstName = parts[0] || 'Candidate';
+      const lastName = parts.slice(1).join(' ') || 'Student';
+      const candidateCode = `CAND-${Math.floor(100000 + Math.random() * 900000)}`;
+
       const payload = {
-        name,
-        email,
-        cohort,
-        assessment: 'University Admission Test',
-        status: 'Invited',
-        score: null,
-        riskScore: 5,
-        riskLevel: 'Low',
-        stage: 'Invitation Sent',
-        lastActive: 'Just now',
+        firstName,
+        lastName,
+        candidateCode,
+        email: email.trim().toLowerCase(),
+        status: 'ACTIVE',
       };
 
       try {
-        await candidateService.createCandidate(payload);
-        setToastMessage({ type: 'success', text: 'Candidate invited successfully!' });
+        const created = await candidateService.createCandidate(payload);
+        const item = created?.data || created || { id: Date.now(), name, email, candidateCode, status: 'ACTIVE' };
+        setCandidatesList((prev) => [item, ...prev]);
+        setToastMessage({ type: 'success', text: `Candidate ${candidateCode} created successfully!` });
       } catch (err) {
-        setToastMessage({ type: 'success', text: 'Candidate added to cohort!' });
+        setToastMessage({ type: 'error', text: 'Failed to create candidate: ' + err.message });
       }
 
-      setCandidatesList((prev) => [{ id: Date.now(), ...payload }, ...prev]);
       setModalOpen(false);
       setName('');
       setEmail('');

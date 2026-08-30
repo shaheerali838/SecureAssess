@@ -26,10 +26,18 @@ export const organizationService = {
   },
 
   /**
-   * Platform-level: List all tenant organizations
+   * Update organization details & settings
    */
-  listPlatformOrganizations: async (params = {}) => {
-    const response = await api.get('/organizations', { params });
+  updateOrganization: async (organizationId, updateData) => {
+    const response = await api.patch(`/organizations/${organizationId}`, updateData);
+    return response.data || response;
+  },
+
+  /**
+   * Switch organization context
+   */
+  switchOrganization: async (organizationId) => {
+    const response = await api.post(`/organizations/${organizationId}/switch`);
     return response.data || response;
   },
 
@@ -46,6 +54,57 @@ export const organizationService = {
    */
   updateOrganizationStatus: async (organizationId, status) => {
     const response = await api.patch(`/organizations/${organizationId}/status`, { status });
+    return response.data || response;
+  },
+
+  /**
+   * Suspend organization
+   */
+  suspendOrganization: async (organizationId) => {
+    const response = await api.post(`/organizations/${organizationId}/suspend`);
+    return response.data || response;
+  },
+
+  /**
+   * Activate organization
+   */
+  activateOrganization: async (organizationId) => {
+    const response = await api.post(`/organizations/${organizationId}/activate`);
+    return response.data || response;
+  },
+
+  /**
+   * List staff members in organization
+   */
+  listMembers: async (organizationId, params = {}) => {
+    const response = await api.get(`/organizations/${organizationId}/members`, { params });
+    return response.data || response;
+  },
+
+  /**
+   * Invite staff member to organization
+   */
+  inviteMember: async (organizationId, inviteData) => {
+    const response = await api.post(`/organizations/${organizationId}/members/invite`, inviteData);
+    return response.data || response;
+  },
+
+  /**
+   * Update staff member role or status
+   */
+  updateMember: async (organizationId, membershipId, updateData) => {
+    const response = await api.patch(
+      `/organizations/${organizationId}/members/${membershipId}/role`,
+      updateData
+    );
+    return response.data || response;
+  },
+
+  /**
+   * Remove member from organization
+   */
+  removeMember: async (organizationId, membershipId) => {
+    const response = await api.delete(`/organizations/${organizationId}/members/${membershipId}`);
     return response.data || response;
   },
 };

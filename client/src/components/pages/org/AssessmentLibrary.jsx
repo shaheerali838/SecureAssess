@@ -130,15 +130,16 @@ export function AssessmentLibrary({ onNavigate }) {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((a) => {
             const id = a._id || a.id;
-            const title = a.title || a.name || 'Untitled Assessment';
-            const desc = a.description || 'Comprehensive evaluation assessment with proctoring parameters.';
-            const type = a.type || 'Examination';
-            const status = a.status || 'Draft';
-            const secLevel = a.securityLevel || a.securityTier || 'Standard';
-            const qCount = a.questions?.length || a.questionCount || a.questions || 10;
-            const duration = a.duration || a.durationMinutes || 90;
-            const avgScore = a.avgScore || 78;
-            const attempts = a.attempts || 0;
+            const title = typeof a.title === 'string' ? a.title : (typeof a.name === 'string' ? a.name : 'Untitled Assessment');
+            const desc = typeof a.description === 'string' ? a.description : 'Comprehensive evaluation assessment with proctoring parameters.';
+            const type = typeof a.type === 'string' ? a.type : 'Examination';
+            const status = typeof a.status === 'string' ? a.status : 'Draft';
+            const secLevel = typeof a.securityLevel === 'string' ? a.securityLevel : (typeof a.securityTier === 'string' ? a.securityTier : (a.securitySettings?.proctoringMode || 'Standard'));
+            const qCount = Array.isArray(a.questions) ? a.questions.length : (typeof a.questions === 'number' ? a.questions : (a.questionCount || 10));
+            const rawDuration = a.durationMinutes || a.duration || 90;
+            const duration = typeof rawDuration === 'object' && rawDuration !== null ? (rawDuration.value || 90) : rawDuration;
+            const avgScore = typeof a.avgScore === 'number' ? a.avgScore : 78;
+            const attempts = typeof a.attempts === 'number' ? a.attempts : 0;
 
             return (
               <Card key={id} hover className="overflow-hidden flex flex-col justify-between" onClick={() => onNavigate('org-assessment-builder')}>

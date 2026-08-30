@@ -7,9 +7,11 @@ import {
   PageHeader, Select, Modal, Input, Toast, SkeletonTable, EmptyState
 } from '@/components/ui';
 import { platformUsers as defaultStaff } from '@/data';
-import userService from '@/services/user.service';
+import organizationService from '@/services/organization.service';
+import { useOrganization } from '@/contexts/OrganizationContext';
 
 export function OrgUsers({ onNavigate }) {
+  const { currentOrganization } = useOrganization();
   const [usersList, setUsersList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -18,27 +20,51 @@ export function OrgUsers({ onNavigate }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState('Examiner');
+  const [role, setRole] = useState('EXAMINER');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await userService.getOrgUsers();
-      const items = Array.isArray(data) ? data : (data?.items || data?.users || data?.data || []);
-      if (items && items.length > 0) {
-        setUsersList(items);
-      } else {
-        setUsersList(defaultStaff);
+      const orgId = currentOrganization?._id || currentOrganization?.id;
+      if (orgId) {
+        const data = await organizationService.listMembers(orgId);
+        const items = Array.isArray(data) ? data : (data?.items || data?.members || data?.data || []);
+        if (items && items.length > 0) {
+          setUsersList(items.map((m) => {
+            const roleName = typeof m.roleId === 'object' && m.roleId !== null
+              ? (m.roleId.name || 'EXAMINER')
+              : (typeof m.role === 'object' && m.role !== null ? (m.role.name || 'EXAMINER') : (m.roleId || m.role || 'EXAMINER'));
+
+            const memberName = `${m.userId?.firstName || ''} ${m.userId?.lastName || ''}`.trim() || (typeof m.name === 'string' ? m.name : 'Staff Member');
+
+            return {
+              id: m._id || m.id,
+              name: memberName,
+              email: m.userId?.email || (typeof m.email === 'string' ? m.email : 'staff@secureassess.internal'),
+              role: String(roleName),
+              status: typeof m.status === 'string' ? m.status : 'ACTIVE',
+              lastActive: 'Active recently',
+            };
+          }));
+          return;
+        }
       }
+      setUsersList(defaultStaff.map((s) => ({
+        ...s,
+        role: typeof s.role === 'object' && s.role !== null ? (s.role.name || 'Examiner') : String(s.role || 'Examiner'),
+      })));
     } catch (err) {
-      console.warn('Users API fallback triggered:', err.message);
-      setUsersList(defaultStaff);
+      console.warn('Members API fallback triggered:', err.message);
+      setUsersList(defaultStaff.map((s) => ({
+        ...s,
+        role: typeof s.role === 'object' && s.role !== null ? (s.role.name || 'Examiner') : String(s.role || 'Examiner'),
+      })));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentOrganization]);
 
   useEffect(() => {
     fetchUsers();
@@ -48,22 +74,24 @@ export function OrgUsers({ onNavigate }) {
     if (!name.trim() || !email.trim()) return;
     setIsSubmitting(true);
     try {
-      const payload = {
-        name,
-        email,
-        role,
-        status: 'Active',
-        lastActive: 'Just now',
-      };
+      const orgId = currentOrganization?._id || currentOrganization?.id;
+      const parts = name.trim().split(' ');
+      const firstName = parts[0] || 'Staff';
+      const lastName = parts.slice(1).join(' ') || 'Member';
 
-      try {
-        await userService.inviteUser(payload);
-        setToastMessage({ type: 'success', text: 'Staff invitation dispatched!' });
-      } catch (err) {
+      if (orgId) {
+        await organizationService.inviteMember(orgId, {
+          email: email.trim().toLowerCase(),
+          roleName: role.toUpperCase(),
+          firstName,
+          lastName,
+        });
+        setToastMessage({ type: 'success', text: `Invitation dispatched to ${email}!` });
+      } else {
         setToastMessage({ type: 'success', text: 'Staff member added to workspace!' });
       }
 
-      setUsersList((prev) => [{ id: Date.now(), ...payload }, ...prev]);
+      fetchUsers();
       setModalOpen(false);
       setName('');
       setEmail('');
@@ -75,9 +103,10 @@ export function OrgUsers({ onNavigate }) {
   };
 
   const filtered = usersList.filter((u) => {
-    const staffName = (u.name || `${u.firstName || ''} ${u.lastName || ''}`).toLowerCase();
-    const staffRole = (u.role || '').toLowerCase();
-    const matchesSearch = staffName.includes(search.toLowerCase()) || (u.email || '').toLowerCase().includes(search.toLowerCase());
+    const staffName = (typeof u.name === 'string' ? u.name : String(u.name || '')).toLowerCase();
+    const staffRole = (typeof u.role === 'string' ? u.role : String(u.role || '')).toLowerCase();
+    const staffEmail = (typeof u.email === 'string' ? u.email : String(u.email || '')).toLowerCase();
+    const matchesSearch = staffName.includes(search.toLowerCase()) || staffEmail.includes(search.toLowerCase());
     const matchesRole = roleFilter === 'all' || staffRole.includes(roleFilter.toLowerCase());
     return matchesSearch && matchesRole;
   });
@@ -108,7 +137,7 @@ export function OrgUsers({ onNavigate }) {
               Refresh
             </Button>
             <Button variant="primary" size="sm" icon={<Plus size={15} />} onClick={() => setModalOpen(true)}>
-              Invite Staff Member
+              Invite Staff
             </Button>
           </div>
         }
@@ -160,8 +189,8 @@ export function OrgUsers({ onNavigate }) {
                   {filtered.map((u, idx) => {
                     const id = u._id || u.id || idx;
                     const memberName = u.name || `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Staff Member';
-                    const memberRole = u.role || 'Examiner';
-                    const memberStatus = u.status || 'Active';
+                    const memberRole = String(u.role || 'Examiner');
+                    const memberStatus = String(u.status || 'Active');
                     const memberLastActive = u.lastActive || 'Today';
 
                     return (
@@ -176,7 +205,7 @@ export function OrgUsers({ onNavigate }) {
                           </div>
                         </td>
                         <td className="px-3 py-3.5 hidden sm:table-cell">
-                          <Badge variant={memberRole.includes('Admin') ? 'primary' : 'neutral'} icon={<Shield size={12} />}>{memberRole}</Badge>
+                          <Badge variant={memberRole.toLowerCase().includes('admin') || memberRole.toLowerCase().includes('owner') ? 'primary' : 'neutral'} icon={<Shield size={12} />}>{memberRole}</Badge>
                         </td>
                         <td className="px-3 py-3.5">
                           <StatusBadge status={memberStatus} />
@@ -207,40 +236,40 @@ export function OrgUsers({ onNavigate }) {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         title="Invite Faculty / Staff Member"
-        subtitle="Provision faculty examiner or administrator credentials."
-        footer={
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button variant="primary" size="sm" loading={isSubmitting} icon={<Check size={14} />} onClick={handleInviteStaff}>
-              Dispatch Invitation
-            </Button>
-          </div>
-        }
+        subtitle="Provision access to this organization workspace."
       >
         <div className="space-y-4">
           <Input
             label="Full Name"
-            placeholder="e.g. Dr. Sarah Connor"
+            placeholder="e.g. Dr. Jane Doe"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
           <Input
             label="Institutional Email"
             type="email"
-            placeholder="s.connor@stanford.edu"
+            placeholder="jane.doe@university.edu"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
-          <Select
-            label="Role Privileges"
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            options={[
-              { value: 'Organization Admin', label: 'Organization Admin' },
-              { value: 'Examiner', label: 'Examiner' },
-              { value: 'Proctor', label: 'Proctor' },
-            ]}
-          />
+          <div>
+            <label className="block text-xs font-medium text-accent-700 dark:text-accent-300 mb-1.5">Workspace Role</label>
+            <Select
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              options={[
+                { value: 'EXAMINER', label: 'Examiner (Create & Grade Exams)' },
+                { value: 'PROCTOR', label: 'Proctor (Invigilate Live Sessions)' },
+                { value: 'ORGANIZATION_ADMIN', label: 'Organization Admin (Full Workspace Access)' },
+              ]}
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
+            <Button variant="primary" loading={isSubmitting} onClick={handleInviteStaff} icon={<Check size={14} />}>
+              Dispatch Invitation
+            </Button>
+          </div>
         </div>
       </Modal>
     </div>
