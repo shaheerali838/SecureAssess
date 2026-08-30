@@ -50,10 +50,42 @@ export const assessmentService = {
   },
 
   /**
+   * Archive an assessment
+   */
+  async archiveAssessment(id) {
+    const response = await api.post(`/assessments/${id}/archive`);
+    return response.data || response;
+  },
+
+  /**
    * Add a question to an assessment
    */
   async createAssessmentQuestion(assessmentId, data) {
     const response = await api.post(`/assessments/${assessmentId}/questions`, data);
+    return response.data || response;
+  },
+
+  /**
+   * Add a section to an assessment
+   */
+  async createAssessmentSection(assessmentId, data) {
+    const response = await api.post(`/assessments/${assessmentId}/sections`, data);
+    return response.data || response;
+  },
+
+  /**
+   * Assign assessment to candidate or candidate group
+   */
+  async assignAssessment(assessmentId, data) {
+    const response = await api.post(`/assessments/${assessmentId}/assignments`, data);
+    return response.data || response;
+  },
+
+  /**
+   * List assignments for assessment
+   */
+  async getAssignments(assessmentId, params = {}) {
+    const response = await api.get(`/assessments/${assessmentId}/assignments`, { params });
     return response.data || response;
   },
 };

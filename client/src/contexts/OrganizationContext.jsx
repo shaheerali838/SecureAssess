@@ -98,7 +98,17 @@ export const OrganizationProvider = ({ children }) => {
   /**
    * Switch active organization tenant
    */
-  const switchOrganization = (orgId) => {
+  const switchOrganization = async (orgId) => {
+    try {
+      const switchRes = await organizationService.switchOrganization(orgId);
+      if (switchRes?.accessToken || switchRes?.tokens?.accessToken) {
+        const token = switchRes.accessToken || switchRes.tokens.accessToken;
+        localStorage.setItem('secureassess_access_token', token);
+      }
+    } catch (e) {
+      console.warn('Backend switch call note:', e.message);
+    }
+
     const selected = organizations.find(
       (o) => (o.organization?._id || o.organization?.id || o._id || o.id) === orgId
     );

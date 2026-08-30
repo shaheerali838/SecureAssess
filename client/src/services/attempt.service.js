@@ -2,6 +2,22 @@ import api from './api';
 
 export const attemptService = {
   /**
+   * Fetch attempts list for current organization
+   */
+  async getAttempts(params = {}) {
+    const response = await api.get('/attempts', { params });
+    return response.data || response;
+  },
+
+  /**
+   * Fetch a single attempt by ID
+   */
+  async getAttemptById(attemptId) {
+    const response = await api.get(`/attempts/${attemptId}`);
+    return response.data || response;
+  },
+
+  /**
    * Start a new assessment attempt for candidate
    */
   async startAttempt(assessmentId) {
@@ -22,6 +38,14 @@ export const attemptService = {
    */
   async submitAttempt(attemptId, answers = {}) {
     const response = await api.post(`/attempts/${attemptId}/submit`, { answers });
+    return response.data || response;
+  },
+
+  /**
+   * Send heartbeat to keep attempt alive
+   */
+  async sendHeartbeat(attemptId) {
+    const response = await api.post(`/attempts/${attemptId}/heartbeat`);
     return response.data || response;
   },
 

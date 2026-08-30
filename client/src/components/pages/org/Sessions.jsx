@@ -150,7 +150,7 @@ export function Sessions({ onNavigate }) {
                         <RiskBadge level={s.riskLevel} />
                       </td>
                       <td className="px-3 py-3.5 hidden lg:table-cell text-xs text-accent-500 dark:text-accent-400 font-mono">
-                        {s.duration}
+                        {typeof s.duration === 'object' && s.duration !== null ? `${s.duration.value || 0} ${s.duration.unit || 'm'}` : (s.duration || '—')}
                       </td>
                       <td className="px-3 py-3.5 hidden xl:table-cell text-xs text-accent-500 dark:text-accent-400 font-mono">
                         {s.date}

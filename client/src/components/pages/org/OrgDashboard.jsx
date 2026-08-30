@@ -2,31 +2,73 @@ import React, { useState, useEffect } from 'react';
 import {
   LayoutDashboard, FileText, Users, Calendar, ClipboardList,
   ShieldCheck, TrendingUp, ChevronRight, Plus, Download, AlertCircle,
-  CheckCircle2, Video, Activity, BarChart3
+  CheckCircle2, Video, Activity, BarChart3, RefreshCw
 } from 'lucide-react';
 import {
   Card, CardHeader, CardBody, MetricCard, Badge, StatusBadge, RiskBadge,
   Button, Avatar, ProgressRing, PageHeader, LineChart, BarChart, SkeletonDashboard
 } from '@/components/ui';
-import { participants, sessions } from '@/data';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import assessmentService from '@/services/assessment.service';
+import candidateService from '@/services/candidate.service';
+import attemptService from '@/services/attempt.service';
+import proctoringService from '@/services/proctoring.service';
 
 export function OrgDashboard({ onNavigate }) {
   const { user } = useAuth();
   const { currentOrganization } = useOrganization();
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    activeAssessments: 0,
+    enrolledCandidates: 0,
+    completedAttempts: 0,
+    flaggedSessions: 0,
+  });
+  const [recentAttempts, setRecentAttempts] = useState([]);
+  const [reviewQueue, setReviewQueue] = useState([]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [assessmentsRes, candidatesRes, attemptsRes, proctorRes] = await Promise.allSettled([
+        assessmentService.getAssessments({ limit: 10 }),
+        candidateService.getCandidates({ limit: 10 }),
+        attemptService.getAttempts({ limit: 5 }),
+        proctoringService.getSessions({ limit: 5 }),
+      ]);
+
+      const assessments = assessmentsRes.status === 'fulfilled' ? (assessmentsRes.value?.items || assessmentsRes.value?.data?.items || assessmentsRes.value || []) : [];
+      const candidates = candidatesRes.status === 'fulfilled' ? (candidatesRes.value?.items || candidatesRes.value?.data?.items || candidatesRes.value || []) : [];
+      const attempts = attemptsRes.status === 'fulfilled' ? (attemptsRes.value?.items || attemptsRes.value?.data?.items || attemptsRes.value || []) : [];
+      const proctorSessions = proctorRes.status === 'fulfilled' ? (proctorRes.value?.items || proctorRes.value?.data?.items || proctorRes.value || []) : [];
+
+      setStats({
+        activeAssessments: Array.isArray(assessments) ? assessments.length : 0,
+        enrolledCandidates: Array.isArray(candidates) ? candidates.length : 0,
+        completedAttempts: Array.isArray(attempts) ? attempts.length : 0,
+        flaggedSessions: Array.isArray(proctorSessions) ? proctorSessions.filter((s) => s.riskLevel === 'HIGH' || s.riskLevel === 'CRITICAL').length : 0,
+      });
+
+      if (Array.isArray(attempts) && attempts.length > 0) {
+        setRecentAttempts(attempts);
+      }
+      if (Array.isArray(proctorSessions) && proctorSessions.length > 0) {
+        setReviewQueue(proctorSessions);
+      }
+    } catch (err) {
+      console.warn('Dashboard data fetch note:', err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 300);
-    return () => clearTimeout(timer);
-  }, []);
+    fetchData();
+  }, [currentOrganization]);
 
-  const orgName = currentOrganization?.name || 'Stanford Engineering';
+  const orgName = currentOrganization?.name || 'Organization Workspace';
   const greeting = user?.firstName ? `Welcome back, ${user.firstName}` : 'Organization Workspace';
-
-  const upcomingSessions = sessions.filter((s) => s.status === 'Completed' || s.status === 'Review Required').slice(0, 4);
-  const reviewQueue = sessions.filter((s) => s.status === 'Review Required' || s.status === 'Flagged');
 
   return (
     <div className="space-y-6">
@@ -36,8 +78,8 @@ export function OrgDashboard({ onNavigate }) {
         icon={<LayoutDashboard size={22} className="text-primary-600 dark:text-primary-400" />}
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" icon={<Download size={15} />}>
-              Export Analytics
+            <Button variant="outline" size="sm" icon={<RefreshCw size={15} />} onClick={fetchData}>
+              Refresh
             </Button>
             <Button
               variant="primary"
@@ -59,30 +101,30 @@ export function OrgDashboard({ onNavigate }) {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <MetricCard
               label="Active Assessments"
-              value="12"
+              value={String(stats.activeAssessments)}
               icon={<FileText size={20} />}
-              trend={{ value: '2 published', up: true }}
+              trend={{ value: 'Live in catalog', up: true }}
               color="primary"
             />
             <MetricCard
               label="Enrolled Candidates"
-              value="8,420"
+              value={String(stats.enrolledCandidates)}
               icon={<Users size={20} />}
-              trend={{ value: '+14% this month', up: true }}
+              trend={{ value: 'In current tenant', up: true }}
               color="secondary"
             />
             <MetricCard
               label="Completed Attempts"
-              value="14,280"
+              value={String(stats.completedAttempts)}
               icon={<ClipboardList size={20} />}
-              trend={{ value: '98.4% completion rate', up: true }}
+              trend={{ value: 'Authoritative count', up: true }}
               color="info"
             />
             <MetricCard
               label="Flagged Sessions"
-              value="33"
+              value={String(stats.flaggedSessions)}
               icon={<ShieldCheck size={20} />}
-              trend={{ value: '0.23% anomaly rate', up: false }}
+              trend={{ value: 'Integrity alerts', up: false }}
               color="warning"
             />
           </div>
@@ -147,25 +189,29 @@ export function OrgDashboard({ onNavigate }) {
                 }
               />
               <CardBody className="p-0 divide-y divide-accent-100 dark:divide-accent-800">
-                {reviewQueue.slice(0, 4).map((s) => (
-                  <div
-                    key={s.id}
-                    className="p-4 flex items-center justify-between hover:bg-accent-50/50 dark:hover:bg-accent-800/40 transition-colors cursor-pointer"
-                    onClick={() => onNavigate('org-integrity-evidence')}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Avatar name={s.participant} size="sm" />
-                      <div>
-                        <p className="text-xs font-bold text-accent-900 dark:text-white">{s.participant}</p>
-                        <p className="text-[11px] text-accent-500 dark:text-accent-400">{s.assessment}</p>
+                {reviewQueue.length > 0 ? (
+                  reviewQueue.slice(0, 4).map((s, idx) => (
+                    <div
+                      key={s._id || s.id || idx}
+                      className="p-4 flex items-center justify-between hover:bg-accent-50/50 dark:hover:bg-accent-800/40 transition-colors cursor-pointer"
+                      onClick={() => onNavigate('org-integrity-evidence')}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Avatar name={s.candidateName || s.participant || 'Candidate'} size="sm" />
+                        <div>
+                          <p className="text-xs font-bold text-accent-900 dark:text-white">{s.candidateName || s.participant || `Session #${idx + 1}`}</p>
+                          <p className="text-[11px] text-accent-500 dark:text-accent-400">{s.assessmentTitle || s.assessment || 'Assessment'}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <RiskBadge level={s.riskLevel || 'LOW'} />
+                        <ChevronRight size={14} className="text-accent-400" />
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <RiskBadge level={s.riskLevel} />
-                      <ChevronRight size={14} className="text-accent-400" />
-                    </div>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <div className="p-6 text-center text-xs text-accent-500">No flagged sessions in review queue</div>
+                )}
               </CardBody>
             </Card>
 
@@ -181,27 +227,28 @@ export function OrgDashboard({ onNavigate }) {
                 }
               />
               <CardBody className="p-0 divide-y divide-accent-100 dark:divide-accent-800">
-                {participants.slice(0, 4).map((p) => (
-                  <div
-                    key={p.id}
-                    className="p-4 flex items-center justify-between hover:bg-accent-50/50 dark:hover:bg-accent-800/40 transition-colors cursor-pointer"
-                    onClick={() => onNavigate('org-participant-profile')}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Avatar name={p.name} color={p.avatarColor} size="sm" />
-                      <div>
-                        <p className="text-xs font-bold text-accent-900 dark:text-white">{p.name}</p>
-                        <p className="text-[11px] text-accent-500 dark:text-accent-400">{p.assessment}</p>
+                {recentAttempts.length > 0 ? (
+                  recentAttempts.slice(0, 4).map((a, idx) => (
+                    <div
+                      key={a._id || a.id || idx}
+                      className="p-4 flex items-center justify-between hover:bg-accent-50/50 dark:hover:bg-accent-800/40 transition-colors cursor-pointer"
+                      onClick={() => onNavigate('org-participant-profile')}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Avatar name={a.candidateName || a.candidateId?.firstName || 'Candidate'} size="sm" />
+                        <div>
+                          <p className="text-xs font-bold text-accent-900 dark:text-white">{a.candidateName || a.candidateId?.firstName || `Attempt #${idx + 1}`}</p>
+                          <p className="text-[11px] text-accent-500 dark:text-accent-400">{a.assessmentTitle || a.assessmentId?.title || 'Assessment'}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <StatusBadge status={a.status || 'SUBMITTED'} />
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {p.score !== null && (
-                        <span className="text-xs font-mono font-bold text-accent-900 dark:text-white">{p.score}%</span>
-                      )}
-                      <StatusBadge status={p.status} />
-                    </div>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <div className="p-6 text-center text-xs text-accent-500">No recent exam attempts</div>
+                )}
               </CardBody>
             </Card>
           </div>
