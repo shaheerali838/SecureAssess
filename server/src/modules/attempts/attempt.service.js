@@ -7,8 +7,12 @@ import AssessmentQuestion from "../assessmentQuestions/assessmentQuestion.model.
 import AssessmentAssignment from "../assessmentAssignments/assessmentAssignment.model.js";
 import Candidate from "../candidates/candidate.model.js";
 import Result from "../results/result.model.js";
+import { NotificationService } from "../notifications/notification.service.js";
+import { NOTIFICATION_TYPES } from "../notifications/notification.constants.js";
+import { AuditLogService } from "../auditLogs/auditLog.service.js";
 import { ATTEMPT_STATUSES } from "../../constants/attemptStatuses.js";
 import { ASSESSMENT_STATUSES } from "../../constants/assessmentStatuses.js";
+import { QUESTION_TYPES } from "../../constants/questionTypes.js";
 import { ApiError } from "../../utils/ApiError.js";
 
 const shuffleArray = (array) => {
@@ -24,19 +28,35 @@ export class AttemptService {
   /**
    * Starts a new examination attempt or resumes an ongoing one
    */
-  static async startAttempt(userId, organizationId, assignmentId, clientInfo = {}) {
+  static async startAttempt(
+    userId,
+    organizationId,
+    assignmentId,
+    clientInfo = {},
+  ) {
     if (!mongoose.Types.ObjectId.isValid(assignmentId)) {
       throw new ApiError(400, "Invalid assignment ID format");
     }
 
     // 1. Resolve Candidate Profile
     let candidate = await Candidate.findOne({ userId, status: "ACTIVE" });
-    if (organizationId && (!candidate || candidate.organizationId.toString() !== organizationId.toString())) {
-      candidate = await Candidate.findOne({ userId, organizationId, status: "ACTIVE" });
+    if (
+      organizationId &&
+      (!candidate ||
+        candidate.organizationId.toString() !== organizationId.toString())
+    ) {
+      candidate = await Candidate.findOne({
+        userId,
+        organizationId,
+        status: "ACTIVE",
+      });
     }
 
     if (!candidate) {
-      throw new ApiError(403, "You do not have an active candidate profile");
+      throw new ApiError(
+        403,
+        "You do not have an active candidate profile in this organization",
+      );
     }
 
     const orgId = organizationId || candidate.organizationId;
@@ -46,37 +66,68 @@ export class AttemptService {
       _id: assignmentId,
       organizationId: orgId,
       candidateId: candidate._id,
-      status: { $in: ["ASSIGNED", "INVITED", "STARTED"] },
     });
 
     if (!assignment) {
-      throw new ApiError(403, "You do not have an active assignment for this assessment");
+      throw new ApiError(
+        403,
+        "You do not have an active assignment for this assessment",
+      );
     }
 
-    // 3. Resolve Assessment
+    // 3. Assignment Status & Scheduling Checks
+    if (assignment.status === "CANCELLED" || assignment.status === "REVOKED") {
+      throw new ApiError(
+        403,
+        "This assessment assignment has been cancelled or revoked.",
+      );
+    }
+    if (assignment.status === "EXPIRED") {
+      throw new ApiError(403, "This assessment assignment has expired.");
+    }
+
+    const now = new Date();
+    if (assignment.availableFrom && now < new Date(assignment.availableFrom)) {
+      throw new ApiError(
+        403,
+        `Assessment is not available yet. Opens on ${new Date(assignment.availableFrom).toISOString()}`,
+      );
+    }
+    if (
+      assignment.availableUntil &&
+      now > new Date(assignment.availableUntil)
+    ) {
+      throw new ApiError(
+        403,
+        `Assessment has expired on ${new Date(assignment.availableUntil).toISOString()}`,
+      );
+    }
+
+    // 4. Resolve Assessment & Published Status Check
     const assessment = await Assessment.findOne({
       _id: assignment.assessmentId,
       organizationId: orgId,
-      status: { $in: [ASSESSMENT_STATUSES.PUBLISHED, ASSESSMENT_STATUSES.ACTIVE] },
     });
 
     if (!assessment) {
-      throw new ApiError(404, "Assessment is not active or published");
+      throw new ApiError(404, "Assessment not found in this organization");
     }
 
-    // 4. Availability Window Check
-    const now = new Date();
-    if (assignment.availableFrom && now < new Date(assignment.availableFrom)) {
-      throw new ApiError(403, `Assessment is not available yet. Opens on ${assignment.availableFrom.toISOString()}`);
-    }
-    if (assignment.availableUntil && now > new Date(assignment.availableUntil)) {
-      throw new ApiError(403, `Assessment has expired on ${assignment.availableUntil.toISOString()}`);
+    if (
+      ![ASSESSMENT_STATUSES.PUBLISHED, ASSESSMENT_STATUSES.ACTIVE].includes(
+        assessment.status,
+      )
+    ) {
+      throw new ApiError(
+        400,
+        `Cannot start attempt for assessment in '${assessment.status}' status. Only PUBLISHED or ACTIVE assessments can be taken.`,
+      );
     }
 
-    // 5. Check Existing IN_PROGRESS Attempt (Resume Support / Duplicate Protection)
+    // 5. Check Existing IN_PROGRESS Attempt (Resume Support / Duplicate Active Protection)
     const existingActiveAttempt = await Attempt.findOne({
       organizationId: orgId,
-      assignmentId,
+      assignmentId: assignment._id,
       candidateId: candidate._id,
       status: ATTEMPT_STATUSES.IN_PROGRESS,
     });
@@ -88,24 +139,47 @@ export class AttemptService {
       } else {
         existingActiveAttempt.lastActivityAt = now;
         await existingActiveAttempt.save();
-        return this.formatCandidateAttemptDTO(existingActiveAttempt, assessment);
+        return this.formatCandidateAttemptDTO(
+          existingActiveAttempt,
+          assessment,
+        );
       }
     }
 
     // 6. Check Attempt Limit Policy
     const completedAttemptsCount = await Attempt.countDocuments({
-      assignmentId,
+      assignmentId: assignment._id,
       candidateId: candidate._id,
-      status: { $in: [ATTEMPT_STATUSES.SUBMITTED, ATTEMPT_STATUSES.EXPIRED, ATTEMPT_STATUSES.COMPLETED] },
+      status: {
+        $in: [
+          ATTEMPT_STATUSES.SUBMITTED,
+          ATTEMPT_STATUSES.EXPIRED,
+          ATTEMPT_STATUSES.COMPLETED,
+        ],
+      },
     });
 
-    const maxAllowedAttempts = assignment.attemptsAllowed || assignment.attemptLimit || assessment.settings?.maxAttempts || 1;
+    const maxAllowedAttempts =
+      assignment.maxAttempts ||
+      assignment.attemptLimit ||
+      assessment.settings?.maxAttempts ||
+      assessment.attemptSettings?.maxAttempts ||
+      1;
     if (completedAttemptsCount >= maxAllowedAttempts) {
-      throw new ApiError(403, `Maximum attempt limit (${maxAllowedAttempts}) reached for this assessment`);
+      throw new ApiError(
+        403,
+        `Maximum attempt limit (${maxAllowedAttempts}) reached for this assessment`,
+      );
     }
 
     const attemptNumber = completedAttemptsCount + 1;
-    const durationSeconds = assessment.durationSeconds || 3600;
+    const durationSeconds =
+      assessment.durationSeconds ||
+      (assessment.duration?.value
+        ? assessment.duration.unit === "HOURS"
+          ? assessment.duration.value * 3600
+          : assessment.duration.value * 60
+        : 3600);
 
     // 7. Calculate Server-Authoritative Effective Expiry
     const theoreticalExpiry = new Date(now.getTime() + durationSeconds * 1000);
@@ -118,7 +192,9 @@ export class AttemptService {
       candidateExpiryLimits.push(new Date(assessment.scheduling.endAt));
     }
 
-    const effectiveExpiry = new Date(Math.min(...candidateExpiryLimits.map((d) => d.getTime())));
+    const effectiveExpiry = new Date(
+      Math.min(...candidateExpiryLimits.map((d) => d.getTime())),
+    );
 
     // 8. Fetch Assessment Question Snapshots
     let assessmentQuestions = await AssessmentQuestion.find({
@@ -131,7 +207,12 @@ export class AttemptService {
     }
 
     // 9. Question Shuffling
-    if (assessment.settings?.shuffleQuestions) {
+    const shouldShuffleQuestions = Boolean(
+      assessment.settings?.shuffleQuestions ||
+      assessment.configuration?.shuffleQuestions ||
+      assessment.attemptSettings?.shuffleQuestions,
+    );
+    if (shouldShuffleQuestions) {
       assessmentQuestions = shuffleArray(assessmentQuestions);
     }
 
@@ -156,20 +237,29 @@ export class AttemptService {
       lastActivityAt: now,
     });
 
-    // 11. Create Attempt Questions with Option Shuffling
-    const attemptQuestionsToInsert = assessmentQuestions.map((q, index) => {
-      let candidateOptions = (q.options || []).map((opt) => ({
-        id: opt.id,
-        text: opt.text,
-      }));
+    // 11. Create Attempt Questions with Option Shuffling (Sanitizing isCorrect)
+    const shouldShuffleOptions = Boolean(
+      assessment.settings?.shuffleOptions ||
+      assessment.configuration?.shuffleOptions ||
+      assessment.attemptSettings?.shuffleOptions,
+    );
 
-      if (assessment.settings?.shuffleOptions) {
+    const attemptQuestionsToInsert = assessmentQuestions.map((q, index) => {
+      let candidateOptions = (q.options || q.snapshot?.options || []).map(
+        (opt) => ({
+          id: opt.id,
+          text: opt.text,
+        }),
+      );
+
+      if (shouldShuffleOptions) {
         candidateOptions = shuffleArray(candidateOptions);
       }
 
       return {
         organizationId: orgId,
         attemptId: attempt._id,
+        assessmentId: assessment._id,
         assessmentQuestionId: q._id,
         questionId: q.questionId,
         sectionId: q.sectionId,
@@ -177,10 +267,16 @@ export class AttemptService {
         marks: q.marks || q.points || 1,
         points: q.points || q.marks || 1,
         negativeMarks: q.negativeMarks || 0,
-        type: q.type,
-        prompt: q.prompt,
+        type: q.type || q.snapshot?.type || QUESTION_TYPES.SINGLE_CHOICE,
+        prompt: q.prompt || q.snapshot?.prompt || "",
         options: candidateOptions,
-        questionSnapshot: q.snapshot || {},
+        questionSnapshot: q.snapshot || {
+          title: q.title,
+          prompt: q.prompt,
+          type: q.type,
+          correctAnswer: q.correctAnswer,
+          options: q.options,
+        },
         status: "NOT_VISITED",
         flagged: false,
       };
@@ -188,9 +284,21 @@ export class AttemptService {
 
     await AttemptQuestion.insertMany(attemptQuestionsToInsert);
 
-    // Update assignment status to STARTED
-    assignment.status = "STARTED";
+    // 12. Update Assignment Lifecycle
+    assignment.status = "IN_PROGRESS";
+    assignment.attemptCount = (assignment.attemptCount || 0) + 1;
+    assignment.startedAt = assignment.startedAt || now;
     await assignment.save();
+
+    // 13. Audit Event
+    AuditLogService.createAuditLog({
+      organizationId: orgId,
+      actorId: userId,
+      action: "CREATE",
+      resource: "ATTEMPT",
+      resourceId: attempt._id,
+      description: `Candidate '${candidate.email}' started attempt #${attemptNumber} for assessment '${assessment.title}'`,
+    }).catch(() => {});
 
     return this.formatCandidateAttemptDTO(attempt, assessment);
   }
@@ -218,7 +326,9 @@ export class AttemptService {
     ]);
 
     return {
-      items: items.map((a) => this.formatCandidateAttemptDTO(a, a.assessmentId)),
+      items: items.map((a) =>
+        this.formatCandidateAttemptDTO(a, a.assessmentId),
+      ),
       pagination: {
         page,
         limit,
@@ -238,17 +348,26 @@ export class AttemptService {
       throw new ApiError(403, "Access denied");
     }
 
-    const attempt = await Attempt.findOne({
+    const filter = {
       _id: attemptId,
       candidateId: candidate._id,
-    }).populate("assessmentId", "title duration durationSeconds instructions settings securitySettings attemptSettings navigation");
+    };
+    if (organizationId) filter.organizationId = organizationId;
+
+    const attempt = await Attempt.findOne(filter).populate(
+      "assessmentId",
+      "title duration durationSeconds instructions settings securitySettings attemptSettings navigation",
+    );
 
     if (!attempt) {
       throw new ApiError(404, "Attempt not found");
     }
 
     const now = new Date();
-    if (attempt.status === ATTEMPT_STATUSES.IN_PROGRESS && now >= new Date(attempt.expiresAt)) {
+    if (
+      attempt.status === ATTEMPT_STATUSES.IN_PROGRESS &&
+      now >= new Date(attempt.expiresAt)
+    ) {
       attempt.status = ATTEMPT_STATUSES.EXPIRED;
       await attempt.save();
     }
@@ -266,21 +385,30 @@ export class AttemptService {
       throw new ApiError(403, "Access denied");
     }
 
-    const attempt = await Attempt.findOne({
+    const filter = {
       _id: attemptId,
       candidateId: candidate._id,
-    });
+    };
+    if (organizationId) filter.organizationId = organizationId;
 
+    const attempt = await Attempt.findOne(filter);
     if (!attempt) {
       throw new ApiError(404, "Attempt not found");
     }
 
     const [questions, answers] = await Promise.all([
-      AttemptQuestion.find({ attemptId: attempt._id }).sort({ order: 1 }).lean(),
-      Answer.find({ attemptId: attempt._id, candidateId: candidate._id }).lean(),
+      AttemptQuestion.find({ attemptId: attempt._id })
+        .sort({ order: 1 })
+        .lean(),
+      Answer.find({
+        attemptId: attempt._id,
+        candidateId: candidate._id,
+      }).lean(),
     ]);
 
-    const answerMap = new Map(answers.map((a) => [a.attemptQuestionId.toString(), a.answer]));
+    const answerMap = new Map(
+      answers.map((a) => [a.attemptQuestionId.toString(), a.answer]),
+    );
 
     return questions.map((q) => ({
       _id: q._id,
@@ -300,8 +428,16 @@ export class AttemptService {
     }));
   }
 
-  static async getAttemptQuestion(userId, organizationId, attemptId, attemptQuestionId) {
-    if (!mongoose.Types.ObjectId.isValid(attemptId) || !mongoose.Types.ObjectId.isValid(attemptQuestionId)) {
+  static async getAttemptQuestion(
+    userId,
+    organizationId,
+    attemptId,
+    attemptQuestionId,
+  ) {
+    if (
+      !mongoose.Types.ObjectId.isValid(attemptId) ||
+      !mongoose.Types.ObjectId.isValid(attemptQuestionId)
+    ) {
       throw new ApiError(400, "Invalid ID format");
     }
 
@@ -310,11 +446,13 @@ export class AttemptService {
       throw new ApiError(403, "Access denied");
     }
 
-    const attempt = await Attempt.findOne({
+    const filter = {
       _id: attemptId,
       candidateId: candidate._id,
-    });
+    };
+    if (organizationId) filter.organizationId = organizationId;
 
+    const attempt = await Attempt.findOne(filter);
     if (!attempt) {
       throw new ApiError(404, "Attempt not found");
     }
@@ -355,9 +493,32 @@ export class AttemptService {
     };
   }
 
-  static async saveAnswer(userId, organizationId, attemptId, attemptQuestionId, answerPayload) {
-    if (!mongoose.Types.ObjectId.isValid(attemptId) || !mongoose.Types.ObjectId.isValid(attemptQuestionId)) {
+  static async saveAnswer(
+    userId,
+    organizationId,
+    attemptId,
+    attemptQuestionId,
+    answerPayload,
+  ) {
+    if (
+      !mongoose.Types.ObjectId.isValid(attemptId) ||
+      !mongoose.Types.ObjectId.isValid(attemptQuestionId)
+    ) {
       throw new ApiError(400, "Invalid ID format");
+    }
+
+    // Anti-Tampering Check: Reject any client-supplied score/points fields
+    if (
+      answerPayload?.points !== undefined ||
+      answerPayload?.score !== undefined ||
+      answerPayload?.isCorrect !== undefined ||
+      answerPayload?.marksAwarded !== undefined ||
+      answerPayload?.obtainedMarks !== undefined
+    ) {
+      throw new ApiError(
+        400,
+        "Anti-tampering violation: Grading fields cannot be submitted by client.",
+      );
     }
 
     const candidate = await Candidate.findOne({ userId });
@@ -365,22 +526,30 @@ export class AttemptService {
       throw new ApiError(403, "Access denied");
     }
 
-    const attempt = await Attempt.findOne({
+    const filter = {
       _id: attemptId,
       candidateId: candidate._id,
-    });
+    };
+    if (organizationId) filter.organizationId = organizationId;
 
+    const attempt = await Attempt.findOne(filter);
     if (!attempt) {
       throw new ApiError(404, "Attempt not found");
     }
 
     const now = new Date();
-    if (attempt.status !== ATTEMPT_STATUSES.IN_PROGRESS || now >= new Date(attempt.expiresAt)) {
+    if (
+      attempt.status !== ATTEMPT_STATUSES.IN_PROGRESS ||
+      now >= new Date(attempt.expiresAt)
+    ) {
       if (now >= new Date(attempt.expiresAt)) {
         attempt.status = ATTEMPT_STATUSES.EXPIRED;
         await attempt.save();
       }
-      throw new ApiError(400, `Cannot save answer: Attempt is '${attempt.status}'`);
+      throw new ApiError(
+        400,
+        `Cannot save answer: Attempt is '${attempt.status}'`,
+      );
     }
 
     const question = await AttemptQuestion.findOne({
@@ -392,7 +561,14 @@ export class AttemptService {
       throw new ApiError(404, "Question not found in this attempt");
     }
 
-    const answerVal = answerPayload.answer !== undefined ? answerPayload.answer : answerPayload;
+    const answerVal =
+      answerPayload.answer !== undefined ? answerPayload.answer : answerPayload;
+
+    const existing = await Answer.findOne({
+      attemptId: attempt._id,
+      attemptQuestionId: question._id,
+    });
+    const version = existing ? (existing.version || 1) + 1 : 1;
 
     const answerDoc = await Answer.findOneAndUpdate(
       { attemptId: attempt._id, attemptQuestionId: question._id },
@@ -404,9 +580,10 @@ export class AttemptService {
         answer: answerVal,
         answerType: question.type,
         isAnswered: true,
+        version,
         savedAt: now,
       },
-      { upsert: true, returnDocument: "after" }
+      { upsert: true, returnDocument: "after" },
     );
 
     question.status = "ANSWERED";
@@ -414,7 +591,10 @@ export class AttemptService {
     await question.save();
 
     // Recalculate answered count
-    const totalAnswered = await Answer.countDocuments({ attemptId: attempt._id, isAnswered: true });
+    const totalAnswered = await Answer.countDocuments({
+      attemptId: attempt._id,
+      isAnswered: true,
+    });
     attempt.answeredQuestions = totalAnswered;
     attempt.lastActivityAt = now;
     await attempt.save();
@@ -423,12 +603,22 @@ export class AttemptService {
       attemptQuestionId: question._id,
       savedAt: answerDoc.savedAt,
       isAnswered: true,
+      version: answerDoc.version,
       answeredQuestions: totalAnswered,
     };
   }
 
-  static async flagQuestion(userId, organizationId, attemptId, attemptQuestionId, flagged = true) {
-    if (!mongoose.Types.ObjectId.isValid(attemptId) || !mongoose.Types.ObjectId.isValid(attemptQuestionId)) {
+  static async flagQuestion(
+    userId,
+    organizationId,
+    attemptId,
+    attemptQuestionId,
+    flagged = true,
+  ) {
+    if (
+      !mongoose.Types.ObjectId.isValid(attemptId) ||
+      !mongoose.Types.ObjectId.isValid(attemptQuestionId)
+    ) {
       throw new ApiError(400, "Invalid ID format");
     }
 
@@ -437,9 +627,20 @@ export class AttemptService {
       throw new ApiError(403, "Access denied");
     }
 
+    const filter = {
+      _id: attemptId,
+      candidateId: candidate._id,
+    };
+    if (organizationId) filter.organizationId = organizationId;
+
+    const attempt = await Attempt.findOne(filter);
+    if (!attempt) {
+      throw new ApiError(404, "Attempt not found");
+    }
+
     const question = await AttemptQuestion.findOne({
       _id: attemptQuestionId,
-      attemptId,
+      attemptId: attempt._id,
     });
 
     if (!question) {
@@ -452,7 +653,11 @@ export class AttemptService {
     }
     await question.save();
 
-    return { attemptQuestionId: question._id, flagged: question.flagged, status: question.status };
+    return {
+      attemptQuestionId: question._id,
+      flagged: question.flagged,
+      status: question.status,
+    };
   }
 
   static async heartbeat(userId, organizationId, attemptId) {
@@ -465,17 +670,22 @@ export class AttemptService {
       throw new ApiError(403, "Access denied");
     }
 
-    const attempt = await Attempt.findOne({
+    const filter = {
       _id: attemptId,
       candidateId: candidate._id,
-    });
+    };
+    if (organizationId) filter.organizationId = organizationId;
 
+    const attempt = await Attempt.findOne(filter);
     if (!attempt) {
       throw new ApiError(404, "Attempt not found");
     }
 
     const now = new Date();
-    if (attempt.status === ATTEMPT_STATUSES.IN_PROGRESS && now >= new Date(attempt.expiresAt)) {
+    if (
+      attempt.status === ATTEMPT_STATUSES.IN_PROGRESS &&
+      now >= new Date(attempt.expiresAt)
+    ) {
       attempt.status = ATTEMPT_STATUSES.EXPIRED;
       await attempt.save();
     } else if (attempt.status === ATTEMPT_STATUSES.IN_PROGRESS) {
@@ -485,7 +695,9 @@ export class AttemptService {
 
     const timeRemainingSeconds = Math.max(
       0,
-      Math.floor((new Date(attempt.expiresAt).getTime() - now.getTime()) / 1000)
+      Math.floor(
+        (new Date(attempt.expiresAt).getTime() - now.getTime()) / 1000,
+      ),
     );
 
     return {
@@ -505,11 +717,13 @@ export class AttemptService {
       throw new ApiError(403, "Access denied");
     }
 
-    const attempt = await Attempt.findOne({
+    const filter = {
       _id: attemptId,
       candidateId: candidate._id,
-    });
+    };
+    if (organizationId) filter.organizationId = organizationId;
 
+    const attempt = await Attempt.findOne(filter);
     if (!attempt) {
       throw new ApiError(404, "Attempt not found");
     }
@@ -529,9 +743,13 @@ export class AttemptService {
     await attempt.save();
 
     // Auto-calculate objective questions & create Result placeholder
-    const questions = await AttemptQuestion.find({ attemptId: attempt._id }).lean();
+    const questions = await AttemptQuestion.find({
+      attemptId: attempt._id,
+    }).lean();
     const answers = await Answer.find({ attemptId: attempt._id }).lean();
-    const answerMap = new Map(answers.map((a) => [a.attemptQuestionId.toString(), a.answer]));
+    const answerMap = new Map(
+      answers.map((a) => [a.attemptQuestionId.toString(), a.answer]),
+    );
 
     let earnedPoints = 0;
     let totalPoints = 0;
@@ -541,16 +759,49 @@ export class AttemptService {
       totalPoints += qPts;
       const candidateAns = answerMap.get(q._id.toString());
 
-      if (q.type === "SINGLE_CHOICE" && candidateAns) {
-        const correctOpt = q.questionSnapshot?.correctAnswer?.optionIds?.[0] || q.questionSnapshot?.correctAnswer;
-        if (candidateAns === correctOpt || candidateAns?.selectedOptionId === correctOpt) {
+      if (
+        q.type === "SINGLE_CHOICE" &&
+        candidateAns !== undefined &&
+        candidateAns !== null
+      ) {
+        const correctOpt =
+          q.questionSnapshot?.correctAnswer?.optionIds?.[0] ||
+          q.questionSnapshot?.correctAnswer;
+        const selectedOpt =
+          typeof candidateAns === "object" && candidateAns !== null
+            ? candidateAns.selectedOptionId ||
+              candidateAns.value ||
+              candidateAns.id
+            : candidateAns;
+        if (
+          selectedOpt === correctOpt ||
+          String(selectedOpt) === String(correctOpt)
+        ) {
           earnedPoints += qPts;
         } else if (q.negativeMarks) {
           earnedPoints = Math.max(0, earnedPoints - q.negativeMarks);
         }
-      } else if (q.type === "TRUE_FALSE" && candidateAns !== undefined && candidateAns !== null) {
-        const correctVal = q.questionSnapshot?.correctAnswer?.value !== undefined ? q.questionSnapshot.correctAnswer.value : q.questionSnapshot?.correctAnswer;
-        if (candidateAns === correctVal || candidateAns?.value === correctVal) {
+      } else if (
+        q.type === "TRUE_FALSE" &&
+        candidateAns !== undefined &&
+        candidateAns !== null
+      ) {
+        const correctVal =
+          q.questionSnapshot?.correctAnswer?.value !== undefined
+            ? q.questionSnapshot.correctAnswer.value
+            : q.questionSnapshot?.correctAnswer;
+        const selectedVal =
+          typeof candidateAns === "object" && candidateAns !== null
+            ? candidateAns.selectedOptionId !== undefined
+              ? candidateAns.selectedOptionId
+              : candidateAns.value !== undefined
+                ? candidateAns.value
+                : candidateAns
+            : candidateAns;
+        if (
+          selectedVal === correctVal ||
+          String(selectedVal) === String(correctVal)
+        ) {
           earnedPoints += qPts;
         }
       }
@@ -561,6 +812,20 @@ export class AttemptService {
     attempt.totalMarks = totalPoints;
     attempt.percentage = percentage;
     await attempt.save();
+
+    // Update assignment lifecycle if attempts limit reached
+    const assignment = await AssessmentAssignment.findById(
+      attempt.assignmentId,
+    );
+    if (assignment) {
+      const maxAllowedAttempts =
+        assignment.maxAttempts || assignment.attemptLimit || 1;
+      if (assignment.attemptCount >= maxAllowedAttempts) {
+        assignment.status = "COMPLETED";
+        assignment.completedAt = now;
+        await assignment.save();
+      }
+    }
 
     // Upsert Result record
     await Result.findOneAndUpdate(
@@ -576,8 +841,18 @@ export class AttemptService {
         isPublished: false,
         status: "COMPLETED",
       },
-      { upsert: true, returnDocument: "after" }
+      { upsert: true, returnDocument: "after" },
     );
+
+    // Notifications & Audit Log
+    AuditLogService.createAuditLog({
+      organizationId: attempt.organizationId,
+      actorId: userId,
+      action: "UPDATE",
+      resource: "ATTEMPT",
+      resourceId: attempt._id,
+      description: `Attempt submitted for assessment. Scored ${earnedPoints}/${totalPoints} (${percentage.toFixed(1)}%)`,
+    }).catch(() => {});
 
     return {
       status: ATTEMPT_STATUSES.SUBMITTED,
@@ -589,7 +864,12 @@ export class AttemptService {
     };
   }
 
-  static async terminateAttempt(userId, organizationId, attemptId, reason = "") {
+  static async terminateAttempt(
+    userId,
+    organizationId,
+    attemptId,
+    reason = "",
+  ) {
     const candidate = await Candidate.findOne({ userId });
     const filter = { _id: attemptId };
     if (candidate) filter.candidateId = candidate._id;
@@ -609,7 +889,9 @@ export class AttemptService {
     const now = new Date();
     const timeRemainingSeconds = Math.max(
       0,
-      Math.floor((new Date(attempt.expiresAt).getTime() - now.getTime()) / 1000)
+      Math.floor(
+        (new Date(attempt.expiresAt).getTime() - now.getTime()) / 1000,
+      ),
     );
 
     return {

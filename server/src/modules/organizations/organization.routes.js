@@ -5,7 +5,11 @@ import {
   getOrganizationById,
   updateOrganization,
   updateOrganizationStatus,
+  suspendOrganization,
+  activateOrganization,
   deleteOrganization,
+  inviteStaffMember,
+  switchOrganization,
 } from "./organization.controller.js";
 import {
   getOrganizationMembers,
@@ -30,6 +34,9 @@ import proctoringRouter from "../proctoring/index.js";
 import reportsRouter from "../reports/index.js";
 import certificatesRouter from "../certificates/index.js";
 import interviewsRouter from "../interviews/index.js";
+import resultsRouter from "../results/index.js";
+import notificationsRouter from "../notifications/index.js";
+import subscriptionsRouter from "../subscriptions/index.js";
 import { requireAuth } from "../../middleware/auth.middleware.js";
 import {
   requirePlatformPermission,
@@ -82,10 +89,55 @@ router.patch(
   updateOrganizationStatus
 );
 
+// POST /api/v1/organizations/:organizationId/suspend - Suspend organization (Platform only)
+router.post(
+  "/:organizationId/suspend",
+  requireAuth,
+  requirePlatformPermission(PERMISSIONS.ORGANIZATIONS_SUSPEND),
+  suspendOrganization
+);
+
+// POST /api/v1/organizations/:organizationId/activate - Activate organization (Platform only)
+router.post(
+  "/:organizationId/activate",
+  requireAuth,
+  requirePlatformPermission(PERMISSIONS.ORGANIZATIONS_SUSPEND),
+  activateOrganization
+);
+
+// POST /api/v1/organizations/:organizationId/switch - Switch organization context
+router.post(
+  "/:organizationId/switch",
+  requireAuth,
+  switchOrganization
+);
+
 // DELETE /api/v1/organizations/:organizationId - Soft delete / deactivate organization
 router.delete("/:organizationId", requireAuth, deleteOrganization);
 
 // --- Organization Member Management Endpoints ---
+
+// POST /api/v1/organizations/:organizationId/members/invite - Invite staff member
+router.post(
+  "/:organizationId/members/invite",
+  requireAuth,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.ORG_USERS_CREATE,
+    PERMISSIONS.ORG_USERS_CREATE
+  ),
+  inviteStaffMember
+);
+
+// POST /api/v1/organizations/:organizationId/invitations - Alias for invitation
+router.post(
+  "/:organizationId/invitations",
+  requireAuth,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.ORG_USERS_CREATE,
+    PERMISSIONS.ORG_USERS_CREATE
+  ),
+  inviteStaffMember
+);
 
 // GET /api/v1/organizations/:organizationId/members - Get all members of organization
 router.get("/:organizationId/members", requireAuth, getOrganizationMembers);
@@ -124,18 +176,32 @@ router.use("/:organizationId/candidate", attemptsRouter);
 router.use("/:organizationId/candidate", answersRouter);
 
 // --- Evaluation & Result Sub-routes ---
+router.use("/:organizationId/evaluations", evaluationsRouter);
+router.use("/:organizationId/results", resultsRouter);
 router.use("/:organizationId", evaluationsRouter);
+router.use("/:organizationId", resultsRouter);
 
 // --- Proctoring Sub-routes ---
+router.use("/:organizationId/proctoring", proctoringRouter);
 router.use("/:organizationId", proctoringRouter);
 
 // --- Reports & Analytics Sub-routes ---
 router.use("/:organizationId", reportsRouter);
 
 // --- Certificates & Credentials Sub-routes ---
+router.use("/:organizationId/certificates", certificatesRouter);
 router.use("/:organizationId", certificatesRouter);
 
 // --- Live Interviews & WebRTC Sub-routes ---
+router.use("/:organizationId/interviews", interviewsRouter);
 router.use("/:organizationId", interviewsRouter);
+
+// --- Notifications Sub-routes ---
+router.use("/:organizationId/notifications", notificationsRouter);
+router.use("/:organizationId", notificationsRouter);
+
+// --- Subscriptions & Billing Sub-routes ---
+router.use("/:organizationId/subscriptions", subscriptionsRouter);
+router.use("/:organizationId/subscription", subscriptionsRouter);
 
 export default router;

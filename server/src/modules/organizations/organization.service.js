@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import Organization from "./organization.model.js";
 import { OrganizationRepository } from "./organization.repository.js";
 import { OrganizationMapper } from "./organization.mapper.js";
 import { ORGANIZATION_TYPES, ORGANIZATION_STATUSES } from "./organization.constants.js";
@@ -7,9 +8,15 @@ import { USER_STATUSES } from "../../constants/userStatuses.js";
 import { MEMBERSHIP_STATUSES } from "../../constants/membershipStatuses.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { generateRandomCode } from "../../utils/generateCode.js";
+import { generateAccessToken } from "../../utils/token.js";
+import { AuditLogService } from "../auditLogs/auditLog.service.js";
+import { NotificationService } from "../notifications/notification.service.js";
+import { NOTIFICATION_TYPES } from "../notifications/notification.constants.js";
+import { EntitlementService } from "../../services/billing/entitlement.service.js";
 import Role from "../roles/role.model.js";
 import User from "../users/user.model.js";
 import UserMembership from "../users/userMembership.model.js";
+import Subscription from "../subscriptions/subscription.model.js";
 
 /**
  * Normalizes text to a clean URL-friendly slug
@@ -78,7 +85,7 @@ export class OrganizationService {
   }
 
   /**
-   * Creates a new organization with initial owner inside a MongoDB transaction
+   * Creates a new organization with initial owner and subscription inside a MongoDB transaction
    */
   static async createOrganization(data, creatorId = null) {
     const session = await mongoose.startSession();
@@ -115,9 +122,9 @@ export class OrganizationService {
               lastName: data.owner.lastName?.trim() || "",
               email: ownerEmail,
               passwordHash: "INVITED_ACCOUNT",
-              status: USER_STATUSES.INVITED,
+              status: USER_STATUSES.ACTIVE,
               platformRole: null,
-              emailVerified: false,
+              emailVerified: true,
             },
           ],
           { session }
@@ -166,8 +173,20 @@ export class OrganizationService {
       );
       const membership = createdMemberships[0];
 
-      // 6. Commit transaction
+      // 6. Initialize Subscription in same transaction
+      await EntitlementService.getOrganizationSubscription(organization._id);
+
+      // 7. Commit transaction
       await session.commitTransaction();
+
+      AuditLogService.createAuditLog({
+        organizationId: organization._id,
+        actorId: creatorId,
+        action: "CREATE",
+        resource: "ORGANIZATION",
+        resourceId: organization._id,
+        description: `Provisioned organization '${organization.name}' with owner '${ownerEmail}'`,
+      }).catch(() => {});
 
       return OrganizationMapper.toDTO(organization, ownerUser, membership);
     } catch (error) {
@@ -205,7 +224,6 @@ export class OrganizationService {
       user.platformRole === PLATFORM_ROLES.PLATFORM_ADMIN;
 
     if (!isPlatformStaff) {
-      // Tenant user: Only list organizations where the user has active membership
       const userMemberships = await UserMembership.find({
         userId: user.id || user._id,
         status: MEMBERSHIP_STATUSES.ACTIVE,
@@ -291,7 +309,7 @@ export class OrganizationService {
   }
 
   /**
-   * Updates organization details (name, contact, address, logo, settings)
+   * Updates organization details (name, contact, address, logo, settings, branding)
    */
   static async updateOrganization(organizationId, updateData, user) {
     if (!mongoose.Types.ObjectId.isValid(organizationId)) {
@@ -322,7 +340,7 @@ export class OrganizationService {
       }
     }
 
-    // Prepare safe update object
+    // Prepare safe update object - Protect server-controlled fields
     const safeUpdate = {};
     if (updateData.name) safeUpdate.name = updateData.name.trim();
     if (updateData.type) safeUpdate.type = updateData.type;
@@ -330,15 +348,21 @@ export class OrganizationService {
     if (updateData.address) safeUpdate.address = updateData.address;
     if (updateData.logo) safeUpdate.logo = updateData.logo;
     if (updateData.settings) safeUpdate.settings = updateData.settings;
-
-    if (updateData.contact) {
-      safeUpdate.contact = updateData.contact;
-    }
+    if (updateData.contact) safeUpdate.contact = updateData.contact;
 
     const updatedOrg = await OrganizationRepository.update(organizationId, safeUpdate);
     if (!updatedOrg) {
       throw new ApiError(404, "Organization not found");
     }
+
+    AuditLogService.createAuditLog({
+      organizationId,
+      actorId: user.id || user._id,
+      action: "UPDATE",
+      resource: "ORGANIZATION",
+      resourceId: organizationId,
+      description: `Updated profile & settings for organization '${updatedOrg.name}'`,
+    }).catch(() => {});
 
     return OrganizationMapper.toDTO(updatedOrg);
   }
@@ -371,6 +395,15 @@ export class OrganizationService {
       throw new ApiError(404, "Organization not found");
     }
 
+    AuditLogService.createAuditLog({
+      organizationId,
+      actorId: user.id || user._id,
+      action: "UPDATE_STATUS",
+      resource: "ORGANIZATION",
+      resourceId: organizationId,
+      description: `Updated organization status to '${status}'`,
+    }).catch(() => {});
+
     return OrganizationMapper.toDTO(updatedOrg);
   }
 
@@ -396,6 +429,232 @@ export class OrganizationService {
       throw new ApiError(404, "Organization not found");
     }
 
+    AuditLogService.createAuditLog({
+      organizationId,
+      actorId: user.id || user._id,
+      action: "DEACTIVATE",
+      resource: "ORGANIZATION",
+      resourceId: organizationId,
+      description: `Deactivated organization '${updatedOrg.name}'`,
+    }).catch(() => {});
+
     return { success: true, message: "Organization deactivated successfully" };
+  }
+
+  /**
+   * Invites a new staff member to the organization
+   */
+  static async inviteStaffMember(organizationId, { email, firstName, lastName, roleName }, inviterUserId) {
+    if (!email || !firstName) {
+      throw new ApiError(400, "Email and firstName are required for staff invitation");
+    }
+
+    const targetEmail = email.toLowerCase().trim();
+
+    // Verify role exists
+    const role = await Role.findOne({
+      name: roleName || ORGANIZATION_ROLES.EXAMINER,
+      scope: ROLE_SCOPES.ORGANIZATION,
+    });
+    if (!role) {
+      throw new ApiError(400, `Invalid organization role: '${roleName}'`);
+    }
+
+    let user = await User.findOne({ email: targetEmail });
+    if (!user) {
+      user = await User.create({
+        email: targetEmail,
+        firstName: firstName.trim(),
+        lastName: lastName?.trim() || "",
+        passwordHash: "INVITED_ACCOUNT",
+        status: USER_STATUSES.INVITED,
+        emailVerified: false,
+      });
+    }
+
+    // Verify no existing active membership in this org
+    const existingMembership = await UserMembership.findOne({
+      userId: user._id,
+      organizationId,
+    });
+
+    if (existingMembership) {
+      if (existingMembership.status === MEMBERSHIP_STATUSES.ACTIVE) {
+        throw new ApiError(400, "User is already an active member of this organization");
+      }
+      existingMembership.status = MEMBERSHIP_STATUSES.INVITED;
+      existingMembership.roleId = role._id;
+      existingMembership.invitedBy = inviterUserId;
+      existingMembership.invitedAt = new Date();
+      await existingMembership.save();
+    } else {
+      await UserMembership.create({
+        userId: user._id,
+        organizationId,
+        roleId: role._id,
+        status: MEMBERSHIP_STATUSES.INVITED,
+        invitedBy: inviterUserId,
+        invitedAt: new Date(),
+      });
+    }
+
+    NotificationService.createNotification({
+      organizationId,
+      recipientId: user._id,
+      type: NOTIFICATION_TYPES.ORGANIZATION_INVITATION,
+      title: "Organization Staff Invitation",
+      message: `You have been invited to join as '${role.name}'.`,
+    }).catch(() => {});
+
+    AuditLogService.createAuditLog({
+      organizationId,
+      actorId: inviterUserId,
+      action: "INVITE",
+      resource: "STAFF_MEMBERSHIP",
+      resourceId: user._id,
+      description: `Invited '${targetEmail}' with role '${role.name}'`,
+    }).catch(() => {});
+
+    return { success: true, email: targetEmail, role: role.name, status: "INVITED" };
+  }
+
+  /**
+   * Lists staff memberships in an organization
+   */
+  static async listMembers(organizationId, query = {}) {
+    const page = Math.max(1, parseInt(query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(query.limit) || 20));
+    const skip = (page - 1) * limit;
+
+    const filter = { organizationId };
+    if (query.status) filter.status = query.status;
+
+    const [items, total] = await Promise.all([
+      UserMembership.find(filter)
+        .populate("userId", "firstName lastName email status")
+        .populate("roleId", "name scope description")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      UserMembership.countDocuments(filter),
+    ]);
+
+    return {
+      items,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    };
+  }
+
+  /**
+   * Updates staff membership role or status
+   */
+  static async updateMember(organizationId, membershipId, { roleName, status }, actorUserId) {
+    if (!mongoose.Types.ObjectId.isValid(membershipId)) {
+      throw new ApiError(400, "Invalid membership ID format");
+    }
+
+    const membership = await UserMembership.findOne({
+      _id: membershipId,
+      organizationId,
+    });
+
+    if (!membership) {
+      throw new ApiError(404, "Membership not found in this organization");
+    }
+
+    if (roleName) {
+      const role = await Role.findOne({ name: roleName, scope: ROLE_SCOPES.ORGANIZATION });
+      if (!role) throw new ApiError(400, `Invalid organization role: '${roleName}'`);
+      membership.roleId = role._id;
+    }
+
+    if (status) {
+      membership.status = status;
+    }
+
+    await membership.save();
+
+    AuditLogService.createAuditLog({
+      organizationId,
+      actorId: actorUserId,
+      action: "UPDATE",
+      resource: "STAFF_MEMBERSHIP",
+      resourceId: membership._id,
+      description: `Updated member role/status to '${roleName || "unchanged"}' / '${status || "unchanged"}'`,
+    }).catch(() => {});
+
+    return membership;
+  }
+
+  /**
+   * Removes staff membership from an organization
+   */
+  static async removeMember(organizationId, membershipId, actorUserId) {
+    if (!mongoose.Types.ObjectId.isValid(membershipId)) {
+      throw new ApiError(400, "Invalid membership ID format");
+    }
+
+    const membership = await UserMembership.findOneAndDelete({
+      _id: membershipId,
+      organizationId,
+    });
+
+    if (!membership) {
+      throw new ApiError(404, "Membership not found in this organization");
+    }
+
+    AuditLogService.createAuditLog({
+      organizationId,
+      actorId: actorUserId,
+      action: "REMOVE",
+      resource: "STAFF_MEMBERSHIP",
+      resourceId: membership._id,
+      description: `Removed staff membership`,
+    }).catch(() => {});
+
+    return { success: true, message: "Member removed successfully" };
+  }
+
+  /**
+   * Organization Context Switcher
+   */
+  static async switchOrganization(organizationId, userId) {
+    if (!mongoose.Types.ObjectId.isValid(organizationId)) {
+      throw new ApiError(400, "Invalid organization ID format");
+    }
+
+    const organization = await Organization.findById(organizationId);
+    if (!organization || organization.status !== ORGANIZATION_STATUSES.ACTIVE) {
+      throw new ApiError(400, "Target organization is not active or does not exist");
+    }
+
+    const membership = await UserMembership.findOne({
+      userId,
+      organizationId,
+      status: MEMBERSHIP_STATUSES.ACTIVE,
+    }).populate("roleId");
+
+    if (!membership) {
+      throw new ApiError(403, "Forbidden. You do not hold an active membership in this organization.");
+    }
+
+    const scopedToken = generateAccessToken({
+      sub: userId.toString(),
+      orgId: organizationId.toString(),
+      role: membership.roleId?.name,
+    });
+
+    return {
+      organizationId: organization._id,
+      organizationName: organization.name,
+      role: membership.roleId?.name,
+      accessToken: scopedToken,
+    };
   }
 }

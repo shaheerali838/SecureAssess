@@ -9,12 +9,13 @@ import { CertificateNumberService } from "./certificateNumber.service.js";
 import { CertificateGenerator } from "./generators/certificate.generator.js";
 import { NotificationService } from "../notifications/notification.service.js";
 import { NOTIFICATION_TYPES } from "../notifications/notification.constants.js";
+import { AuditLogService } from "../auditLogs/auditLog.service.js";
 import { CERTIFICATE_STATUSES } from "./certificate.constants.js";
 import { ApiError } from "../../utils/ApiError.js";
 
 export class CertificateService {
   /**
-   * Automatically issues a verifiable credential for a passed result
+   * Automatically or manually issues a verifiable credential for a passed, published result
    */
   static async issueCertificateForResult(organizationId, resultId, issuerUser = null) {
     if (!mongoose.Types.ObjectId.isValid(resultId)) {
@@ -26,12 +27,22 @@ export class CertificateService {
       throw new ApiError(404, "Result not found in this organization");
     }
 
+    if (!result.published) {
+      throw new ApiError(
+        400,
+        "Candidate is not eligible for a certificate: Result has not been published yet."
+      );
+    }
+
     if (!result.passed) {
-      throw new ApiError(400, "Candidate is not eligible for a certificate: Result did not meet passing score criteria.");
+      throw new ApiError(
+        400,
+        "Candidate is not eligible for a certificate: Result did not meet passing score criteria."
+      );
     }
 
     // Idempotency: check if certificate already exists
-    const existing = await Certificate.findOne({ resultId, organizationId });
+    const existing = await Certificate.findOne({ resultId: result._id, organizationId });
     if (existing) {
       return existing;
     }
@@ -60,7 +71,7 @@ export class CertificateService {
       title,
       issuerName,
       issuedAt: new Date(),
-      score: result.totalPoints ? result.earnedPoints : result.percentage,
+      score: result.obtainedMarks !== undefined ? result.obtainedMarks : result.earnedPoints,
       percentage: result.percentage,
       grade: result.grade,
       templateId: assessment?.settings?.certificate?.templateId || "MODERN",
@@ -80,7 +91,7 @@ export class CertificateService {
       recipientName,
       issuedAt: new Date(),
       status: CERTIFICATE_STATUSES.ISSUED,
-      score: result.earnedPoints,
+      score: result.obtainedMarks !== undefined ? result.obtainedMarks : result.earnedPoints,
       percentage: result.percentage,
       grade: result.grade,
       issuerName,
@@ -92,17 +103,28 @@ export class CertificateService {
 
     // Notify candidate
     if (candidate.userId) {
-      await NotificationService.notify({
+      NotificationService.createNotification({
         organizationId,
         recipientId: candidate.userId,
         type: NOTIFICATION_TYPES.CERTIFICATE_ISSUED,
+        title: "Certificate Issued",
+        message: `Congratulations! Your certificate for '${title}' has been issued. Certificate Number: ${certificateNumber}`,
         data: {
-          assessmentTitle: title,
+          certificateId: certificate._id,
           certificateNumber,
           verificationCode,
         },
-      });
+      }).catch(() => {});
     }
+
+    AuditLogService.createAuditLog({
+      organizationId,
+      actorId: issuerUser?._id || issuerUser || null,
+      action: "CREATE",
+      resource: "CERTIFICATE",
+      resourceId: certificate._id,
+      description: `Issued certificate '${certificateNumber}' to candidate '${candidate.email}' for assessment '${title}'`,
+    }).catch(() => {});
 
     return certificate;
   }
@@ -111,16 +133,22 @@ export class CertificateService {
    * Retrieves certificates for the currently authenticated candidate
    */
   static async getCandidateCertificates(organizationId, userId) {
-    const candidate = await Candidate.findOne({ organizationId, userId });
-    if (!candidate) {
-      throw new ApiError(404, "Candidate profile not found in this organization");
+    let candidate = await Candidate.findOne({ userId, status: "ACTIVE" });
+    if (organizationId && (!candidate || candidate.organizationId.toString() !== organizationId.toString())) {
+      candidate = await Candidate.findOne({ organizationId, userId, status: "ACTIVE" });
     }
 
-    return Certificate.find({
-      organizationId,
+    if (!candidate) {
+      return [];
+    }
+
+    const filter = {
       candidateId: candidate._id,
       status: { $in: [CERTIFICATE_STATUSES.ISSUED, CERTIFICATE_STATUSES.REVOKED, CERTIFICATE_STATUSES.EXPIRED] },
-    })
+    };
+    if (organizationId) filter.organizationId = organizationId;
+
+    return Certificate.find(filter)
       .populate("assessmentId", "title code")
       .sort({ issuedAt: -1 });
   }
@@ -159,7 +187,7 @@ export class CertificateService {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit),
+        totalPages: Math.ceil(total / limit) || 1,
       },
     };
   }
@@ -172,7 +200,10 @@ export class CertificateService {
       throw new ApiError(400, "Invalid certificate ID format");
     }
 
-    const certificate = await Certificate.findOne({ _id: certificateId, organizationId })
+    const filter = { _id: certificateId };
+    if (organizationId) filter.organizationId = organizationId;
+
+    const certificate = await Certificate.findOne(filter)
       .populate("candidateId", "firstName lastName email candidateCode userId")
       .populate("assessmentId", "title code")
       .lean();
@@ -181,8 +212,19 @@ export class CertificateService {
       throw new ApiError(404, "Certificate not found");
     }
 
-    if (isCandidate && certificate.candidateId?.userId?.toString() !== userId?.toString()) {
-      throw new ApiError(403, "Access denied: You can only view your own certificates");
+    if (isCandidate) {
+      let candidate = await Candidate.findOne({ userId, status: "ACTIVE" });
+      if (organizationId && (!candidate || candidate.organizationId.toString() !== organizationId.toString())) {
+        candidate = await Candidate.findOne({ userId, organizationId, status: "ACTIVE" });
+      }
+
+      const certCandId = certificate.candidateId?._id
+        ? certificate.candidateId._id.toString()
+        : certificate.candidateId?.toString();
+
+      if (!candidate || certCandId !== candidate._id.toString()) {
+        throw new ApiError(403, "Access denied: You can only view your own certificates");
+      }
     }
 
     return certificate;
@@ -210,6 +252,15 @@ export class CertificateService {
     certificate.revokedBy = userId;
     certificate.revocationReason = reason || "Revoked by examination board";
     await certificate.save();
+
+    AuditLogService.createAuditLog({
+      organizationId,
+      actorId: userId,
+      action: "UPDATE",
+      resource: "CERTIFICATE",
+      resourceId: certificate._id,
+      description: `Revoked certificate '${certificate.certificateNumber}' (Reason: ${certificate.revocationReason})`,
+    }).catch(() => {});
 
     return certificate;
   }

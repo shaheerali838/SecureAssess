@@ -7,6 +7,7 @@ import Candidate from "../candidates/candidate.model.js";
 import User from "../users/user.model.js";
 import { NotificationService } from "../notifications/notification.service.js";
 import { NOTIFICATION_TYPES } from "../notifications/notification.constants.js";
+import { AuditLogService } from "../auditLogs/auditLog.service.js";
 import {
   INTERVIEW_STATUSES,
   PARTICIPANT_ROLES,
@@ -68,18 +69,17 @@ export class InterviewService {
       });
 
       // Send Notification to candidate
-      await NotificationService.notify({
+      NotificationService.createNotification({
         organizationId,
         recipientId: candidate.userId,
         type: NOTIFICATION_TYPES.INTERVIEW_SCHEDULED,
+        title: "Live Interview Scheduled",
+        message: `Your live interview for '${title}' is scheduled for ${new Date(scheduledStartAt).toLocaleString()}.`,
         data: {
           interviewId: interview._id,
           interviewTitle: title,
-          interviewDate: new Date(scheduledStartAt).toLocaleDateString(),
-          interviewTime: new Date(scheduledStartAt).toLocaleTimeString(),
-          interviewType: type || "TECHNICAL",
         },
-      });
+      }).catch(() => {});
     }
 
     // Register Interviewer(s)
@@ -103,22 +103,19 @@ export class InterviewService {
         );
 
         if (intUserId !== createdByUserId.toString()) {
-          await NotificationService.notify({
+          NotificationService.createNotification({
             organizationId,
             recipientId: intUserId,
             type: NOTIFICATION_TYPES.INTERVIEW_SCHEDULED,
-            data: {
-              interviewId: interview._id,
-              interviewTitle: title,
-              interviewDate: new Date(scheduledStartAt).toLocaleDateString(),
-              interviewTime: new Date(scheduledStartAt).toLocaleTimeString(),
-            },
-          });
+            title: "Interview Assignment",
+            message: `You are assigned as interviewer for '${title}'.`,
+            data: { interviewId: interview._id },
+          }).catch(() => {});
         }
       }
     }
 
-    // Audit Event
+    // Audit Event & Log
     await InterviewEvent.create({
       interviewId: interview._id,
       organizationId,
@@ -126,6 +123,15 @@ export class InterviewService {
       type: INTERVIEW_EVENT_TYPES.INTERVIEW_CREATED,
       data: { title, scheduledStartAt },
     });
+
+    AuditLogService.createAuditLog({
+      organizationId,
+      actorId: createdByUserId,
+      action: "CREATE",
+      resource: "INTERVIEW",
+      resourceId: interview._id,
+      description: `Scheduled interview '${title}' for candidate '${candidate.email}'`,
+    }).catch(() => {});
 
     return interview;
   }
@@ -137,7 +143,10 @@ export class InterviewService {
     const filter = { organizationId };
 
     if (isCandidate) {
-      const candidate = await Candidate.findOne({ organizationId, userId });
+      let candidate = await Candidate.findOne({ userId, status: "ACTIVE" });
+      if (organizationId && (!candidate || candidate.organizationId.toString() !== organizationId.toString())) {
+        candidate = await Candidate.findOne({ userId, organizationId, status: "ACTIVE" });
+      }
       if (!candidate) return { items: [], pagination: { total: 0 } };
       filter.candidateId = candidate._id;
     }
@@ -166,7 +175,7 @@ export class InterviewService {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit),
+        totalPages: Math.ceil(total / limit) || 1,
       },
     };
   }
@@ -189,8 +198,11 @@ export class InterviewService {
       throw new ApiError(404, "Interview not found");
     }
 
-    if (isCandidate && interview.candidateId?.userId?.toString() !== userId.toString()) {
-      throw new ApiError(403, "Access denied: You can only view your own interviews");
+    if (isCandidate) {
+      const candidate = await Candidate.findOne({ userId, status: "ACTIVE" });
+      if (!candidate || interview.candidateId?._id?.toString() !== candidate._id.toString()) {
+        throw new ApiError(403, "Access denied: You can only view your own interviews");
+      }
     }
 
     const participants = await InterviewParticipant.find({ interviewId })
@@ -213,7 +225,7 @@ export class InterviewService {
 
     const interview = await Interview.findOne({ _id: interviewId, organizationId });
     if (!interview) {
-      throw new ApiError(404, "Interview not found");
+      throw new ApiError(404, "Interview not found in this organization");
     }
 
     if (interview.status === INTERVIEW_STATUSES.CANCELLED || interview.status === INTERVIEW_STATUSES.COMPLETED) {
@@ -241,8 +253,8 @@ export class InterviewService {
       await participant.save();
     }
 
-    // Advance interview status to WAITING or LIVE
-    if (interview.status === INTERVIEW_STATUSES.SCHEDULED) {
+    // Advance interview status to LIVE
+    if (interview.status === INTERVIEW_STATUSES.SCHEDULED || interview.status === INTERVIEW_STATUSES.WAITING) {
       interview.status = INTERVIEW_STATUSES.LIVE;
       await interview.save();
     }
@@ -267,6 +279,15 @@ export class InterviewService {
       session.participantCount += 1;
       await session.save();
     }
+
+    AuditLogService.createAuditLog({
+      organizationId,
+      actorId: userId,
+      action: "JOIN",
+      resource: "INTERVIEW",
+      resourceId: interview._id,
+      description: `Participant joined interview session '${session.sessionId}'`,
+    }).catch(() => {});
 
     return {
       interviewId: interview._id,
@@ -310,6 +331,15 @@ export class InterviewService {
       data: { endedAt: new Date() },
     });
 
+    AuditLogService.createAuditLog({
+      organizationId,
+      actorId: userId,
+      action: "END",
+      resource: "INTERVIEW",
+      resourceId: interview._id,
+      description: `Ended interview '${interview.title}'`,
+    }).catch(() => {});
+
     return interview;
   }
 
@@ -337,6 +367,15 @@ export class InterviewService {
       type: INTERVIEW_EVENT_TYPES.INTERVIEW_CANCELLED,
       data: { reason },
     });
+
+    AuditLogService.createAuditLog({
+      organizationId,
+      actorId: userId,
+      action: "CANCEL",
+      resource: "INTERVIEW",
+      resourceId: interview._id,
+      description: `Cancelled interview '${interview.title}' (Reason: ${reason || "Cancelled by administrator"})`,
+    }).catch(() => {});
 
     return interview;
   }

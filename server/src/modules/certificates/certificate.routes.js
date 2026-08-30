@@ -22,15 +22,55 @@ const router = express.Router({ mergeParams: true });
 
 // --- Candidate Self-Service Routes ---
 router.get(
+  "/my",
+  requireAuth,
+  requireTenantContext,
+  getMyCertificates
+);
+
+router.get(
   "/candidate/certificates",
   requireAuth,
   requireTenantContext,
   getMyCertificates
 );
 
+router.get(
+  "/candidate-portal/certificates",
+  requireAuth,
+  requireTenantContext,
+  getMyCertificates
+);
+
+router.get(
+  "/candidate-portal/certificates/:certificateId",
+  requireAuth,
+  requireTenantContext,
+  getCertificateDetails
+);
+
+router.get(
+  "/candidate-portal/certificates/:certificateId/download",
+  requireAuth,
+  requireTenantContext,
+  downloadCertificate
+);
+
 // --- Organization Certificate Management Endpoints ---
 
-// GET /api/v1/organizations/:organizationId/certificates
+// GET / - List certificates for organization
+router.get(
+  "/",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.CERTIFICATES_VIEW,
+    PERMISSIONS.CERTIFICATES_VIEW
+  ),
+  getOrganizationCertificates
+);
+
+// GET /certificates - Alias
 router.get(
   "/certificates",
   requireAuth,
@@ -42,7 +82,20 @@ router.get(
   getOrganizationCertificates
 );
 
-// POST /api/v1/organizations/:organizationId/certificates
+// POST / - Issue certificate
+router.post(
+  "/",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.CERTIFICATES_GENERATE,
+    PERMISSIONS.CERTIFICATES_GENERATE
+  ),
+  validateRequest(issueCertificateSchema),
+  issueCertificate
+);
+
+// POST /certificates - Alias
 router.post(
   "/certificates",
   requireAuth,
@@ -55,7 +108,15 @@ router.post(
   issueCertificate
 );
 
-// GET /api/v1/organizations/:organizationId/certificates/:certificateId
+// GET /:certificateId - View certificate
+router.get(
+  "/:certificateId",
+  requireAuth,
+  requireTenantContext,
+  getCertificateDetails
+);
+
+// GET /certificates/:certificateId - Alias
 router.get(
   "/certificates/:certificateId",
   requireAuth,
@@ -63,7 +124,15 @@ router.get(
   getCertificateDetails
 );
 
-// GET /api/v1/organizations/:organizationId/certificates/:certificateId/download
+// GET /:certificateId/download - Download certificate
+router.get(
+  "/:certificateId/download",
+  requireAuth,
+  requireTenantContext,
+  downloadCertificate
+);
+
+// GET /certificates/:certificateId/download - Alias
 router.get(
   "/certificates/:certificateId/download",
   requireAuth,
@@ -71,7 +140,33 @@ router.get(
   downloadCertificate
 );
 
-// PATCH /api/v1/organizations/:organizationId/certificates/:certificateId/revoke
+// PATCH /:certificateId/revoke - Revoke certificate
+router.patch(
+  "/:certificateId/revoke",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.CERTIFICATES_REVOKE,
+    PERMISSIONS.CERTIFICATES_REVOKE
+  ),
+  validateRequest(revokeCertificateSchema),
+  revokeCertificate
+);
+
+// POST /:certificateId/revoke - Alias
+router.post(
+  "/:certificateId/revoke",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.CERTIFICATES_REVOKE,
+    PERMISSIONS.CERTIFICATES_REVOKE
+  ),
+  validateRequest(revokeCertificateSchema),
+  revokeCertificate
+);
+
+// PATCH /certificates/:certificateId/revoke - Alias
 router.patch(
   "/certificates/:certificateId/revoke",
   requireAuth,

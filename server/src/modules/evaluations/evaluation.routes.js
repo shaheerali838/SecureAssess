@@ -108,6 +108,17 @@ router.post(
   publishResult
 );
 
+router.post(
+  "/attempts/:attemptId/publish",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.RESULTS_PUBLISH,
+    PERMISSIONS.RESULTS_PUBLISH
+  ),
+  publishResult
+);
+
 router.get(
   "/attempts/:attemptId/evaluation",
   requireAuth,
@@ -122,6 +133,12 @@ router.get(
 // --- Candidate Result Endpoint ---
 router.get(
   "/candidate/attempts/:attemptId/result",
+  requireAuth,
+  getCandidateResult
+);
+
+router.get(
+  "/attempts/:attemptId/result",
   requireAuth,
   getCandidateResult
 );

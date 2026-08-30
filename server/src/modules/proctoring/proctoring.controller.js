@@ -174,12 +174,12 @@ export const sendWarning = asyncHandler(async (req, res) => {
     req.user?.activeOrganizationId;
   const { sessionId } = req.params;
   const userId = req.user?.id || req.user?._id;
-  const { message } = req.body;
+  const warningMessage = req.body.warningMessage || req.body.message;
 
   const result = await ProctoringService.sendWarning(
     organizationId,
     sessionId,
-    message,
+    warningMessage,
     userId
   );
 
@@ -232,6 +232,26 @@ export const terminateSession = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(new ApiResponse(200, result, "Proctoring session and attempt terminated"));
+});
+
+export const createEvidence = asyncHandler(async (req, res) => {
+  const organizationId =
+    req.params.organizationId ||
+    req.organizationId ||
+    req.query.organizationId ||
+    req.headers["x-organization-id"] ||
+    req.user?.activeOrganizationId;
+  const { sessionId } = req.params;
+
+  const result = await ProctoringService.createEvidence(
+    organizationId,
+    sessionId,
+    req.body
+  );
+
+  return res
+    .status(201)
+    .json(new ApiResponse(201, result, "Evidence stored successfully"));
 });
 
 export const getSessionEvidence = asyncHandler(async (req, res) => {

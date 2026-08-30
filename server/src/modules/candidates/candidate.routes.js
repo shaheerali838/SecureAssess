@@ -5,7 +5,16 @@ import {
   getCandidate,
   updateCandidate,
   updateCandidateStatus,
+  suspendCandidate,
+  activateCandidate,
   deleteCandidate,
+  getCandidatePortalProfile,
+  updateCandidatePortalProfile,
+  getCandidatePortalAssignments,
+  getCandidatePortalAttempts,
+  getCandidatePortalResults,
+  getCandidatePortalCertificates,
+  getCandidatePortalInterviews,
 } from "./candidate.controller.js";
 import { requireAuth } from "../../middleware/auth.middleware.js";
 import { requireTenantContext } from "../../middleware/tenant.middleware.js";
@@ -13,6 +22,22 @@ import { requireOrganizationOrPlatformPermission } from "../../middleware/permis
 import { PERMISSIONS } from "../../constants/permissions.js";
 
 const router = express.Router({ mergeParams: true });
+
+// ==========================================
+// CANDIDATE PORTAL SELF-SERVICE ROUTES
+// ==========================================
+
+router.get("/portal/profile", requireAuth, getCandidatePortalProfile);
+router.patch("/portal/profile", requireAuth, updateCandidatePortalProfile);
+router.get("/portal/assignments", requireAuth, getCandidatePortalAssignments);
+router.get("/portal/attempts", requireAuth, getCandidatePortalAttempts);
+router.get("/portal/results", requireAuth, getCandidatePortalResults);
+router.get("/portal/certificates", requireAuth, getCandidatePortalCertificates);
+router.get("/portal/interviews", requireAuth, getCandidatePortalInterviews);
+
+// ==========================================
+// ORGANIZATION CANDIDATE MANAGEMENT ROUTES
+// ==========================================
 
 // POST /api/v1/organizations/:organizationId/candidates
 router.post(
@@ -60,6 +85,30 @@ router.patch(
     PERMISSIONS.CANDIDATES_UPDATE
   ),
   updateCandidate
+);
+
+// POST /api/v1/organizations/:organizationId/candidates/:candidateId/suspend
+router.post(
+  "/:candidateId/suspend",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.CANDIDATES_UPDATE,
+    PERMISSIONS.CANDIDATES_UPDATE
+  ),
+  suspendCandidate
+);
+
+// POST /api/v1/organizations/:organizationId/candidates/:candidateId/activate
+router.post(
+  "/:candidateId/activate",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.CANDIDATES_UPDATE,
+    PERMISSIONS.CANDIDATES_UPDATE
+  ),
+  activateCandidate
 );
 
 // PATCH /api/v1/organizations/:organizationId/candidates/:candidateId/status

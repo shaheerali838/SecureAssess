@@ -59,11 +59,13 @@ export const getCertificateDetails = asyncHandler(async (req, res) => {
   const userId = req.user?.id || req.user?._id;
   const organizationId = req.params.organizationId || req.organizationId;
   const { certificateId } = req.params;
+  const isCandidateRoute = req.originalUrl?.includes("candidate") || req.path?.includes("candidate");
 
   const result = await CertificateService.getCertificateDetails(
     organizationId,
     certificateId,
-    userId
+    userId,
+    isCandidateRoute
   );
 
   return res
@@ -75,11 +77,13 @@ export const downloadCertificate = asyncHandler(async (req, res) => {
   const userId = req.user?.id || req.user?._id;
   const organizationId = req.params.organizationId || req.organizationId;
   const { certificateId } = req.params;
+  const isCandidateRoute = req.originalUrl?.includes("candidate") || req.path?.includes("candidate");
 
   const result = await CertificateService.getCertificateDetails(
     organizationId,
     certificateId,
-    userId
+    userId,
+    isCandidateRoute
   );
 
   return res

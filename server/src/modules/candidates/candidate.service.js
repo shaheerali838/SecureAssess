@@ -5,21 +5,36 @@ import Program from "../programs/program.model.js";
 import User from "../users/user.model.js";
 import UserMembership from "../users/userMembership.model.js";
 import Role from "../roles/role.model.js";
+import AssessmentAssignment from "../assessmentAssignments/assessmentAssignment.model.js";
+import Attempt from "../attempts/attempt.model.js";
+import Result from "../results/result.model.js";
+import Certificate from "../certificates/certificate.model.js";
+import Interview from "../interviews/interview.model.js";
+import { EntitlementService } from "../../services/billing/entitlement.service.js";
+import { AuditLogService } from "../auditLogs/auditLog.service.js";
+import { NotificationService } from "../notifications/notification.service.js";
+import { NOTIFICATION_TYPES } from "../notifications/notification.constants.js";
 import { ORGANIZATION_ROLES } from "../../constants/roles.js";
 import { ApiError } from "../../utils/ApiError.js";
 
 export class CandidateService {
-  static async createCandidate(organizationId, data) {
+  /**
+   * Creates a new candidate within an organization and links/creates user identity
+   */
+  static async createCandidate(organizationId, data, actorUserId = null) {
+    // 1. Quota check
+    await EntitlementService.checkUsageLimit(organizationId, "candidates");
+
     const candidateCode = data.candidateCode.trim().toUpperCase();
     const email = data.email.trim().toLowerCase();
 
-    // 1. Verify candidateCode uniqueness in organization
+    // 2. Verify candidateCode uniqueness in organization
     const existingCode = await Candidate.findOne({ organizationId, candidateCode });
     if (existingCode) {
       throw new ApiError(409, `Candidate with code '${candidateCode}' already exists in this organization`);
     }
 
-    // 2. Verify Department belongs to organization (if provided)
+    // 3. Verify Department belongs to organization (if provided)
     if (data.departmentId) {
       const department = await Department.findOne({ _id: data.departmentId, organizationId });
       if (!department) {
@@ -27,7 +42,7 @@ export class CandidateService {
       }
     }
 
-    // 3. Verify Program belongs to organization (if provided)
+    // 4. Verify Program belongs to organization (if provided)
     if (data.programId) {
       const program = await Program.findOne({ _id: data.programId, organizationId });
       if (!program) {
@@ -35,12 +50,11 @@ export class CandidateService {
       }
     }
 
-    // 4. Resolve or Link User identity & Membership
+    // 5. Resolve or Link User identity & Membership
     let userId = data.userId || null;
     if (!userId) {
       let user = await User.findOne({ email });
       if (!user) {
-        // Create user identity for candidate with invited state
         user = await User.create({
           firstName: data.firstName.trim(),
           lastName: data.lastName.trim(),
@@ -84,9 +98,21 @@ export class CandidateService {
       metadata: data.metadata || {},
     });
 
+    AuditLogService.createAuditLog({
+      organizationId,
+      actorId: actorUserId,
+      action: "CREATE",
+      resource: "CANDIDATE",
+      resourceId: candidate._id,
+      description: `Created candidate '${candidateCode}' (${email})`,
+    }).catch(() => {});
+
     return candidate;
   }
 
+  /**
+   * Retrieves paginated candidates in an organization
+   */
   static async getCandidates(organizationId, query = {}) {
     const page = parseInt(query.page || "1", 10);
     const limit = parseInt(query.limit || "20", 10);
@@ -127,6 +153,9 @@ export class CandidateService {
     };
   }
 
+  /**
+   * Retrieves single candidate record
+   */
   static async getCandidate(organizationId, candidateId) {
     if (!mongoose.Types.ObjectId.isValid(candidateId)) {
       throw new ApiError(400, "Invalid candidate ID format");
@@ -147,7 +176,10 @@ export class CandidateService {
     return candidate;
   }
 
-  static async updateCandidate(organizationId, candidateId, updateData) {
+  /**
+   * Updates candidate profile details
+   */
+  static async updateCandidate(organizationId, candidateId, updateData, actorUserId = null) {
     if (!mongoose.Types.ObjectId.isValid(candidateId)) {
       throw new ApiError(400, "Invalid candidate ID format");
     }
@@ -184,10 +216,22 @@ export class CandidateService {
       throw new ApiError(404, "Candidate not found in this organization");
     }
 
+    AuditLogService.createAuditLog({
+      organizationId,
+      actorId: actorUserId,
+      action: "UPDATE",
+      resource: "CANDIDATE",
+      resourceId: candidate._id,
+      description: `Updated candidate '${candidate.candidateCode}'`,
+    }).catch(() => {});
+
     return candidate;
   }
 
-  static async updateCandidateStatus(organizationId, candidateId, status) {
+  /**
+   * Updates candidate status (SUSPEND / ACTIVATE)
+   */
+  static async updateCandidateStatus(organizationId, candidateId, status, actorUserId = null) {
     if (!mongoose.Types.ObjectId.isValid(candidateId)) {
       throw new ApiError(400, "Invalid candidate ID format");
     }
@@ -202,10 +246,22 @@ export class CandidateService {
       throw new ApiError(404, "Candidate not found in this organization");
     }
 
+    AuditLogService.createAuditLog({
+      organizationId,
+      actorId: actorUserId,
+      action: "UPDATE_STATUS",
+      resource: "CANDIDATE",
+      resourceId: candidate._id,
+      description: `Set candidate status to '${status}'`,
+    }).catch(() => {});
+
     return candidate;
   }
 
-  static async deleteCandidate(organizationId, candidateId) {
+  /**
+   * Soft deletes / deactivates candidate
+   */
+  static async deleteCandidate(organizationId, candidateId, actorUserId = null) {
     if (!mongoose.Types.ObjectId.isValid(candidateId)) {
       throw new ApiError(400, "Invalid candidate ID format");
     }
@@ -220,6 +276,147 @@ export class CandidateService {
       throw new ApiError(404, "Candidate not found in this organization");
     }
 
+    AuditLogService.createAuditLog({
+      organizationId,
+      actorId: actorUserId,
+      action: "DEACTIVATE",
+      resource: "CANDIDATE",
+      resourceId: candidate._id,
+      description: `Deactivated candidate '${candidate.candidateCode}'`,
+    }).catch(() => {});
+
     return { success: true, message: "Candidate deactivated successfully" };
+  }
+
+  // ==========================================
+  // CANDIDATE PORTAL SELF-SERVICE METHODS
+  // ==========================================
+
+  /**
+   * Resolves active candidate profile for authenticated user
+   */
+  static async getCandidatePortalProfile(userId, organizationId = null) {
+    const filter = { userId, status: { $ne: "DEACTIVATED" } };
+    if (organizationId) filter.organizationId = organizationId;
+
+    const candidate = await Candidate.findOne(filter)
+      .populate("organizationId", "name slug code logo settings")
+      .populate("departmentId", "name code")
+      .populate("programId", "name code")
+      .populate("userId", "firstName lastName email avatar");
+
+    if (!candidate) {
+      throw new ApiError(404, "Candidate profile not found for authenticated user");
+    }
+
+    return candidate;
+  }
+
+  /**
+   * Allows candidate to update permitted profile fields
+   */
+  static async updateCandidatePortalProfile(userId, organizationId, updateData) {
+    const filter = { userId, status: { $ne: "DEACTIVATED" } };
+    if (organizationId) filter.organizationId = organizationId;
+
+    const candidate = await Candidate.findOne(filter);
+    if (!candidate) {
+      throw new ApiError(404, "Candidate profile not found");
+    }
+
+    // Only allow updating non-authoritative profile fields
+    if (updateData.firstName) candidate.firstName = updateData.firstName.trim();
+    if (updateData.lastName) candidate.lastName = updateData.lastName.trim();
+    if (updateData.phoneNumber !== undefined) candidate.phoneNumber = updateData.phoneNumber;
+    if (updateData.metadata) candidate.metadata = { ...candidate.metadata, ...updateData.metadata };
+
+    await candidate.save();
+    return candidate;
+  }
+
+  /**
+   * Retrieves candidate's assigned assessments
+   */
+  static async getCandidatePortalAssignments(userId, organizationId = null) {
+    const candidate = await this.getCandidatePortalProfile(userId, organizationId);
+
+    const assignments = await AssessmentAssignment.find({
+      candidateId: candidate._id,
+      status: { $in: ["ASSIGNED", "SCHEDULED", "IN_PROGRESS", "COMPLETED"] },
+    })
+      .populate("assessmentId", "title description durationMinutes totalPoints passingScore code instructions")
+      .sort({ validFrom: -1 })
+      .lean();
+
+    return assignments;
+  }
+
+  /**
+   * Retrieves candidate's attempts
+   */
+  static async getCandidatePortalAttempts(userId, organizationId = null) {
+    const candidate = await this.getCandidatePortalProfile(userId, organizationId);
+
+    const attempts = await Attempt.find({
+      candidateId: candidate._id,
+    })
+      .populate("assessmentId", "title code durationMinutes totalPoints passingScore")
+      .select("-questions.correctAnswers -questions.answers.isCorrect")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return attempts;
+  }
+
+  /**
+   * Retrieves published candidate results
+   */
+  static async getCandidatePortalResults(userId, organizationId = null) {
+    const candidate = await this.getCandidatePortalProfile(userId, organizationId);
+
+    const results = await Result.find({
+      candidateId: candidate._id,
+      published: true,
+    })
+      .populate("assessmentId", "title code")
+      .sort({ publishedAt: -1 })
+      .lean();
+
+    return results;
+  }
+
+  /**
+   * Retrieves issued certificates
+   */
+  static async getCandidatePortalCertificates(userId, organizationId = null) {
+    const candidate = await this.getCandidatePortalProfile(userId, organizationId);
+
+    const certificates = await Certificate.find({
+      candidateId: candidate._id,
+      status: "ISSUED",
+    })
+      .populate("assessmentId", "title code")
+      .sort({ issuedAt: -1 })
+      .lean();
+
+    return certificates;
+  }
+
+  /**
+   * Retrieves candidate interviews
+   */
+  static async getCandidatePortalInterviews(userId, organizationId = null) {
+    const candidate = await this.getCandidatePortalProfile(userId, organizationId);
+
+    const interviews = await Interview.find({
+      candidateId: candidate._id,
+      status: { $nin: ["CANCELLED"] },
+    })
+      .populate("assessmentId", "title code")
+      .populate("createdBy", "firstName lastName email")
+      .sort({ scheduledStartAt: 1 })
+      .lean();
+
+    return interviews;
   }
 }

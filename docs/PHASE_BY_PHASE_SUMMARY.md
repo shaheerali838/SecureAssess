@@ -363,4 +363,34 @@ node server/tests/integration/step36_assessment_builder_lifecycle.test.js
 
 # Assessment Assignment & Candidate Scheduling (Step 37)
 node server/tests/integration/step37_assessment_assignment_scheduling.test.js
+
+# Exam Attempt Engine v2 (Step 38)
+node server/tests/integration/step38_exam_attempt_engine.test.js
+
+# Evaluation & Grading Engine (Step 39)
+node server/tests/integration/step39_evaluation_grading_engine.test.js
+
+# Results & Candidate Publication (Step 40)
+node server/tests/integration/step40_results_publication.test.js
+
+# Certificate & Credential Management (Step 41)
+node server/tests/integration/step41_certificates_credentials.test.js
+
+# Proctoring & Anti-Cheating Engine (Step 42)
+node server/tests/integration/step42_proctoring_anti_cheating.test.js
+
+# Interview & Live Video System (Step 43)
+node server/tests/integration/step43_interviews_live_system.test.js
+
+# Notifications & Communication System (Step 44)
+node server/tests/integration/step44_notifications_communication.test.js
+
+# Billing, Subscriptions & SaaS Entitlements (Step 45)
+node server/tests/integration/step45_billing_subscriptions.test.js
+
+# Organization Management & Tenant Administration (Step 46)
+node server/tests/integration/step46_organization_management.test.js
+
+# Candidate Management & Candidate Portal (Step 47)
+node server/tests/integration/step47_candidate_management_portal.test.js
 ```

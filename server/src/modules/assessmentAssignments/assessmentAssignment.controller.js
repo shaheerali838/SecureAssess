@@ -116,3 +116,23 @@ export const getMyAssessment = asyncHandler(async (req, res) => {
   );
   return res.status(200).json(new ApiResponse(200, result, "Authorized assessment retrieved successfully"));
 });
+
+export const startAssignmentAttempt = asyncHandler(async (req, res) => {
+  const userId = req.user?.id || req.user?._id;
+  const { organizationId, assignmentId } = req.params;
+
+  const clientInfo = {
+    ip: req.ip || req.headers["x-forwarded-for"] || "",
+    userAgent: req.headers["user-agent"] || "",
+  };
+
+  const { AttemptService } = await import("../attempts/attempt.service.js");
+  const result = await AttemptService.startAttempt(
+    userId,
+    organizationId,
+    assignmentId,
+    clientInfo
+  );
+
+  return res.status(201).json(new ApiResponse(201, result, "Attempt started successfully"));
+});

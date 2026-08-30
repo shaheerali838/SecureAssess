@@ -174,6 +174,7 @@ Nested under `/api/v1/organizations/:organizationId`:
 | `PATCH` | `.../assessment-assignments/:id/revoke` | Revokes candidate assignment (`REVOKED`). | `assessment_assignments.cancel` |
 | `GET` | `.../candidate-portal/assignments` | Candidate views their own assigned exams. | `requireAuth` |
 | `GET` | `.../candidate-portal/assessments/:id` | Candidate retrieves authorized exam metadata. | `requireAuth` |
+| `POST` | `.../candidate-portal/assignments/:id/start` | Candidate starts examination attempt from assignment. | `requireAuth` |
 
 ---
 

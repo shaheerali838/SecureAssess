@@ -9,6 +9,9 @@ import AssessmentQuestion from "../assessmentQuestions/assessmentQuestion.model.
 import Answer from "../answers/answer.model.js";
 import Candidate from "../candidates/candidate.model.js";
 import { getGraderForType } from "./graders/index.js";
+import { NotificationService } from "../notifications/notification.service.js";
+import { NOTIFICATION_TYPES } from "../notifications/notification.constants.js";
+import { AuditLogService } from "../auditLogs/auditLog.service.js";
 import { ATTEMPT_STATUSES } from "../../constants/attemptStatuses.js";
 import { ApiError } from "../../utils/ApiError.js";
 
@@ -130,7 +133,7 @@ export class EvaluationService {
 
       questionResults.push(qResult);
 
-      // Save EvaluationItem for query granularities
+      // Save EvaluationItem for granular score breakdown
       await EvaluationItem.findOneAndUpdate(
         { attemptId: attempt._id, attemptQuestionId: attQuestion._id },
         {
@@ -161,7 +164,7 @@ export class EvaluationService {
     const percentage =
       totalMarks > 0 ? Number(((totalScore / totalMarks) * 100).toFixed(2)) : 0;
     const passingScore =
-      assessment.gradingSettings?.passingScore || assessment.passingScore || 60;
+      assessment.gradingSettings?.passingScore || assessment.passingScore || 50;
     const passed = percentage >= passingScore;
 
     const evaluationStatus = hasManualReview ? "PARTIALLY_GRADED" : "COMPLETED";
@@ -223,6 +226,16 @@ export class EvaluationService {
       );
     }
 
+    // Audit Log
+    AuditLogService.createAuditLog({
+      organizationId,
+      actorId: options.evaluatorUserId || null,
+      action: "EVALUATE",
+      resource: "EVALUATION",
+      resourceId: evaluation._id,
+      description: `Evaluation processed for attempt '${attempt._id}'. Scored ${totalScore}/${totalMarks} (${percentage.toFixed(1)}%)`,
+    }).catch(() => {});
+
     return evaluation;
   }
 
@@ -265,7 +278,7 @@ export class EvaluationService {
       _id: evaluationId,
       organizationId,
     })
-      .populate("assessmentId", "title code duration gradingSettings")
+      .populate("assessmentId", "title code duration durationSeconds gradingSettings")
       .populate("candidateId", "firstName lastName candidateCode email");
 
     if (!evaluation) {
@@ -332,7 +345,7 @@ export class EvaluationService {
         anyPending = true;
       }
       if (
-        ["ESSAY", "SHORT_ANSWER", "CODING", "VIDEO_RESPONSE"].includes(
+        ["ESSAY", "SHORT_ANSWER", "CODING", "VIDEO_RESPONSE", "MANUAL"].includes(
           qr.questionType,
         )
       ) {
@@ -355,13 +368,24 @@ export class EvaluationService {
         : 0;
 
     const assessment = await Assessment.findById(evaluation.assessmentId);
-    const passingScore = assessment?.gradingSettings?.passingScore || 60;
+    const passingScore = assessment?.gradingSettings?.passingScore || assessment?.passingScore || 50;
     evaluation.passed = evaluation.percentage >= passingScore;
     evaluation.pendingManualReview = anyPending;
     evaluation.status = anyPending ? "PARTIALLY_GRADED" : "COMPLETED";
     evaluation.version += 1;
 
     await evaluation.save();
+
+    // Audit Log for manual grading
+    AuditLogService.createAuditLog({
+      organizationId,
+      actorId: examinerUserId,
+      action: "UPDATE",
+      resource: "EVALUATION",
+      resourceId: evaluation._id,
+      description: `Examiner awarded ${marksAwarded}/${targetQR.marksAvailable} on question ${questionId}`,
+    }).catch(() => {});
+
     return evaluation;
   }
 
@@ -379,7 +403,7 @@ export class EvaluationService {
     }
 
     const assessment = await Assessment.findById(evaluation.assessmentId);
-    const passingScore = assessment?.gradingSettings?.passingScore || 60;
+    const passingScore = assessment?.gradingSettings?.passingScore || assessment?.passingScore || 50;
     const grade = calculateGrade(evaluation.percentage);
 
     evaluation.status = "COMPLETED";
@@ -416,6 +440,15 @@ export class EvaluationService {
       { upsert: true, returnDocument: "after" },
     );
 
+    AuditLogService.createAuditLog({
+      organizationId,
+      actorId: examinerUserId,
+      action: "UPDATE",
+      resource: "EVALUATION",
+      resourceId: evaluation._id,
+      description: `Finalized evaluation for attempt '${evaluation.attemptId}' with score ${evaluation.totalScore}/${evaluation.totalMarks} (${grade})`,
+    }).catch(() => {});
+
     return { evaluation, result };
   }
 
@@ -434,5 +467,97 @@ export class EvaluationService {
       evaluatorUserId: examinerUserId,
     });
     return reEvaluated;
+  }
+
+  static async regradeAttempt(organizationId, attemptId, examinerUserId) {
+    const attempt = await Attempt.findOne({ _id: attemptId, organizationId });
+    if (!attempt) {
+      throw new ApiError(404, "Attempt not found in this organization");
+    }
+
+    const updated = await this.evaluateAttempt(attempt._id, { evaluatorUserId: examinerUserId });
+    return updated;
+  }
+
+  static async publishResult(organizationId, attemptId, examinerUserId) {
+    const result = await Result.findOne({ attemptId, organizationId });
+    if (!result) {
+      throw new ApiError(404, "Result not found for this attempt");
+    }
+
+    result.published = true;
+    result.publishedAt = new Date();
+    result.publishedBy = examinerUserId;
+    result.status = "PUBLISHED";
+    await result.save();
+
+    // Send candidate notification
+    const candidate = await Candidate.findById(result.candidateId);
+    if (candidate?.userId) {
+      NotificationService.createNotification({
+        organizationId,
+        recipientId: candidate.userId,
+        type: NOTIFICATION_TYPES.RESULT_PUBLISHED,
+        title: "Assessment Result Published",
+        message: `Your result for the assessment has been published. Score: ${result.obtainedMarks}/${result.totalMarks} (${result.grade})`,
+        data: { attemptId: result.attemptId, resultId: result._id },
+      }).catch(() => {});
+    }
+
+    AuditLogService.createAuditLog({
+      organizationId,
+      actorId: examinerUserId,
+      action: "UPDATE",
+      resource: "RESULT",
+      resourceId: result._id,
+      description: `Published assessment result for candidate '${candidate?.email}'`,
+    }).catch(() => {});
+
+    return result;
+  }
+
+  static async getEvaluationDetails(organizationId, attemptId) {
+    const evaluation = await Evaluation.findOne({ attemptId, organizationId })
+      .populate("assessmentId", "title code duration gradingSettings")
+      .populate("candidateId", "firstName lastName candidateCode email");
+
+    if (!evaluation) {
+      throw new ApiError(404, "Evaluation not found");
+    }
+
+    const items = await EvaluationItem.find({ attemptId }).sort({ createdAt: 1 });
+    return { evaluation, items };
+  }
+
+  static async getCandidateResult(userId, organizationId, attemptId) {
+    const candidate = await Candidate.findOne({ userId, organizationId });
+    if (!candidate) {
+      throw new ApiError(403, "Access denied: Candidate profile not found");
+    }
+
+    const result = await Result.findOne({
+      attemptId,
+      organizationId,
+      candidateId: candidate._id,
+    }).populate("assessmentId", "title code duration");
+
+    if (!result) {
+      throw new ApiError(404, "Result not found");
+    }
+
+    if (!result.published) {
+      throw new ApiError(403, "Your assessment result is currently under review and has not been published yet.");
+    }
+
+    return {
+      _id: result._id,
+      assessment: result.assessmentId,
+      totalMarks: result.totalMarks,
+      obtainedMarks: result.obtainedMarks,
+      percentage: result.percentage,
+      grade: result.grade,
+      passed: result.passed,
+      publishedAt: result.publishedAt,
+    };
   }
 }

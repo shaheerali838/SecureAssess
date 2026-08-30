@@ -9,6 +9,7 @@ import {
   rescheduleAssignment,
   getMyAssignments,
   getMyAssessment,
+  startAssignmentAttempt,
 } from "./assessmentAssignment.controller.js";
 import { requireAuth } from "../../middleware/auth.middleware.js";
 import { requireTenantContext } from "../../middleware/tenant.middleware.js";
@@ -67,6 +68,14 @@ router.get(
   getAssignmentById
 );
 
+// POST /api/v1/organizations/:organizationId/assessment-assignments/:assignmentId/start
+router.post(
+  "/assessment-assignments/:assignmentId/start",
+  requireAuth,
+  requireTenantContext,
+  startAssignmentAttempt
+);
+
 // PATCH /api/v1/organizations/:organizationId/assessment-assignments/:assignmentId/revoke
 router.patch(
   "/assessment-assignments/:assignmentId/revoke",
@@ -118,6 +127,14 @@ router.get(
   requireAuth,
   requireTenantContext,
   getMyAssessment
+);
+
+// POST /api/v1/organizations/:organizationId/candidate-portal/assignments/:assignmentId/start
+router.post(
+  "/candidate-portal/assignments/:assignmentId/start",
+  requireAuth,
+  requireTenantContext,
+  startAssignmentAttempt
 );
 
 export default router;
