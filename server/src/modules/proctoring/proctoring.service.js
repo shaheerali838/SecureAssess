@@ -602,4 +602,42 @@ export class ProctoringService {
 
     return event;
   }
+
+  /**
+   * Retrieves paginated proctoring sessions for an organization
+   */
+  static async getSessions(organizationId, query = {}) {
+    const page = parseInt(query.page || "1", 10);
+    const limit = parseInt(query.limit || "20", 10);
+    const filter = {};
+    if (organizationId && mongoose.Types.ObjectId.isValid(organizationId)) {
+      filter.organizationId = organizationId;
+    }
+    if (query.status) filter.status = query.status;
+    if (query.riskLevel) filter.riskLevel = query.riskLevel;
+
+    const skip = (Math.max(1, page) - 1) * limit;
+
+    const [items, total] = await Promise.all([
+      ProctoringSession.find(filter)
+        .populate("candidateId", "firstName lastName email candidateCode")
+        .populate("assessmentId", "title code")
+        .populate("attemptId", "status earnedScore")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      ProctoringSession.countDocuments(filter),
+    ]);
+
+    return {
+      items,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    };
+  }
 }

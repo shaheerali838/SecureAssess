@@ -24,9 +24,9 @@ const router = express.Router({ mergeParams: true });
 
 // --- Question Bank Routes ---
 
-// POST /api/v1/organizations/:organizationId/question-banks
+// POST /api/v1/organizations/:organizationId/question-banks or /api/v1/question-banks
 router.post(
-  "/question-banks",
+  ["/question-banks", "/"],
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
@@ -36,9 +36,9 @@ router.post(
   createQuestionBank
 );
 
-// GET /api/v1/organizations/:organizationId/question-banks
+// GET /api/v1/organizations/:organizationId/question-banks or /api/v1/question-banks
 router.get(
-  "/question-banks",
+  ["/question-banks", "/"],
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
@@ -109,7 +109,6 @@ router.get(
 
 // --- Nested Questions in Question Bank ---
 
-// POST /api/v1/organizations/:organizationId/question-banks/:questionBankId/questions
 router.post(
   "/question-banks/:questionBankId/questions",
   requireAuth,
@@ -121,7 +120,6 @@ router.post(
   createQuestion
 );
 
-// GET /api/v1/organizations/:organizationId/question-banks/:questionBankId/questions
 router.get(
   "/question-banks/:questionBankId/questions",
   requireAuth,
@@ -133,11 +131,10 @@ router.get(
   getQuestions
 );
 
-// --- Global Organization Questions Endpoints ---
+// --- Global Questions Endpoints (Supports both /api/v1/questions and /api/v1/organizations/:id/questions) ---
 
-// POST /api/v1/organizations/:organizationId/questions
 router.post(
-  "/questions",
+  ["/questions", "/"],
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
@@ -147,9 +144,8 @@ router.post(
   createQuestion
 );
 
-// GET /api/v1/organizations/:organizationId/questions
 router.get(
-  "/questions",
+  ["/questions", "/"],
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
@@ -159,9 +155,8 @@ router.get(
   getQuestions
 );
 
-// GET /api/v1/organizations/:organizationId/questions/:questionId
 router.get(
-  "/questions/:questionId",
+  ["/questions/:questionId", "/:questionId"],
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
@@ -171,9 +166,8 @@ router.get(
   getQuestion
 );
 
-// PATCH /api/v1/organizations/:organizationId/questions/:questionId
 router.patch(
-  "/questions/:questionId",
+  ["/questions/:questionId", "/:questionId"],
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
@@ -183,9 +177,8 @@ router.patch(
   updateQuestion
 );
 
-// GET /api/v1/organizations/:organizationId/questions/:questionId/versions
 router.get(
-  "/questions/:questionId/versions",
+  ["/questions/:questionId/versions", "/:questionId/versions"],
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
@@ -195,9 +188,8 @@ router.get(
   getQuestionVersions
 );
 
-// DELETE /api/v1/organizations/:organizationId/questions/:questionId
 router.delete(
-  "/questions/:questionId",
+  ["/questions/:questionId", "/:questionId"],
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(

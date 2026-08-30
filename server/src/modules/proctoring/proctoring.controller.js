@@ -313,3 +313,17 @@ export const reviewEvent = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, result, "Proctoring event reviewed successfully"));
 });
+
+export const getSessions = asyncHandler(async (req, res) => {
+  const organizationId =
+    req.params.organizationId ||
+    req.organizationId ||
+    req.query.organizationId ||
+    req.headers["x-organization-id"] ||
+    req.user?.activeOrganizationId;
+
+  const result = await ProctoringService.getSessions(organizationId, req.query);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, result, "Proctoring sessions retrieved successfully"));
+});

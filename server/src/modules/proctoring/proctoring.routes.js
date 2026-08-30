@@ -14,6 +14,7 @@ import {
   getSessionEvidence,
   getEvidenceById,
   reviewEvent,
+  getSessions,
 } from "./proctoring.controller.js";
 import { requireAuth } from "../../middleware/auth.middleware.js";
 import { requireTenantContext } from "../../middleware/tenant.middleware.js";
@@ -21,6 +22,18 @@ import { requireOrganizationOrPlatformPermission } from "../../middleware/permis
 import { PERMISSIONS } from "../../constants/permissions.js";
 
 const router = express.Router({ mergeParams: true });
+
+// --- Proctor & Examiner Investigation Endpoints ---
+router.get(
+  ["/sessions", "/"],
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.PROCTORING_VIEW,
+    PERMISSIONS.PROCTORING_VIEW
+  ),
+  getSessions
+);
 
 // --- Candidate Proctoring Session Lifecycle Endpoints ---
 router.post("/sessions/start", requireAuth, startProctoring);

@@ -20,7 +20,7 @@ const router = express.Router({ mergeParams: true });
 
 // --- Standalone & Nested Staff Evaluation Endpoints ---
 router.get(
-  "/pending",
+  ["/", "/pending"],
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
