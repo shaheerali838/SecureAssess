@@ -1,52 +1,40 @@
 import api from './api';
 
 export const certificateService = {
-  /**
-   * List certificates for organization
-   */
-  async getCertificates(params = {}) {
-    const response = await api.get('/certificates', { params });
-    return response.data || response;
+  // Get organization certificates
+  getCertificates: async (organizationId, params = {}) => {
+    const response = await api.get(`/organizations/${organizationId}/certificates`, { params });
+    return response.data?.data || response.data;
   },
 
-  /**
-   * Get single certificate details
-   */
-  async getCertificateById(certificateId) {
-    const response = await api.get(`/certificates/${certificateId}`);
-    return response.data || response;
+  // Get single certificate by ID
+  getCertificateById: async (organizationId, certificateId) => {
+    const response = await api.get(`/organizations/${organizationId}/certificates/${certificateId}`);
+    return response.data?.data || response.data;
   },
 
-  /**
-   * Issue certificate for a result
-   */
-  async issueCertificate(resultId) {
-    const response = await api.post('/certificates', { resultId });
-    return response.data || response;
+  // Issue verifiable certificate for passed candidate result
+  issueCertificate: async (organizationId, { resultId, candidateId, assessmentId }) => {
+    const response = await api.post(`/organizations/${organizationId}/certificates`, {
+      resultId,
+      candidateId,
+      assessmentId,
+    });
+    return response.data?.data || response.data;
   },
 
-  /**
-   * Download certificate PDF / file link
-   */
-  async downloadCertificate(certificateId) {
-    const response = await api.get(`/certificates/${certificateId}/download`);
-    return response.data || response;
+  // Revoke a certificate
+  revokeCertificate: async (organizationId, certificateId, reason = '') => {
+    const response = await api.post(`/organizations/${organizationId}/certificates/${certificateId}/revoke`, {
+      reason,
+    });
+    return response.data?.data || response.data;
   },
 
-  /**
-   * Candidate self-service certificates
-   */
-  async getMyCertificates() {
-    const response = await api.get('/certificates/my');
-    return response.data || response;
-  },
-
-  /**
-   * Public certificate verification
-   */
-  async verifyCertificate(verificationCode) {
-    const response = await api.get(`/certificates/verify/${verificationCode}`);
-    return response.data || response;
+  // Public verification endpoint (No auth required)
+  verifyCertificatePublic: async (verificationCode) => {
+    const response = await api.get(`/public/certificates/verify/${verificationCode}`);
+    return response.data?.data || response.data;
   },
 };
 

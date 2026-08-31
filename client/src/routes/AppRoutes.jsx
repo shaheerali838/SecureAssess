@@ -17,6 +17,7 @@ import { Login } from '@/pages/auth/Login';
 // Public Marketing & Demo
 import { LandingPage } from '@/components/pages/LandingPage';
 import { RequestDemo } from '@/components/pages/RequestDemo';
+import { CertificateVerify } from '@/pages/public/CertificateVerify';
 
 // Platform Super Admin Views
 import { PlatformDashboard } from '@/components/pages/platform/PlatformDashboard';
@@ -188,6 +189,10 @@ export const AppRoutes = () => {
       <Route path="/" element={<LandingPage onNavigate={handleDirectNavigate} />} />
       <Route path="/request-demo" element={<RequestDemo onNavigate={handleDirectNavigate} />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/verify" element={<CertificateVerify />} />
+      <Route path="/verify/:verificationCode" element={<CertificateVerify />} />
+      <Route path="/certificates/verify" element={<CertificateVerify />} />
+      <Route path="/certificates/verify/:verificationCode" element={<CertificateVerify />} />
 
       {/* 1. Platform Super Admin Portal */}
       <Route element={<ProtectedRoute />}>
