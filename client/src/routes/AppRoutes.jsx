@@ -46,6 +46,7 @@ import { AuditLogs } from '@/modules/auditLogs/pages/AuditLogs';
 import { OrgStructure } from '@/components/pages/org/OrgStructure';
 import { AcademicStructure } from '@/components/pages/org/AcademicStructure';
 import { RubricsManager } from '@/components/pages/org/RubricsManager';
+import { Certificates } from '@/components/pages/org/Certificates';
 
 // Candidate Examination Views
 import { SystemCheck } from '@/components/pages/participant/SystemCheck';
@@ -97,9 +98,12 @@ const NavWrapper = ({ Component, activeKey, layer = 'organization' }) => {
       'org-academic-structure': '/organization/academic-structure',
       'org-departments': '/organization/academic-structure',
       'org-rubrics': '/organization/rubrics',
+      'org-certificates': '/organization/certificates',
       'platform-audit-logs': '/platform/audit-logs',
       'candidate-portal': '/candidate/portal',
       'candidate-dashboard': '/candidate/portal',
+      'candidate-results': '/candidate/results',
+      'candidate-certificates': '/candidate/certificates',
       'participant-system-check': '/candidate/system-check',
       'participant-consent': '/candidate/consent',
       'participant-assessment': '/candidate/assessment',
@@ -215,6 +219,18 @@ export const AppRoutes = () => {
               path="audit-logs"
               element={<NavWrapper Component={AuditLogs} activeKey="platform-audit-logs" layer="platform" />}
             />
+            <Route
+              path="users"
+              element={<NavWrapper Component={OrgUsers} activeKey="platform-users" layer="platform" />}
+            />
+            <Route
+              path="roles"
+              element={<NavWrapper Component={Settings} activeKey="platform-roles" layer="platform" />}
+            />
+            <Route
+              path="analytics"
+              element={<NavWrapper Component={Reports} activeKey="platform-analytics" layer="platform" />}
+            />
           </Route>
         </Route>
       </Route>
@@ -241,7 +257,15 @@ export const AppRoutes = () => {
               element={<NavWrapper Component={QuestionBank} activeKey="org-question-bank" layer="organization" />}
             />
             <Route
+              path="question-banks"
+              element={<NavWrapper Component={QuestionBank} activeKey="org-question-bank" layer="organization" />}
+            />
+            <Route
               path="participants"
+              element={<NavWrapper Component={ParticipantManagement} activeKey="org-participants" layer="organization" />}
+            />
+            <Route
+              path="candidates"
               element={<NavWrapper Component={ParticipantManagement} activeKey="org-participants" layer="organization" />}
             />
             <Route
@@ -261,11 +285,19 @@ export const AppRoutes = () => {
               element={<NavWrapper Component={IntegrityCenter} activeKey="org-integrity" layer="organization" />}
             />
             <Route
+              path="proctoring"
+              element={<NavWrapper Component={IntegrityCenter} activeKey="org-integrity" layer="organization" />}
+            />
+            <Route
               path="integrity/evidence"
               element={<NavWrapper Component={IntegrityEvidence} activeKey="org-integrity-evidence" layer="organization" />}
             />
             <Route
               path="reports"
+              element={<NavWrapper Component={Reports} activeKey="org-reports" layer="organization" />}
+            />
+            <Route
+              path="results"
               element={<NavWrapper Component={Reports} activeKey="org-reports" layer="organization" />}
             />
             <Route
@@ -287,6 +319,14 @@ export const AppRoutes = () => {
             <Route
               path="evaluations"
               element={<NavWrapper Component={Evaluations} activeKey="org-evaluations" layer="organization" />}
+            />
+            <Route
+              path="grading"
+              element={<NavWrapper Component={Evaluations} activeKey="org-evaluations" layer="organization" />}
+            />
+            <Route
+              path="certificates"
+              element={<NavWrapper Component={Certificates} activeKey="org-certificates" layer="organization" />}
             />
             <Route
               path="notifications"
@@ -325,6 +365,8 @@ export const AppRoutes = () => {
         <Route index element={<Navigate to="/candidate/portal" replace />} />
         <Route path="portal" element={<CandidatePortal onNavigate={handleDirectNavigate} />} />
         <Route path="dashboard" element={<CandidatePortal onNavigate={handleDirectNavigate} />} />
+        <Route path="results" element={<Evaluation onNavigate={handleDirectNavigate} />} />
+        <Route path="certificates" element={<Evaluation onNavigate={handleDirectNavigate} />} />
         <Route path="system-check" element={<SystemCheck onNavigate={handleDirectNavigate} />} />
         <Route path="consent" element={<Consent onNavigate={handleDirectNavigate} />} />
         <Route path="assessment" element={<AssessmentExperience onNavigate={handleDirectNavigate} />} />
