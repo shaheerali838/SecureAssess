@@ -20,8 +20,8 @@ export const evaluationService = {
   /**
    * Submit manual grade for a question
    */
-  async gradeQuestion(evaluationId, data) {
-    const response = await api.post(`/evaluations/${evaluationId}/grade`, data);
+  async gradeQuestion(evaluationId, questionId, data) {
+    const response = await api.post(`/evaluations/${evaluationId}/questions/${questionId}/grade`, data);
     return response.data || response;
   },
 
@@ -30,6 +30,14 @@ export const evaluationService = {
    */
   async finalizeEvaluation(evaluationId) {
     const response = await api.post(`/evaluations/${evaluationId}/finalize`);
+    return response.data || response;
+  },
+
+  /**
+   * Run automated or manual evaluation for an attempt
+   */
+  async evaluateAttempt(attemptId, data = {}) {
+    const response = await api.post(`/evaluations/attempts/${attemptId}/evaluate`, data);
     return response.data || response;
   },
 };

@@ -1,39 +1,154 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Clock, ShieldCheck, AlertCircle,
   CheckCircle2, Play, Download, Eye, MessageSquare, ChevronRight, Activity,
-  MonitorPlay, Camera, Volume2, Maximize2
+  MonitorPlay, Camera, Volume2, Maximize2, RefreshCw
 } from 'lucide-react';
 import {
   Card, CardHeader, CardBody, StatusBadge, RiskBadge, Button,
   ProgressRing, ProgressBar, PageHeader, Tabs
 } from '@/components/ui';
+import proctoringService from '@/services/proctoring.service';
+
+const defaultSignals = [
+  { label: 'Focus Changes', value: 2, max: 10, color: 'warning' },
+  { label: 'Tab Changes', value: 1, max: 10, color: 'warning' },
+  { label: 'Fullscreen Exits', value: 0, max: 5, color: 'success' },
+  { label: 'Gaze Anomalies', value: 1, max: 10, color: 'warning' },
+  { label: 'Connection Drops', value: 0, max: 5, color: 'success' },
+];
+
+const defaultTimeline = [
+  { time: '00:00', label: 'Session started', type: 'success' },
+  { time: '00:15', label: 'Question 5 answered', type: 'info' },
+  { time: '12:31', label: 'Focus shift recorded', type: 'warning' },
+  { time: '19:04', label: 'Tab change recorded', type: 'warning' },
+  { time: '26:18', label: 'Gaze anomaly flagged', type: 'warning' },
+  { time: '45:32', label: 'Assessment submitted', type: 'success' },
+];
 
 export function SessionReview({ onNavigate }) {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState(null);
+  const [signals, setSignals] = useState(defaultSignals);
+  const [timeline, setTimeline] = useState(defaultTimeline);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [sessionId, setSessionId] = useState(null);
 
-  const signals = [
-    { label: 'Focus Changes', value: 2, max: 10, color: 'warning' },
-    { label: 'Tab Changes', value: 1, max: 10, color: 'warning' },
-    { label: 'Fullscreen Exits', value: 0, max: 5, color: 'success' },
-    { label: 'Gaze Anomalies', value: 1, max: 10, color: 'warning' },
-    { label: 'Connection Drops', value: 0, max: 5, color: 'success' },
-  ];
+  useEffect(() => {
+    let isMounted = true;
 
-  const timeline = [
-    { time: '00:00', label: 'Session started', type: 'success' },
-    { time: '00:15', label: 'Question 5 answered', type: 'info' },
-    { time: '12:31', label: 'Focus shift recorded', type: 'warning' },
-    { time: '19:04', label: 'Tab change recorded', type: 'warning' },
-    { time: '26:18', label: 'Gaze anomaly flagged', type: 'warning' },
-    { time: '45:32', label: 'Assessment submitted', type: 'success' },
-  ];
+    const loadSessionData = async () => {
+      setLoading(true);
+      try {
+        let activeSessionId = null;
+
+        // 1. Fetch latest sessions to resolve session ID
+        try {
+          const sessionsRes = await proctoringService.getSessions({ limit: 1 });
+          const list = Array.isArray(sessionsRes) ? sessionsRes : (sessionsRes?.items || sessionsRes?.data?.items || []);
+          if (list.length > 0) {
+            activeSessionId = list[0]._id || list[0].id;
+            if (isMounted) {
+              setSession(list[0]);
+              setSessionId(activeSessionId);
+            }
+          }
+        } catch (e) {
+          console.warn('Sessions list note:', e.message);
+        }
+
+        if (activeSessionId) {
+          // 2. Fetch specific session details
+          try {
+            const detailRes = await proctoringService.getSessionById(activeSessionId);
+            const sData = detailRes?.data || detailRes;
+            if (isMounted && sData) {
+              setSession(sData);
+            }
+          } catch (e) {
+            console.warn('Session detail note:', e.message);
+          }
+
+          // 3. Fetch events & timeline
+          try {
+            const eventsRes = await proctoringService.getSessionEvents(activeSessionId);
+            const eventList = Array.isArray(eventsRes) ? eventsRes : (eventsRes?.items || eventsRes?.data?.items || eventsRes?.events || []);
+            
+            if (Array.isArray(eventList) && eventList.length > 0 && isMounted) {
+              // Build dynamic signals
+              let tabBlur = 0, gaze = 0, fullscreen = 0, clipboard = 0, multiFace = 0;
+              const dynamicTimeline = eventList.map((ev, idx) => {
+                const type = (ev.eventType || '').toUpperCase();
+                let eventLabel = ev.description || ev.eventType || 'Anomaly detected';
+                let tagType = 'warning';
+
+                if (type.includes('BLUR') || type.includes('FOCUS')) {
+                  tabBlur++;
+                  eventLabel = 'Browser focus shift recorded';
+                } else if (type.includes('GAZE')) {
+                  gaze++;
+                  eventLabel = 'Gaze anomaly flagged';
+                } else if (type.includes('FULLSCREEN')) {
+                  fullscreen++;
+                  eventLabel = 'Fullscreen exit recorded';
+                  tagType = 'danger';
+                } else if (type.includes('CLIPBOARD')) {
+                  clipboard++;
+                  eventLabel = 'Clipboard operation flagged';
+                } else if (type.includes('FACE')) {
+                  multiFace++;
+                  eventLabel = 'Multiple faces in frame';
+                  tagType = 'danger';
+                }
+
+                const d = new Date(ev.serverOccurredAt || ev.occurredAt || ev.createdAt);
+                const timeStr = !isNaN(d.getTime()) ? `${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}` : `00:${String(idx * 5).padStart(2, '0')}`;
+
+                return {
+                  time: timeStr,
+                  label: eventLabel,
+                  type: ev.severity === 'CRITICAL' || ev.severity === 'HIGH' ? 'danger' : tagType,
+                };
+              });
+
+              setTimeline(dynamicTimeline);
+              setSignals([
+                { label: 'Focus & Tab Shifts', value: tabBlur, max: Math.max(10, tabBlur + 2), color: tabBlur > 3 ? 'danger' : 'warning' },
+                { label: 'Gaze Anomalies', value: gaze, max: Math.max(10, gaze + 2), color: gaze > 2 ? 'danger' : 'warning' },
+                { label: 'Fullscreen Exits', value: fullscreen, max: 5, color: fullscreen > 0 ? 'danger' : 'success' },
+                { label: 'Clipboard Attempts', value: clipboard, max: 5, color: clipboard > 0 ? 'warning' : 'success' },
+                { label: 'Multi-Face Events', value: multiFace, max: 5, color: multiFace > 0 ? 'danger' : 'success' },
+              ]);
+            }
+          } catch (e) {
+            console.warn('Events fetch note:', e.message);
+          }
+        }
+      } catch (err) {
+        console.warn('Session review hydration note:', err.message);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    loadSessionData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const candidateName = session?.candidateId?.firstName
+    ? `${session.candidateId.firstName} ${session.candidateId.lastName || ''}`
+    : 'Ahmed Khan';
+  const assessmentTitle = session?.assessmentId?.title || 'CS101 Online Midterm Examination';
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Session Review & Video Playback"
-        subtitle="Ahmed Khan · CS101 Online Midterm Examination Full Recording"
+        subtitle={`${candidateName} · ${assessmentTitle} Full Recording`}
         icon={<MonitorPlay size={22} className="text-primary-600 dark:text-primary-400" />}
         breadcrumbs={[
           { label: 'Dashboard', onClick: () => onNavigate('org-dashboard') },
@@ -69,7 +184,7 @@ export function SessionReview({ onNavigate }) {
                       <Camera size={28} className="text-accent-500" />
                     </div>
                     <p className="text-accent-300 text-xs font-semibold">Proctoring Video Stream</p>
-                    <p className="text-accent-500 text-[11px] mt-0.5">Ahmed Khan · Synchronized Audio & Webcam</p>
+                    <p className="text-accent-500 text-[11px] mt-0.5">{candidateName} · Synchronized Telemetry & Media</p>
                   </div>
                 </div>
 

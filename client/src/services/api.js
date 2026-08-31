@@ -34,7 +34,13 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${accessToken}`;
     }
 
-    if (currentOrgId && !config.headers['x-organization-id']) {
+    // Only attach x-organization-id if it's a valid 24-char MongoDB ObjectId
+    // Prevents mock strings like 'org-stanford' from causing 400 errors server-side
+    if (
+      currentOrgId &&
+      /^[0-9a-fA-F]{24}$/.test(currentOrgId) &&
+      !config.headers['x-organization-id']
+    ) {
       config.headers['x-organization-id'] = currentOrgId;
     }
 

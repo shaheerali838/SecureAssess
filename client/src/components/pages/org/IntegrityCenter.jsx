@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   ShieldCheck, AlertCircle, Download, ChevronRight,
-  Activity, Eye, Clock, Radio, RefreshCw
+  Activity, Eye, Clock, Radio, RefreshCw, CheckCircle2, AlertTriangle, X
 } from 'lucide-react';
 import {
   Card, CardHeader, CardBody, MetricCard, Badge, RiskBadge, Button,
@@ -9,14 +9,67 @@ import {
 } from '@/components/ui';
 import { integrityFlags as defaultFlags } from '@/data';
 import socketService from '@/services/socketService';
+import proctoringService from '@/services/proctoring.service';
 
 export function IntegrityCenter({ onNavigate }) {
   const [flags, setFlags] = useState(defaultFlags);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [riskFilter, setRiskFilter] = useState('all');
   const [liveIncidentToast, setLiveIncidentToast] = useState(null);
   const [liveSocketConnected, setLiveSocketConnected] = useState(false);
 
+  // 1. Fetch historical flagged events from REST API
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchFlaggedEvents = async () => {
+      setLoading(true);
+      try {
+        const res = await proctoringService.getEvents({ status: 'FLAGGED', limit: 50 });
+        const items = Array.isArray(res) ? res : (res?.items || res?.data?.items || res?.events || []);
+
+        if (Array.isArray(items) && items.length > 0 && isMounted) {
+          const mapped = items.map((ev, idx) => {
+            const sess = ev.proctoringSessionId || {};
+            const cand = sess.candidateId || {};
+            const asm = sess.assessmentId || {};
+            const candName = cand.firstName ? `${cand.firstName} ${cand.lastName || ''}` : (ev.participant || 'Candidate');
+            const asmTitle = asm.title || (typeof sess.assessmentId === 'string' ? sess.assessmentId : 'Live Assessment');
+
+            return {
+              id: ev._id || ev.id || `flag_${idx}`,
+              eventId: ev._id || ev.id,
+              sessionId: sess._id || sess.id || ev.sessionId,
+              participant: candName,
+              assessment: asmTitle,
+              type: ev.eventType || 'TAB_BLUR',
+              title: ev.description || ev.title || (ev.eventType === 'TAB_BLUR' ? 'Browser Tab Focus Loss' : 'Proctoring Anomaly'),
+              description: ev.details || ev.description || 'Integrity anomaly recorded during live examination session.',
+              riskLevel: ev.severity === 'CRITICAL' || ev.severity === 'HIGH' ? 'High' : ev.severity === 'MEDIUM' ? 'Medium' : 'Low',
+              timestamp: new Date(ev.serverOccurredAt || ev.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              status: ev.resolution || (ev.reviewed ? 'Reviewed' : 'Under Review'),
+              reviewed: Boolean(ev.reviewed),
+            };
+          });
+
+          setFlags(mapped);
+        }
+      } catch (err) {
+        console.warn('Flagged events fetch note:', err.message);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchFlaggedEvents();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // 2. Real-time Anomaly Socket Receiver
   useEffect(() => {
     const socket = socketService.connect();
     if (socket) {
@@ -34,6 +87,7 @@ export function IntegrityCenter({ onNavigate }) {
           riskLevel: data.metadata?.riskLevel || 'Medium',
           timestamp: 'Just now',
           status: 'Under Review',
+          reviewed: false,
         };
 
         setFlags((prev) => [newFlag, ...prev]);
@@ -52,6 +106,28 @@ export function IntegrityCenter({ onNavigate }) {
       };
     }
   }, []);
+
+  const handleReviewAction = async (flagId, resolution, e) => {
+    if (e) e.stopPropagation();
+    try {
+      if (flagId && typeof flagId === 'string' && flagId.length === 24) {
+        await proctoringService.reviewEvent(flagId, {
+          resolution,
+          reviewed: true,
+          reviewerNote: resolution === 'DISMISSED' ? 'Dismissed by examiner as verified false positive.' : 'Escalated to board review.',
+        });
+      }
+
+      setFlags(prev => prev.map(f => f.id === flagId ? { ...f, status: resolution, reviewed: true } : f));
+      setLiveIncidentToast({
+        type: resolution === 'DISMISSED' ? 'success' : 'warning',
+        text: resolution === 'DISMISSED' ? 'Incident dismissed as False Positive.' : 'Incident escalated to formal review.',
+      });
+    } catch (err) {
+      console.warn('Review action note:', err.message);
+      setFlags(prev => prev.map(f => f.id === flagId ? { ...f, status: resolution, reviewed: true } : f));
+    }
+  };
 
   const filtered = flags.filter((f) => {
     const participant = (f.participant || '').toLowerCase();
@@ -187,16 +263,51 @@ export function IntegrityCenter({ onNavigate }) {
                     <span className="text-accent-300 dark:text-accent-700">·</span>
                     <span className="text-xs text-accent-500 dark:text-accent-400">{flag.assessment}</span>
                     <RiskBadge level={flag.riskLevel} />
-                    <Badge variant="neutral">{flag.type || 'Telemetry'}</Badge>
+                    <Badge variant={flag.status === 'DISMISSED' ? 'success' : flag.status === 'ESCALATED' ? 'danger' : 'neutral'}>
+                      {flag.status}
+                    </Badge>
                   </div>
                   <p className="text-xs font-semibold text-accent-800 dark:text-accent-200 mb-0.5">{flag.title}</p>
                   <p className="text-[11px] text-accent-500 dark:text-accent-400 leading-relaxed">{flag.description}</p>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <div className="flex items-center gap-1 text-[11px] text-accent-400 font-mono">
+                  <div className="flex items-center gap-1 text-[11px] text-accent-400 font-mono hidden sm:flex">
                     <Clock size={12} /> {flag.timestamp}
                   </div>
+                  {flag.status !== 'DISMISSED' && flag.status !== 'ESCALATED' && (
+                    <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        icon={<CheckCircle2 size={13} className="text-success-500" />}
+                        className="text-xs text-success-600 dark:text-success-400 hover:bg-success-50 dark:hover:bg-success-950/40 px-2 py-1"
+                        onClick={(e) => handleReviewAction(flag.id, 'DISMISSED', e)}
+                        title="Dismiss as False Positive"
+                      >
+                        Dismiss
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        icon={<AlertTriangle size={13} className="text-danger-500" />}
+                        className="text-xs text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/40 px-2 py-1"
+                        onClick={(e) => handleReviewAction(flag.id, 'ESCALATED', e)}
+                        title="Escalate to Disciplinary Board"
+                      >
+                        Escalate
+                      </Button>
+                    </div>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={<Eye size={13} />}
+                    className="text-xs px-2.5 py-1"
+                    onClick={() => onNavigate('org-integrity-evidence')}
+                  >
+                    Dossier
+                  </Button>
                   <ChevronRight size={16} className="text-accent-400" />
                 </div>
               </div>

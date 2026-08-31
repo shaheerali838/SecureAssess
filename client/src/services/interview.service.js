@@ -50,6 +50,14 @@ export const interviewService = {
   },
 
   /**
+   * End and finalize live interview room
+   */
+  async endInterview(interviewId) {
+    const response = await api.post(`/interviews/${interviewId}/end`);
+    return response.data || response;
+  },
+
+  /**
    * Submit interview evaluation / feedback
    */
   async submitFeedback(interviewId, feedbackData) {

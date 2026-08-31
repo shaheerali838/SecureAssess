@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { Bell } from "lucide-react";
 import useNotifications from "../hooks/useNotifications";
 import NotificationDropdown from "./NotificationDropdown";
 
@@ -21,12 +22,13 @@ export const NotificationBell = ({ onViewAll = null }) => {
     <div className="relative inline-block" ref={bellRef}>
       <button
         onClick={() => setIsOpen((prev) => !prev)}
-        className="relative p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 transition focus:outline-none"
+        className="relative p-1.5 rounded-xl text-accent-500 hover:text-accent-800 dark:hover:text-white hover:bg-accent-100 dark:hover:bg-accent-800 transition-colors cursor-pointer shrink-0 focus:outline-none"
         aria-label="View notifications"
+        title="Notifications"
       >
-        <span className="text-lg">🔔</span>
+        <Bell size={17} />
         {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-red-500 text-[10px] font-extrabold text-white animate-pulse">
+          <span className="absolute top-0.5 right-0.5 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-danger-500 text-[10px] font-extrabold text-white animate-pulse">
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}

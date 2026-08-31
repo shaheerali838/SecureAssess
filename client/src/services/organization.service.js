@@ -26,10 +26,26 @@ export const organizationService = {
   },
 
   /**
+   * Get organization settings by ID
+   */
+  getOrganizationSettings: async (organizationId) => {
+    const response = await api.get(`/organizations/${organizationId}/settings`);
+    return response.data || response;
+  },
+
+  /**
    * Update organization details & settings
    */
   updateOrganization: async (organizationId, updateData) => {
     const response = await api.patch(`/organizations/${organizationId}`, updateData);
+    return response.data || response;
+  },
+
+  /**
+   * Update organization settings specifically
+   */
+  updateOrganizationSettings: async (organizationId, settingsData) => {
+    const response = await api.patch(`/organizations/${organizationId}/settings`, settingsData);
     return response.data || response;
   },
 

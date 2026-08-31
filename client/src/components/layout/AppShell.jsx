@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import {
   LayoutDashboard, FileText, PlusCircle, Library, Users, Video,
   ClipboardList, BarChart3, Settings, CreditCard, Shield, Building2,
-  Sliders, UserPlus, FileSearch, ShieldCheck, Activity,
-  ChevronDown, Sun, Moon, LogOut, Menu, X
+  Sliders, UserPlus, FileSearch, ShieldCheck, Activity, Bell,
+  ChevronDown, Sun, Moon, LogOut, Menu, X, Lock, GraduationCap, CheckSquare
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { Badge, Avatar } from '@/components/ui';
+import NotificationBell from '@/modules/notifications/components/NotificationBell';
 
 export function AppShell({
   currentPage,
@@ -18,7 +19,7 @@ export function AppShell({
 }) {
   const { user, logout, isPlatformAdmin, isPlatformStaff } = useAuth();
   const { theme, toggleTheme, isDark } = useTheme();
-  const { currentOrganization, organizations, switchOrganization } = useOrganization();
+  const { currentOrganization, organizations, switchOrganization, t } = useOrganization();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
@@ -38,21 +39,26 @@ export function AppShell({
     { label: 'Platform Hub', icon: <LayoutDashboard size={18} />, id: 'platform-dashboard' },
     { label: 'Tenant Organizations', icon: <Building2 size={18} />, id: 'platform-organizations' },
     { label: 'Provision Tenant', icon: <UserPlus size={18} />, id: 'platform-onboarding' },
+    { label: 'Security & Audit Logs', icon: <Lock size={18} />, id: 'platform-audit-logs' },
   ];
 
   // Navigation schema for Organization Staff
   const orgNav = [
     { label: 'Overview Dashboard', icon: <LayoutDashboard size={18} />, id: 'org-dashboard' },
+    { label: t('structure'), icon: <GraduationCap size={18} />, id: 'org-academic-structure' },
     { label: 'Assessments Library', icon: <FileText size={18} />, id: 'org-assessments' },
     { label: 'Create Assessment', icon: <PlusCircle size={18} />, id: 'org-assessment-builder' },
     { label: 'Question Bank', icon: <Library size={18} />, id: 'org-question-bank' },
-    { label: 'Candidate Roster', icon: <Users size={18} />, id: 'org-participants' },
+    { label: `${t('candidate')} Roster & ${t('candidateGroup', true)}`, icon: <Users size={18} />, id: 'org-participants' },
+    { label: 'Evaluation Rubrics', icon: <CheckSquare size={18} />, id: 'org-rubrics' },
     { label: 'Proctoring Telemetry', icon: <ShieldCheck size={18} />, id: 'org-integrity' },
     { label: 'Session Recordings', icon: <Activity size={18} />, id: 'org-sessions' },
     { label: 'Live Interviews', icon: <Video size={18} />, id: 'org-interviews' },
-    { label: 'Grading & Rubrics', icon: <ClipboardList size={18} />, id: 'org-evaluations' },
+    { label: `${t('grading')} & Rubrics`, icon: <ClipboardList size={18} />, id: 'org-evaluations' },
     { label: 'Certified Reports', icon: <BarChart3 size={18} />, id: 'org-reports' },
-    { label: 'Faculty & Staff', icon: <Users size={18} />, id: 'org-users' },
+    { label: 'Notifications', icon: <Bell size={18} />, id: 'org-notifications' },
+    { label: 'Security & Audit Logs', icon: <Lock size={18} />, id: 'org-audit-logs' },
+    { label: 'Staff & Team', icon: <Users size={18} />, id: 'org-users' },
     { label: 'Resource Billing', icon: <CreditCard size={18} />, id: 'org-billing' },
     { label: 'Workspace Settings', icon: <Settings size={18} />, id: 'org-settings' },
   ];
@@ -105,16 +111,21 @@ export function AppShell({
             )}
           </div>
 
-          {/* Theme Toggle Button */}
-          <button
-            type="button"
-            onClick={handleToggleClick}
-            className="p-1.5 rounded-xl text-accent-500 hover:text-accent-800 dark:hover:text-white hover:bg-accent-100 dark:hover:bg-accent-800 transition-colors cursor-pointer shrink-0"
-            title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-            aria-label="Toggle Theme"
-          >
-            {isDark ? <Sun size={17} className="text-warning-400" /> : <Moon size={17} />}
-          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            {/* Notification Bell */}
+            <NotificationBell onViewAll={() => onNavigate('org-notifications')} />
+
+            {/* Theme Toggle Button */}
+            <button
+              type="button"
+              onClick={handleToggleClick}
+              className="p-1.5 rounded-xl text-accent-500 hover:text-accent-800 dark:hover:text-white hover:bg-accent-100 dark:hover:bg-accent-800 transition-colors cursor-pointer shrink-0"
+              title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              aria-label="Toggle Theme"
+            >
+              {isDark ? <Sun size={17} className="text-warning-400" /> : <Moon size={17} />}
+            </button>
+          </div>
         </div>
 
         {/* Tenant Organization Switcher */}

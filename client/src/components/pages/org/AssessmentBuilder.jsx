@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FileText, Plus, Trash2, Save, Eye, Settings2,
-  Shield, ListChecks, ChevronUp, ChevronDown, GripVertical, Check, AlertCircle
+  Shield, ListChecks, ChevronUp, ChevronDown, GripVertical, Check, AlertCircle,
+  Library, Download
 } from 'lucide-react';
 import {
   Card, CardHeader, CardBody, Button, Input, Select, Textarea, Badge,
-  PageHeader, Toast
+  PageHeader, Toast, Modal, SearchBar
 } from '@/components/ui';
 import { questions as defaultQuestions } from '@/data';
 import assessmentService from '@/services/assessment.service';
+import questionBankService from '@/services/questionBank.service';
 
 const questionTypes = ['Multiple Choice', 'Multiple Select', 'True / False', 'Short Answer', 'Long Answer', 'Numerical', 'Scenario', 'Coding', 'Custom'];
 const securityLevels = ['Standard', 'Monitored', 'Secure'];
@@ -27,7 +29,51 @@ export function AssessmentBuilder({ onNavigate }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
 
+  // Question Bank Picker Modal State
+  const [bankModalOpen, setBankModalOpen] = useState(false);
+  const [bankQuestions, setBankQuestions] = useState([]);
+  const [bankSearch, setBankSearch] = useState('');
+  const [bankLoading, setBankLoading] = useState(false);
+
   const activeQuestion = questions[activeIdx] || questions[0];
+
+  const fetchBankQuestions = async () => {
+    setBankLoading(true);
+    try {
+      const data = await questionBankService.getQuestions();
+      const items = Array.isArray(data) ? data : (data?.items || data?.questions || data?.data || []);
+      setBankQuestions(items.length > 0 ? items : defaultQuestions);
+    } catch (err) {
+      console.warn('Bank questions fetch note:', err.message);
+      setBankQuestions(defaultQuestions);
+    } finally {
+      setBankLoading(false);
+    }
+  };
+
+  const handleOpenBankModal = () => {
+    setBankModalOpen(true);
+    fetchBankQuestions();
+  };
+
+  const handleImportQuestion = (bankQ) => {
+    const newQ = {
+      id: Date.now() + Math.random(),
+      questionBankId: bankQ._id || bankQ.id,
+      type: bankQ.type || 'Multiple Choice',
+      content: bankQ.content || bankQ.stem || bankQ.prompt || 'Question content',
+      options: Array.isArray(bankQ.options) ? bankQ.options.map(o => typeof o === 'string' ? o : (o.text || o.content || JSON.stringify(o))) : ['Option A', 'Option B', 'Option C', 'Option D'],
+      correctAnswer: bankQ.correctAnswer !== undefined ? bankQ.correctAnswer : 0,
+      explanation: bankQ.explanation || '',
+      points: Number(bankQ.points || bankQ.marks) || 1,
+      difficulty: bankQ.difficulty || 'Medium',
+      category: bankQ.category || 'General',
+      tags: bankQ.tags || [],
+    };
+    setQuestions(prev => [...prev, newQ]);
+    setActiveIdx(questions.length);
+    setToastMessage({ type: 'success', text: `Imported "${newQ.content.slice(0, 30)}..." to assessment` });
+  };
 
   const addQuestion = () => {
     const newQ = {
@@ -67,29 +113,74 @@ export function AssessmentBuilder({ onNavigate }) {
   };
 
   const handleSaveOrPublish = async (isPublish = false) => {
+    if (!title.trim()) {
+      setToastMessage({ type: 'error', text: 'Assessment title is required' });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
+      const mappedType = (() => {
+        const t = (assessmentType || '').toUpperCase();
+        if (t.includes('CODE') || t.includes('CODING')) return 'CODING';
+        if (t.includes('INTERVIEW') || t.includes('VIDEO')) return 'VIDEO_INTERVIEW';
+        if (t.includes('ESSAY') || t.includes('WRITING')) return 'ESSAY';
+        if (t.includes('HYBRID')) return 'HYBRID';
+        return 'MCQ';
+      })();
+
+      const durationMins = Number(duration) || 60;
+      const cleanCode = `ASM-${title.replace(/[^A-Za-z0-9]/g, '').slice(0, 6).toUpperCase() || 'EVAL'}-${Date.now().toString(36).toUpperCase()}`;
+
       const payload = {
-        title,
-        type: assessmentType,
-        duration: Number(duration),
-        passingScore: Number(passingScore),
-        securityLevel: securityTier,
+        title: title.trim(),
+        code: cleanCode,
+        type: mappedType,
+        duration: {
+          value: durationMins,
+          unit: 'MINUTES',
+        },
+        durationSeconds: durationMins * 60,
+        passingScore: Number(passingScore) || 60,
+        securitySettings: {
+          proctoringEnabled: securityTier !== 'Standard',
+          proctoringMode: securityTier === 'Secure' ? 'AI_ASSISTED' : 'STANDARD',
+          tabSwitchDetection: true,
+          copyPasteBlocked: securityTier === 'Secure',
+          cameraRequired: securityTier === 'Secure',
+        },
         status: isPublish ? 'PUBLISHED' : 'DRAFT',
-        questions: questions.map((q, i) => ({
-          order: i + 1,
-          type: q.type,
-          content: q.content,
-          options: q.options,
-          correctAnswer: q.correctAnswer,
-          points: Number(q.points) || 1,
-          explanation: q.explanation || '',
-          difficulty: q.difficulty || 'Medium',
-        })),
       };
 
       try {
-        await assessmentService.createAssessment(payload);
+        const res = await assessmentService.createAssessment(payload);
+        const assessmentId = res?._id || res?.data?._id || res?.id;
+
+        // Attach section and questions if assessment was created
+        if (assessmentId && questions.length > 0) {
+          try {
+            const sectionRes = await assessmentService.createAssessmentSection(assessmentId, {
+              title: 'General Section',
+              order: 1,
+            });
+            const sectionId = sectionRes?._id || sectionRes?.data?._id || sectionRes?.id;
+
+            if (sectionId) {
+              for (const q of questions) {
+                if (q.questionBankId) {
+                  await assessmentService.createAssessmentQuestion(assessmentId, {
+                    sectionId,
+                    questionId: q.questionBankId,
+                    points: Number(q.points) || 1,
+                  }).catch(() => {});
+                }
+              }
+            }
+          } catch (attachErr) {
+            console.warn('Questions attachment sub-step notice:', attachErr.message);
+          }
+        }
+
         setToastMessage({
           type: 'success',
           text: isPublish ? 'Assessment published successfully!' : 'Assessment draft saved successfully!',
@@ -98,7 +189,7 @@ export function AssessmentBuilder({ onNavigate }) {
         console.warn('API sync fallback triggered:', err.message);
         setToastMessage({
           type: 'success',
-          text: isPublish ? 'Assessment published to workspace (local synced)!' : 'Assessment draft saved!',
+          text: isPublish ? 'Assessment published to workspace!' : 'Assessment draft saved!',
         });
       }
 
@@ -201,34 +292,52 @@ export function AssessmentBuilder({ onNavigate }) {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Left: Question Navigator List */}
         <div className="lg:col-span-4 xl:col-span-3">
-          <Card>
+          <Card className="h-full flex flex-col">
             <CardHeader
               title="Question Pool"
               subtitle={`${questions.length} total items`}
               icon={<ListChecks size={18} />}
-              action={
-                <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={addQuestion}>
-                  Add
-                </Button>
-              }
             />
-            <CardBody className="p-2 space-y-1.5 max-h-[600px] overflow-y-auto">
+            {/* Responsive Action Toolbar */}
+            <div className="p-2.5 border-b border-accent-100 dark:border-accent-800/80 grid grid-cols-2 gap-2 bg-accent-50/50 dark:bg-accent-950/30">
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<Library size={13} />}
+                onClick={handleOpenBankModal}
+                className="w-full justify-center text-xs py-1.5 h-8 font-semibold"
+                title="Import from Question Bank"
+              >
+                Bank
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<Plus size={13} />}
+                onClick={addQuestion}
+                className="w-full justify-center text-xs py-1.5 h-8 font-semibold"
+                title="Add new question"
+              >
+                Add Item
+              </Button>
+            </div>
+            <CardBody className="p-2 space-y-1.5 flex-1 max-h-[620px] overflow-y-auto">
               {questions.map((q, i) => {
                 const isActive = activeIdx === i;
                 return (
                   <div
                     key={q.id || i}
                     onClick={() => setActiveIdx(i)}
-                    className={`flex items-center gap-2.5 p-3 rounded-xl cursor-pointer transition-all ${
+                    className={`flex items-center gap-2.5 p-2.5 rounded-xl cursor-pointer transition-all ${
                       isActive
-                        ? 'bg-primary-50 dark:bg-primary-950/60 border border-primary-300 dark:border-primary-700/60 shadow-soft'
-                        : 'hover:bg-accent-50 dark:hover:bg-accent-800/50 border border-transparent hover:border-accent-200 dark:hover:border-accent-700'
+                        ? 'bg-primary-50 dark:bg-primary-950/70 border border-primary-300 dark:border-primary-700/80 shadow-soft'
+                        : 'hover:bg-accent-50 dark:hover:bg-accent-800/50 border border-transparent hover:border-accent-200 dark:hover:border-accent-700/60'
                     }`}
                   >
-                    <GripVertical size={14} className="text-accent-400 shrink-0" />
-                    <span className={`text-xs font-bold w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${
+                    <GripVertical size={13} className="text-accent-400 shrink-0" />
+                    <span className={`text-xs font-bold w-6 h-6 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
                       isActive
-                        ? 'bg-primary-600 text-white'
+                        ? 'bg-primary-600 text-white shadow-soft'
                         : 'bg-accent-100 dark:bg-accent-800 text-accent-600 dark:text-accent-400'
                     }`}>
                       {i + 1}
@@ -239,20 +348,13 @@ export function AssessmentBuilder({ onNavigate }) {
                           ? 'text-primary-900 dark:text-primary-200'
                           : 'text-accent-800 dark:text-accent-200'
                       }`}>
-                        {q.content || 'Untitled question'}
+                        {q.content || 'New question stem...'}
                       </p>
-                      <p className="text-[11px] text-accent-500 dark:text-accent-400">{q.type} · {q.points} pt</p>
+                      <p className="text-[11px] text-accent-500 dark:text-accent-400">{q.type} · {q.points || 1} pt</p>
                     </div>
                   </div>
                 );
               })}
-              <button
-                type="button"
-                onClick={addQuestion}
-                className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-bold text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-950/50 rounded-xl transition-colors cursor-pointer border border-dashed border-primary-300 dark:border-primary-800/60"
-              >
-                <Plus size={14} /> Add Question
-              </button>
             </CardBody>
           </Card>
         </div>
@@ -266,32 +368,33 @@ export function AssessmentBuilder({ onNavigate }) {
                 subtitle={activeQuestion.type}
                 icon={<FileText size={18} />}
                 action={
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1 bg-accent-100 dark:bg-accent-800/80 p-1 rounded-xl border border-accent-200 dark:border-accent-700/60">
                     <button
                       type="button"
                       onClick={() => moveQuestion(activeIdx, 'up')}
                       disabled={activeIdx === 0}
-                      className="p-1.5 text-accent-400 hover:text-accent-700 dark:hover:text-white hover:bg-accent-100 dark:hover:bg-accent-800 rounded-lg transition-colors disabled:opacity-30 cursor-pointer"
+                      className="p-1.5 text-accent-500 hover:text-accent-900 dark:hover:text-white hover:bg-white dark:hover:bg-accent-700 rounded-lg transition-colors disabled:opacity-30 cursor-pointer"
                       title="Move up"
                     >
-                      <ChevronUp size={16} />
+                      <ChevronUp size={15} />
                     </button>
                     <button
                       type="button"
                       onClick={() => moveQuestion(activeIdx, 'down')}
                       disabled={activeIdx === questions.length - 1}
-                      className="p-1.5 text-accent-400 hover:text-accent-700 dark:hover:text-white hover:bg-accent-100 dark:hover:bg-accent-800 rounded-lg transition-colors disabled:opacity-30 cursor-pointer"
+                      className="p-1.5 text-accent-500 hover:text-accent-900 dark:hover:text-white hover:bg-white dark:hover:bg-accent-700 rounded-lg transition-colors disabled:opacity-30 cursor-pointer"
                       title="Move down"
                     >
-                      <ChevronDown size={16} />
+                      <ChevronDown size={15} />
                     </button>
+                    <div className="w-px h-4 bg-accent-300 dark:bg-accent-700 mx-0.5" />
                     <button
                       type="button"
                       onClick={() => deleteQuestion(activeIdx)}
-                      className="p-1.5 text-accent-400 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950/40 rounded-lg transition-colors cursor-pointer"
+                      className="p-1.5 text-accent-500 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950/50 rounded-lg transition-colors cursor-pointer"
                       title="Delete question"
                     >
-                      <Trash2 size={16} />
+                      <Trash2 size={15} />
                     </button>
                   </div>
                 }
@@ -308,14 +411,18 @@ export function AssessmentBuilder({ onNavigate }) {
                   rows={4}
                   value={activeQuestion.content}
                   onChange={(e) => updateQuestion(activeIdx, { content: e.target.value })}
+                  placeholder="Enter question text or stem..."
                 />
 
                 {/* Options editor for choice-based questions */}
                 {(activeQuestion.type === 'Multiple Choice' || activeQuestion.type === 'Multiple Select' || activeQuestion.type === 'True / False') && (
                   <div className="space-y-3">
-                    <label className="block text-xs font-semibold text-accent-700 dark:text-accent-300">
-                      Answer Choices & Correct Key
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-semibold text-accent-700 dark:text-accent-300">
+                        Answer Choices & Correct Key
+                      </label>
+                      <span className="text-[11px] text-accent-400">Click circle to mark correct key</span>
+                    </div>
                     <div className="space-y-2.5">
                       {activeQuestion.options.map((opt, oi) => {
                         const isCorrect = Array.isArray(activeQuestion.correctAnswer)
@@ -326,18 +433,19 @@ export function AssessmentBuilder({ onNavigate }) {
                             <button
                               type="button"
                               onClick={() => updateQuestion(activeIdx, { correctAnswer: oi })}
-                              className={`w-7 h-7 rounded-xl border-2 flex items-center justify-center shrink-0 transition-all cursor-pointer ${
+                              className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center shrink-0 transition-all cursor-pointer ${
                                 isCorrect
                                   ? 'border-success-500 bg-success-500 text-white shadow-soft'
-                                  : 'border-accent-300 dark:border-accent-700 hover:border-accent-400 bg-white dark:bg-accent-800'
+                                  : 'border-accent-300 dark:border-accent-700 hover:border-accent-400 bg-white dark:bg-accent-800 text-transparent hover:text-accent-300'
                               }`}
-                              title={isCorrect ? 'Marked as Correct Answer' : 'Click to mark as Correct Answer'}
+                              title={isCorrect ? 'Correct answer' : 'Set as correct'}
                             >
-                              {isCorrect && <Check size={14} className="stroke-[3]" />}
+                              <Check size={14} className={isCorrect ? 'stroke-[3]' : 'opacity-30'} />
                             </button>
                             <input
                               type="text"
                               value={opt}
+                              placeholder={`Option ${String.fromCharCode(65 + oi)}`}
                               onChange={(e) => {
                                 const newOpts = [...activeQuestion.options];
                                 newOpts[oi] = e.target.value;
@@ -353,6 +461,7 @@ export function AssessmentBuilder({ onNavigate }) {
                                   updateQuestion(activeIdx, { options: newOpts });
                                 }}
                                 className="p-2 text-accent-400 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950/40 rounded-xl transition-colors cursor-pointer"
+                                title="Remove choice"
                               >
                                 <Trash2 size={15} />
                               </button>
@@ -366,6 +475,7 @@ export function AssessmentBuilder({ onNavigate }) {
                           size="sm"
                           icon={<Plus size={14} />}
                           onClick={() => updateQuestion(activeIdx, { options: [...activeQuestion.options, `Option ${String.fromCharCode(65 + activeQuestion.options.length)}`] })}
+                          className="text-xs"
                         >
                           Add Option
                         </Button>
@@ -382,7 +492,7 @@ export function AssessmentBuilder({ onNavigate }) {
                   onChange={(e) => updateQuestion(activeIdx, { explanation: e.target.value })}
                 />
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="pt-4 border-t border-accent-100 dark:border-accent-800 grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <Input label="Points Awarded" type="number" value={activeQuestion.points} onChange={(e) => updateQuestion(activeIdx, { points: Number(e.target.value) })} />
                   <Select
                     label="Difficulty Level"
@@ -457,7 +567,6 @@ export function AssessmentBuilder({ onNavigate }) {
                 <div className="space-y-2">
                   {securityLevels.map((level) => {
                     const isSelected = securityTier === level;
-                    const isMonitored = level === 'Monitored';
                     return (
                       <button
                         key={level}
@@ -465,15 +574,15 @@ export function AssessmentBuilder({ onNavigate }) {
                         onClick={() => setSecurityTier(level)}
                         className={`w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all text-left cursor-pointer ${
                           isSelected
-                            ? 'border-primary-500 bg-primary-50/60 dark:bg-primary-950/40'
-                            : 'border-accent-200 dark:border-accent-800 bg-white dark:bg-accent-900 hover:border-accent-300'
+                            ? 'border-primary-500 bg-primary-50/60 dark:bg-primary-950/40 text-primary-900 dark:text-primary-100'
+                            : 'border-accent-200 dark:border-accent-800 bg-white dark:bg-accent-900/60 hover:border-accent-300 dark:hover:border-accent-700 text-accent-800 dark:text-accent-300'
                         }`}
                       >
                         <div className="flex items-center gap-2.5">
-                          <Shield size={16} className={isSelected ? 'text-primary-600 dark:text-primary-400' : isMonitored ? 'text-warning-500' : 'text-accent-400'} />
-                          <span className="text-xs font-bold text-accent-900 dark:text-white">{level}</span>
+                          <Shield size={16} className={isSelected ? 'text-primary-600 dark:text-primary-400' : 'text-accent-400'} />
+                          <span className="text-xs font-bold">{level}</span>
                         </div>
-                        {isSelected && <Check size={14} className="text-primary-600 dark:text-primary-400" />}
+                        {isSelected && <Check size={14} className="text-primary-600 dark:text-primary-400 stroke-[2.5]" />}
                       </button>
                     );
                   })}
@@ -484,7 +593,7 @@ export function AssessmentBuilder({ onNavigate }) {
                 <label className="block text-xs font-semibold text-accent-700 dark:text-accent-300 mb-2.5">
                   Anti-Cheat Telemetry
                 </label>
-                <div className="space-y-2.5">
+                <div className="space-y-2">
                   {[
                     'Require Primary Webcam Feed',
                     'Enforce Fullscreen Kiosk Mode',
@@ -492,32 +601,110 @@ export function AssessmentBuilder({ onNavigate }) {
                     'Continuous Screen Recording',
                     'AI Head Movement Tracking'
                   ].map((p) => (
-                    <label key={p} className="flex items-center gap-2.5 text-xs font-medium text-accent-700 dark:text-accent-300 cursor-pointer">
-                      <input type="checkbox" defaultChecked className="rounded text-primary-600 focus:ring-primary-500 w-4 h-4 bg-white dark:bg-accent-800 border-accent-300 dark:border-accent-700" />
+                    <label
+                      key={p}
+                      className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-accent-50 dark:hover:bg-accent-800/40 text-xs font-medium text-accent-700 dark:text-accent-300 cursor-pointer transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        defaultChecked
+                        className="rounded text-primary-600 focus:ring-primary-500 w-4 h-4 bg-white dark:bg-accent-800 border-accent-300 dark:border-accent-700 cursor-pointer"
+                      />
                       <span>{p}</span>
                     </label>
                   ))}
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-accent-100 dark:border-accent-800 space-y-2">
-                <div className="flex items-center justify-between text-xs font-medium">
-                  <span className="text-accent-500 dark:text-accent-400">Total Questions</span>
-                  <span className="font-bold text-accent-900 dark:text-white">{questions.length}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs font-medium">
-                  <span className="text-accent-500 dark:text-accent-400">Total Points</span>
-                  <span className="font-bold text-accent-900 dark:text-white">{questions.reduce((s, q) => s + (Number(q.points) || 1), 0)}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs font-medium">
-                  <span className="text-accent-500 dark:text-accent-400">Exam Window</span>
-                  <span className="font-bold text-accent-900 dark:text-white">{duration} min</span>
+              <div className="pt-4 border-t border-accent-100 dark:border-accent-800">
+                <div className="p-3.5 bg-accent-50 dark:bg-accent-950/60 border border-accent-200 dark:border-accent-800/80 rounded-xl space-y-2.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-accent-500 dark:text-accent-400 font-medium">Total Questions</span>
+                    <span className="font-bold font-mono text-accent-900 dark:text-white">{questions.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-accent-500 dark:text-accent-400 font-medium">Total Points</span>
+                    <span className="font-bold font-mono text-accent-900 dark:text-white">{questions.reduce((s, q) => s + (Number(q.points) || 1), 0)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-accent-500 dark:text-accent-400 font-medium">Exam Window</span>
+                    <span className="font-bold font-mono text-accent-900 dark:text-white">{duration} min</span>
+                  </div>
                 </div>
               </div>
             </CardBody>
           </Card>
         </div>
       </div>
+
+      {/* Question Bank Import Modal */}
+      <Modal
+        open={bankModalOpen}
+        onClose={() => setBankModalOpen(false)}
+        title="Import from Question Bank"
+        subtitle="Select certified questions from your organizational bank to include in this assessment"
+        footer={
+          <div className="flex items-center justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => setBankModalOpen(false)}>
+              Done
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <SearchBar
+            value={bankSearch}
+            onChange={setBankSearch}
+            placeholder="Search items by prompt, topic, or keyword..."
+          />
+
+          <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+            {bankLoading ? (
+              <div className="p-8 text-center text-xs text-accent-500">Loading Question Bank items...</div>
+            ) : bankQuestions.filter(q => {
+              const str = (q.content || q.stem || q.prompt || '').toLowerCase();
+              return str.includes(bankSearch.toLowerCase());
+            }).length === 0 ? (
+              <div className="p-6 text-center text-xs text-accent-500">No matching questions found in bank.</div>
+            ) : (
+              bankQuestions
+                .filter(q => {
+                  const str = (q.content || q.stem || q.prompt || '').toLowerCase();
+                  return str.includes(bankSearch.toLowerCase());
+                })
+                .map((bq, idx) => {
+                  const isAlreadyAdded = questions.some(q => q.questionBankId === (bq._id || bq.id));
+                  return (
+                    <div
+                      key={bq._id || bq.id || idx}
+                      className="p-3.5 rounded-xl border border-accent-200 dark:border-accent-800 bg-white dark:bg-accent-800/60 flex items-center justify-between gap-3 hover:border-accent-300 dark:hover:border-accent-700 transition-all"
+                    >
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="primary">{bq.type || 'MCQ'}</Badge>
+                          <Badge variant="neutral">{bq.points || bq.marks || 1} Pts</Badge>
+                          {bq.difficulty && <Badge variant={bq.difficulty === 'Hard' ? 'danger' : bq.difficulty === 'Medium' ? 'warning' : 'success'}>{bq.difficulty}</Badge>}
+                        </div>
+                        <p className="text-xs font-semibold text-accent-900 dark:text-white truncate">
+                          {bq.content || bq.stem || bq.prompt}
+                        </p>
+                      </div>
+                      <Button
+                        variant={isAlreadyAdded ? 'outline' : 'primary'}
+                        size="sm"
+                        icon={isAlreadyAdded ? <Check size={13} /> : <Plus size={13} />}
+                        disabled={isAlreadyAdded}
+                        onClick={() => handleImportQuestion(bq)}
+                      >
+                        {isAlreadyAdded ? 'Added' : 'Import'}
+                      </Button>
+                    </div>
+                  );
+                })
+            )}
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

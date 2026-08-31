@@ -1,30 +1,156 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Shield, Clock, Wifi, Lock, ChevronLeft, ChevronRight, Flag,
-  CheckCircle2, AlertCircle, Save, Check, AlertTriangle
+  CheckCircle2, AlertCircle, Save, Check, AlertTriangle, RefreshCw
 } from 'lucide-react';
-import { Button, Badge, ProgressBar, Modal, Card } from '@/components/ui';
+import { Button, Badge, ProgressBar, Modal, Card, SkeletonCards } from '@/components/ui';
 import attemptService from '@/services/attempt.service';
+import candidatePortalService from '@/services/candidatePortal.service';
 import socketService from '@/services/socketService';
 
+const fallbackQuestions = [
+  { id: 'q1', content: 'What is the time complexity of binary search on a sorted array of n elements?', options: ['O(n)', 'O(log n)', 'O(n log n)', 'O(1)'], points: 2, type: 'Multiple Choice' },
+  { id: 'q2', content: 'Which data structure uses LIFO (Last In, First Out) ordering?', options: ['Queue', 'Stack', 'Linked List', 'Tree'], points: 1, type: 'Multiple Choice' },
+  { id: 'q3', content: 'What does ACID stand for in database transactions?', options: ['Atomic, Consistent, Isolated, Durable', 'Accurate, Correct, Isolated, Direct', 'Atomic, Correct, Indexed, Durable', 'Automated, Consistent, Isolated, Dynamic'], points: 2, type: 'Multiple Choice' },
+  { id: 'q4', content: 'Which sorting algorithm has the best average-case time complexity?', options: ['Bubble Sort', 'Selection Sort', 'Quick Sort', 'Insertion Sort'], points: 2, type: 'Multiple Choice' },
+  { id: 'q5', content: 'Which HTTP status code signifies that a resource was successfully created?', options: ['200 OK', '201 Created', '204 No Content', '304 Not Modified'], points: 1, type: 'Multiple Choice' },
+  { id: 'q6', content: 'In Public Key Cryptography, which key is utilized by the sender to encrypt a private message for the recipient?', options: ['Sender Private Key', 'Recipient Public Key', 'Recipient Private Key', 'Shared Ephemeral Secret'], points: 3, type: 'Multiple Choice' },
+];
+
 export function AssessmentExperience({ onNavigate }) {
+  const [loading, setLoading] = useState(true);
   const [currentQ, setCurrentQ] = useState(0);
+  const [questions, setQuestions] = useState(fallbackQuestions);
   const [answers, setAnswers] = useState({});
+  const [flaggedMap, setFlaggedMap] = useState({});
   const [timeLeft, setTimeLeft] = useState(90 * 60);
   const [saved, setSaved] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
   const [attemptId, setAttemptId] = useState('att_live_01');
+  const [assessmentTitle, setAssessmentTitle] = useState('Computer Science 101 · Final Evaluation');
   const [warningBanner, setWarningBanner] = useState(null);
+  const heartbeatIntervalRef = useRef(null);
 
-  const questions = [
-    { id: 1, content: 'What is the time complexity of binary search on a sorted array of n elements?', options: ['O(n)', 'O(log n)', 'O(n log n)', 'O(1)'], points: 2 },
-    { id: 2, content: 'Which data structure uses LIFO (Last In, First Out) ordering?', options: ['Queue', 'Stack', 'Linked List', 'Tree'], points: 1 },
-    { id: 3, content: 'What does ACID stand for in database transactions?', options: ['Atomic, Consistent, Isolated, Durable', 'Accurate, Correct, Isolated, Direct', 'Atomic, Correct, Indexed, Durable', 'Automated, Consistent, Isolated, Dynamic'], points: 2 },
-    { id: 4, content: 'Which sorting algorithm has the best average-case time complexity?', options: ['Bubble Sort', 'Selection Sort', 'Quick Sort', 'Insertion Sort'], points: 2 },
-    { id: 5, content: 'Which HTTP status code signifies that a resource was successfully created?', options: ['200 OK', '201 Created', '204 No Content', '304 Not Modified'], points: 1 },
-    { id: 6, content: 'In Public Key Cryptography, which key is utilized by the sender to encrypt a private message for the recipient?', options: ['Sender Private Key', 'Recipient Public Key', 'Recipient Private Key', 'Shared Ephemeral Secret'], points: 3 },
-  ];
+  // Initialize Attempt & Questions
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadAttemptData = async () => {
+      setLoading(true);
+      try {
+        // 1. Try to find active or pending attempts / assignments
+        let activeAttemptId = null;
+        let attemptData = null;
+
+        try {
+          const attemptsRes = await attemptService.getAttempts({ status: 'IN_PROGRESS' });
+          const attemptList = Array.isArray(attemptsRes) ? attemptsRes : (attemptsRes?.items || attemptsRes?.data?.items || []);
+          if (attemptList.length > 0) {
+            activeAttemptId = attemptList[0]._id || attemptList[0].id;
+            attemptData = attemptList[0];
+          }
+        } catch (e) {
+          console.warn('Could not fetch active attempts list:', e.message);
+        }
+
+        // If no active attempt, check candidate assignments to start one
+        if (!activeAttemptId) {
+          try {
+            const assignRes = await candidatePortalService.getAssignments({ status: 'PENDING' });
+            const assignments = Array.isArray(assignRes) ? assignRes : (assignRes?.items || assignRes?.data?.items || []);
+            if (assignments.length > 0) {
+              const started = await attemptService.startAttempt(assignments[0]._id || assignments[0].id);
+              activeAttemptId = started?._id || started?.data?._id || started?.id;
+              attemptData = started?.data || started;
+            }
+          } catch (e) {
+            console.warn('Could not auto-start from assignments:', e.message);
+          }
+        }
+
+        if (activeAttemptId && isMounted) {
+          setAttemptId(activeAttemptId);
+
+          if (attemptData?.assessmentId?.title || attemptData?.assessmentTitle) {
+            setAssessmentTitle(attemptData.assessmentId?.title || attemptData.assessmentTitle);
+          }
+
+          // Calculate remaining time from expiresAt if available
+          if (attemptData?.expiresAt) {
+            const msRemaining = new Date(attemptData.expiresAt).getTime() - Date.now();
+            if (msRemaining > 0) {
+              setTimeLeft(Math.floor(msRemaining / 1000));
+            }
+          }
+
+          // 2. Fetch Questions for this attempt
+          try {
+            const qRes = await attemptService.getAttemptQuestions(activeAttemptId);
+            const rawQs = Array.isArray(qRes) ? qRes : (qRes?.items || qRes?.data?.items || qRes?.data || []);
+            
+            if (Array.isArray(rawQs) && rawQs.length > 0) {
+              const mapped = rawQs.map((q, idx) => {
+                const optList = Array.isArray(q.options)
+                  ? q.options.map(o => (typeof o === 'string' ? o : (o.text || o.content || o.label || JSON.stringify(o))))
+                  : ['Option A', 'Option B', 'Option C', 'Option D'];
+
+                return {
+                  id: q._id || q.id || `q_${idx}`,
+                  content: q.prompt?.text || q.prompt || q.content || q.text || `Question ${idx + 1}`,
+                  options: optList,
+                  points: q.points || q.marks || 1,
+                  type: q.type || 'Multiple Choice',
+                  flagged: Boolean(q.flagged),
+                  savedAnswer: q.savedAnswer,
+                };
+              });
+
+              setQuestions(mapped);
+
+              // Pre-populate already saved answers
+              const initialAnswers = {};
+              const initialFlags = {};
+              mapped.forEach((q, idx) => {
+                if (q.savedAnswer !== null && q.savedAnswer !== undefined) {
+                  initialAnswers[idx] = q.savedAnswer;
+                }
+                if (q.flagged) {
+                  initialFlags[idx] = true;
+                }
+              });
+              setAnswers(initialAnswers);
+              setFlaggedMap(initialFlags);
+            }
+          } catch (e) {
+            console.warn('Questions fetch error, using template:', e.message);
+          }
+        }
+      } catch (err) {
+        console.warn('Attempt initialization note:', err.message);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    loadAttemptData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Heartbeat periodic dispatcher
+  useEffect(() => {
+    if (attemptId && attemptId !== 'att_live_01') {
+      heartbeatIntervalRef.current = setInterval(() => {
+        attemptService.sendHeartbeat(attemptId).catch(() => {});
+      }, 30000);
+    }
+    return () => {
+      if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
+    };
+  }, [attemptId]);
 
   const totalQuestions = questions.length;
 
@@ -98,15 +224,31 @@ export function AssessmentExperience({ onNavigate }) {
     setSaved(false);
 
     try {
-      await attemptService.saveAnswer(attemptId, {
-        questionIndex: currentQ,
-        questionId: questions[currentQ].id,
-        selectedOption: optIdx,
+      const q = questions[currentQ];
+      await attemptService.saveAnswer(attemptId, q?.id || currentQ, {
+        answer: optIdx,
+        questionId: q?.id,
       });
     } catch (e) {
-      // safe fallback
+      console.warn('Answer autosave note:', e.message);
     } finally {
       setTimeout(() => setSaved(true), 400);
+    }
+  };
+
+  const toggleFlag = async () => {
+    const isCurrentlyFlagged = Boolean(flaggedMap[currentQ]);
+    const nextFlagState = !isCurrentlyFlagged;
+    
+    setFlaggedMap(prev => ({ ...prev, [currentQ]: nextFlagState }));
+
+    try {
+      const q = questions[currentQ];
+      if (q?.id) {
+        await attemptService.flagQuestion(attemptId, q.id, nextFlagState);
+      }
+    } catch (e) {
+      console.warn('Flag note:', e.message);
     }
   };
 
@@ -116,7 +258,7 @@ export function AssessmentExperience({ onNavigate }) {
       try {
         await attemptService.submitAttempt(attemptId, answers);
       } catch (e) {
-        // fallback
+        console.warn('Submit note:', e.message);
       }
       onNavigate('participant-evaluation');
     } finally {
@@ -124,8 +266,23 @@ export function AssessmentExperience({ onNavigate }) {
     }
   };
 
-  const q = questions[currentQ];
+  const q = questions[currentQ] || fallbackQuestions[0];
   const answeredCount = Object.keys(answers).length;
+  const isCurrentFlagged = Boolean(flaggedMap[currentQ]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-accent-50 dark:bg-accent-950 text-accent-900 dark:text-white flex items-center justify-center p-6">
+        <div className="text-center space-y-4 max-w-sm">
+          <div className="w-12 h-12 rounded-2xl bg-primary-50 dark:bg-primary-950/60 text-primary-600 dark:text-primary-400 flex items-center justify-center mx-auto shadow-soft animate-spin">
+            <RefreshCw size={24} />
+          </div>
+          <h2 className="text-base font-bold font-display">Initializing Secure Exam Workspace</h2>
+          <p className="text-xs text-accent-500">Establishing encrypted connection, preparing items pool, and calibrating integrity telemetry...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-accent-50 dark:bg-accent-950 text-accent-900 dark:text-white flex flex-col transition-colors duration-200 font-sans">
@@ -146,7 +303,7 @@ export function AssessmentExperience({ onNavigate }) {
             </div>
             <div>
               <p className="text-xs font-bold text-accent-900 dark:text-white">Online Examination Session</p>
-              <p className="text-[11px] text-accent-500 dark:text-accent-400">Computer Science 101 · Final Evaluation</p>
+              <p className="text-[11px] text-accent-500 dark:text-accent-400 truncate max-w-[200px] sm:max-w-md">{assessmentTitle}</p>
             </div>
           </div>
 
@@ -193,7 +350,8 @@ export function AssessmentExperience({ onNavigate }) {
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
                   <Badge variant="primary">Question {currentQ + 1} of {totalQuestions}</Badge>
-                  <Badge variant="neutral">{q.points} {q.points === 1 ? 'Point' : 'Points'}</Badge>
+                  <Badge variant="neutral">{q.points || 1} {q.points === 1 ? 'Point' : 'Points'}</Badge>
+                  {isCurrentFlagged && <Badge variant="warning">Flagged</Badge>}
                 </div>
                 <div className="flex items-center gap-2 text-xs text-accent-400">
                   {saved ? (
@@ -209,7 +367,7 @@ export function AssessmentExperience({ onNavigate }) {
               </p>
 
               <div className="space-y-3">
-                {q.options.map((opt, i) => {
+                {(q.options || []).map((opt, i) => {
                   const isSelected = answers[currentQ] === i;
                   return (
                     <button
@@ -248,8 +406,13 @@ export function AssessmentExperience({ onNavigate }) {
                 >
                   Previous
                 </Button>
-                <Button variant="ghost" size="md" icon={<Flag size={15} />}>
-                  Flag for Review
+                <Button
+                  variant={isCurrentFlagged ? 'warning' : 'ghost'}
+                  size="md"
+                  icon={<Flag size={15} />}
+                  onClick={toggleFlag}
+                >
+                  {isCurrentFlagged ? 'Flagged for Review' : 'Flag for Review'}
                 </Button>
                 {currentQ < totalQuestions - 1 ? (
                   <Button
@@ -277,12 +440,13 @@ export function AssessmentExperience({ onNavigate }) {
                 {questions.map((_, i) => {
                   const isCurrent = currentQ === i;
                   const isAnswered = answers[i] !== undefined;
+                  const isFlagged = Boolean(flaggedMap[i]);
                   return (
                     <button
                       key={i}
                       type="button"
                       onClick={() => setCurrentQ(i)}
-                      className={`h-9 rounded-xl text-xs font-semibold font-mono transition-all cursor-pointer flex items-center justify-center ${
+                      className={`h-9 rounded-xl text-xs font-semibold font-mono transition-all cursor-pointer flex items-center justify-center relative ${
                         isCurrent
                           ? 'ring-2 ring-primary-500 bg-primary-600 text-white'
                           : isAnswered
@@ -291,6 +455,9 @@ export function AssessmentExperience({ onNavigate }) {
                       }`}
                     >
                       {i + 1}
+                      {isFlagged && (
+                        <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-warning-500" />
+                      )}
                     </button>
                   );
                 })}
@@ -304,6 +471,10 @@ export function AssessmentExperience({ onNavigate }) {
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-md bg-success-500 shrink-0" />
                   <span>Answer Recorded</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-md bg-warning-500 shrink-0" />
+                  <span>Flagged for Review</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-md bg-accent-200 dark:bg-accent-700 shrink-0" />

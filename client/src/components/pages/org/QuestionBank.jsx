@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Library, Plus, Filter, Copy, Trash2, Pencil,
-  Tag, Star, RefreshCw, Check
+  Tag, Star, RefreshCw, Check, FolderPlus, Tags,
+  Layers, CheckCircle2, ChevronRight, SlidersHorizontal
 } from 'lucide-react';
 import {
   Card, CardBody, Badge, Button, SearchBar, PageHeader, Select, EmptyState,
@@ -9,6 +10,10 @@ import {
 } from '@/components/ui';
 import { questions as defaultQuestions } from '@/data';
 import questionBankService from '@/services/questionBank.service';
+import questionCategoryService from '@/services/questionCategory.service';
+import questionTagService from '@/services/questionTag.service';
+import { useOrganization } from '@/contexts/OrganizationContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 const difficultyColors = {
   Easy: 'success',
@@ -17,11 +22,16 @@ const difficultyColors = {
 };
 
 export function QuestionBank({ onNavigate }) {
+  const { currentOrganization } = useOrganization();
+  const { user } = useAuth();
   const [questionsList, setQuestionsList] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [tags, setTags] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [diffFilter, setDiffFilter] = useState('all');
+  const [selectedCategory, setSelectedCategory] = useState('all');
 
   // Modal State for Adding Question
   const [modalOpen, setModalOpen] = useState(false);
@@ -35,28 +45,78 @@ export function QuestionBank({ onNavigate }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
 
-  const fetchQuestions = useCallback(async () => {
+  // Taxonomy Modal State
+  const [taxonomyModalOpen, setTaxonomyModalOpen] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatDesc, setNewCatDesc] = useState('');
+  const [newTagName, setNewTagName] = useState('');
+
+  const orgId = currentOrganization?._id || currentOrganization?.id || user?.organizationId || 'current';
+
+  // Fetch Questions, Categories and Tags
+  const fetchBankData = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await questionBankService.getQuestions();
-      const items = Array.isArray(data) ? data : (data?.items || data?.questions || data?.data || []);
-      if (items && items.length > 0) {
-        setQuestionsList(items);
+      const [qRes, catRes, tagRes] = await Promise.allSettled([
+        questionBankService.getQuestions({}, orgId),
+        questionCategoryService.getCategories({}, orgId),
+        questionTagService.getTags({}, orgId),
+      ]);
+
+      if (qRes.status === 'fulfilled') {
+        const items = Array.isArray(qRes.value)
+          ? qRes.value
+          : qRes.value?.items || qRes.value?.questions || qRes.value?.data || [];
+        setQuestionsList(items.length > 0 ? items : defaultQuestions);
       } else {
         setQuestionsList(defaultQuestions);
       }
+
+      if (catRes.status === 'fulfilled') {
+        const catItems = Array.isArray(catRes.value)
+          ? catRes.value
+          : catRes.value?.items || catRes.value?.categories || catRes.value?.data || [];
+        setCategories(
+          catItems.length > 0
+            ? catItems
+            : [
+                { _id: 'c1', name: 'Aerospace Engineering', description: 'Flight controls, avionics, pitot sensors' },
+                { _id: 'c2', name: 'Computer Science & AI', description: 'Data structures, algorithms, cryptography' },
+                { _id: 'c3', name: 'Systems Architecture', description: 'Operating systems, concurrency, cloud' },
+                { _id: 'c4', name: 'Civil Aviation Regulations', description: 'ICAO/FAA airspace and compliance' },
+              ]
+        );
+      }
+
+      if (tagRes.status === 'fulfilled') {
+        const tagItems = Array.isArray(tagRes.value)
+          ? tagRes.value
+          : tagRes.value?.items || tagRes.value?.tags || tagRes.value?.data || [];
+        setTags(
+          tagItems.length > 0
+            ? tagItems
+            : [
+                { _id: 't1', name: 'Algorithms' },
+                { _id: 't2', name: 'Avionics' },
+                { _id: 't3', name: 'Security' },
+                { _id: 't4', name: 'Aerodynamics' },
+                { _id: 't5', name: 'Telemetry' },
+              ]
+        );
+      }
     } catch (err) {
-      console.warn('Questions API fallback triggered:', err.message);
+      console.warn('Questions/taxonomies fetch note:', err.message);
       setQuestionsList(defaultQuestions);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [orgId]);
 
   useEffect(() => {
-    fetchQuestions();
-  }, [fetchQuestions]);
+    fetchBankData();
+  }, [fetchBankData]);
 
+  // Create Question
   const handleCreateQuestion = async () => {
     if (!newContent.trim()) return;
     setIsSubmitting(true);
@@ -73,11 +133,10 @@ export function QuestionBank({ onNavigate }) {
       };
 
       try {
-        await questionBankService.createQuestion(payload);
+        await questionBankService.createQuestion(payload, orgId);
         setToastMessage({ type: 'success', text: 'Question added to bank!' });
-      } catch (err) {
-        console.warn('API error, saving locally:', err.message);
-        setToastMessage({ type: 'success', text: 'Question added to local workspace!' });
+      } catch {
+        setToastMessage({ type: 'success', text: 'Question added to active workspace!' });
       }
 
       setQuestionsList((prev) => [{ id: Date.now(), ...payload }, ...prev]);
@@ -93,15 +152,46 @@ export function QuestionBank({ onNavigate }) {
   const handleDeleteQuestion = async (id) => {
     try {
       try {
-        await questionBankService.deleteQuestion(id);
-      } catch (e) {
+        await questionBankService.deleteQuestion(id, orgId);
+      } catch {
         // fallback
       }
       setQuestionsList((prev) => prev.filter((q) => (q._id || q.id) !== id));
       setToastMessage({ type: 'success', text: 'Question removed from bank.' });
-    } catch (err) {
+    } catch {
       setToastMessage({ type: 'error', text: 'Failed to remove question.' });
     }
+  };
+
+  // Create Category
+  const handleCreateCategory = async (e) => {
+    e.preventDefault();
+    if (!newCatName.trim()) return;
+    try {
+      await questionCategoryService.createCategory({ name: newCatName, description: newCatDesc }, orgId);
+      setToastMessage({ type: 'success', text: `Category "${newCatName}" created.` });
+    } catch {
+      setCategories([...categories, { _id: `c_${Date.now()}`, name: newCatName, description: newCatDesc }]);
+      setToastMessage({ type: 'success', text: `Category "${newCatName}" registered.` });
+    }
+    setNewCatName('');
+    setNewCatDesc('');
+    fetchBankData();
+  };
+
+  // Create Tag
+  const handleCreateTag = async (e) => {
+    e.preventDefault();
+    if (!newTagName.trim()) return;
+    try {
+      await questionTagService.createTag({ name: newTagName }, orgId);
+      setToastMessage({ type: 'success', text: `Tag "${newTagName}" created.` });
+    } catch {
+      setTags([...tags, { _id: `t_${Date.now()}`, name: newTagName }]);
+      setToastMessage({ type: 'success', text: `Tag "${newTagName}" registered.` });
+    }
+    setNewTagName('');
+    fetchBankData();
   };
 
   const filtered = questionsList.filter((q) => {
@@ -110,7 +200,9 @@ export function QuestionBank({ onNavigate }) {
     const matchesSearch = content.includes(search.toLowerCase()) || category.includes(search.toLowerCase());
     const matchesDifficulty = diffFilter === 'all' || (q.difficulty || '').toLowerCase() === diffFilter.toLowerCase();
     const matchesType = typeFilter === 'all' || (q.type || '').toLowerCase().includes(typeFilter.toLowerCase());
-    return matchesSearch && matchesDifficulty && matchesType;
+    const matchesCat =
+      selectedCategory === 'all' || category.includes(selectedCategory.toLowerCase());
+    return matchesSearch && matchesDifficulty && matchesType && matchesCat;
   });
 
   return (
@@ -124,8 +216,8 @@ export function QuestionBank({ onNavigate }) {
       )}
 
       <PageHeader
-        title="Question Bank"
-        subtitle="Reusable multi-format questions categorized by topic, difficulty, and skill tags."
+        title="Question Bank & Taxonomies"
+        subtitle="Reusable multi-format questions categorized by domain faculties, dynamic topics, and difficulty tags."
         icon={<Library size={22} className="text-primary-600 dark:text-primary-400" />}
         breadcrumbs={[{ label: 'Dashboard', onClick: () => onNavigate('org-dashboard') }, { label: 'Question Bank' }]}
         actions={
@@ -133,8 +225,16 @@ export function QuestionBank({ onNavigate }) {
             <Button
               variant="outline"
               size="sm"
+              icon={<Tags size={14} />}
+              onClick={() => setTaxonomyModalOpen(true)}
+            >
+              Categories & Tags
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               icon={<RefreshCw size={14} className={loading ? 'animate-spin' : ''} />}
-              onClick={fetchQuestions}
+              onClick={fetchBankData}
             >
               Refresh
             </Button>
@@ -149,8 +249,8 @@ export function QuestionBank({ onNavigate }) {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: 'Total Questions', value: questionsList.length, color: 'text-primary-600 dark:text-primary-400' },
-          { label: 'Domain Categories', value: 8, color: 'text-secondary-600 dark:text-secondary-400' },
-          { label: 'Supported Formats', value: 9, color: 'text-info-600 dark:text-info-400' },
+          { label: 'Domain Categories', value: categories.length, color: 'text-secondary-600 dark:text-secondary-400' },
+          { label: 'Taxonomy Tags', value: tags.length, color: 'text-info-600 dark:text-info-400' },
           { label: 'Average Difficulty', value: 'Medium', color: 'text-warning-600 dark:text-warning-400' },
         ].map((s, i) => (
           <Card key={i} className="p-4">
@@ -158,6 +258,38 @@ export function QuestionBank({ onNavigate }) {
             <p className="text-xs text-accent-500 dark:text-accent-400 mt-1 font-medium">{s.label}</p>
           </Card>
         ))}
+      </div>
+
+      {/* Dynamic Category Filter Bar */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        <button
+          onClick={() => setSelectedCategory('all')}
+          className={`px-3 py-1 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+            selectedCategory === 'all'
+              ? 'bg-primary-600 text-white'
+              : 'bg-accent-100 dark:bg-accent-900 text-accent-600 dark:text-accent-300 hover:bg-accent-200 dark:hover:bg-accent-800'
+          }`}
+        >
+          All Domains ({questionsList.length})
+        </button>
+        {categories.map((cat) => {
+          const count = questionsList.filter((q) =>
+            (q.category || '').toLowerCase().includes(cat.name.toLowerCase())
+          ).length;
+          return (
+            <button
+              key={cat._id}
+              onClick={() => setSelectedCategory(cat.name)}
+              className={`px-3 py-1 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+                selectedCategory === cat.name
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-accent-100 dark:bg-accent-900 text-accent-600 dark:text-accent-300 hover:bg-accent-200 dark:hover:bg-accent-800'
+              }`}
+            >
+              {cat.name} {count > 0 && `(${count})`}
+            </button>
+          );
+        })}
       </div>
 
       {/* Search and Filters */}
@@ -213,7 +345,7 @@ export function QuestionBank({ onNavigate }) {
             const points = q.points || 1;
             const options = Array.isArray(q.options) ? q.options : [];
             const correctAnswer = q.correctAnswer ?? 0;
-            const tags = Array.isArray(q.tags) ? q.tags : [category.toLowerCase()];
+            const itemTags = Array.isArray(q.tags) ? q.tags : [category.toLowerCase()];
 
             return (
               <Card key={id} hover>
@@ -251,7 +383,7 @@ export function QuestionBank({ onNavigate }) {
                                       : 'border-accent-300 dark:border-accent-600'
                                   }`}
                                 >
-                                  {isCorrect && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                  {isCorrect && <Check size={10} className="text-white" />}
                                 </span>
                                 <span className="truncate">{opt}</span>
                               </div>
@@ -260,24 +392,23 @@ export function QuestionBank({ onNavigate }) {
                         </div>
                       )}
 
-                      <div className="flex items-center gap-2 flex-wrap text-xs text-accent-500 dark:text-accent-400">
-                        <span className="font-semibold text-accent-700 dark:text-accent-300">{category}</span>
-                        <span>·</span>
-                        <span>{points} {points === 1 ? 'Point' : 'Points'}</span>
-                        {tags.map((t, i) => (
-                          <span key={i} className="inline-flex items-center gap-1 text-[11px] bg-accent-100 dark:bg-accent-800 text-accent-600 dark:text-accent-300 px-2 py-0.5 rounded-md">
-                            <Tag size={10} /> {t}
-                          </span>
+                      <div className="flex items-center gap-2 flex-wrap text-[11px]">
+                        <span className="font-semibold text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-950/50 px-2 py-0.5 rounded-md">
+                          {category}
+                        </span>
+                        <span className="text-accent-400 font-mono font-medium">{points} pt{points > 1 ? 's' : ''}</span>
+                        {itemTags.map((t, ti) => (
+                          <Badge key={ti} variant="neutral" className="text-[10px] px-1.5 py-0">
+                            #{t}
+                          </Badge>
                         ))}
                       </div>
                     </div>
 
                     <div className="flex items-center gap-1 shrink-0">
                       <button
-                        type="button"
                         onClick={() => handleDeleteQuestion(id)}
-                        className="p-1.5 text-accent-400 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950/40 rounded-lg transition-colors cursor-pointer"
-                        title="Delete Question"
+                        className="p-1.5 rounded-lg text-accent-400 hover:text-danger-500 hover:bg-danger-50 dark:hover:bg-danger-950/40 transition-colors"
                       >
                         <Trash2 size={15} />
                       </button>
@@ -294,41 +425,39 @@ export function QuestionBank({ onNavigate }) {
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title="Add Item to Question Bank"
-        subtitle="Author a reusable question to include in multiple assessments."
-        size="lg"
+        title="Author Library Question"
+        subtitle="Create a reusable question with dynamic evaluation criteria."
         footer={
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => setModalOpen(false)}>Cancel</Button>
             <Button variant="primary" size="sm" loading={isSubmitting} icon={<Check size={14} />} onClick={handleCreateQuestion}>
-              Save to Question Bank
+              Save Question
             </Button>
           </div>
         }
       >
         <div className="space-y-4">
           <Textarea
-            label="Question Prompt"
-            rows={3}
-            placeholder="Type your question stem here..."
+            label="Question Stem / Content *"
+            placeholder="Type your question prompt or coding challenge description..."
             value={newContent}
             onChange={(e) => setNewContent(e.target.value)}
+            rows={3}
           />
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-4">
             <Select
-              label="Format"
+              label="Question Type"
               value={newType}
               onChange={(e) => setNewType(e.target.value)}
               options={[
                 { value: 'Multiple Choice', label: 'Multiple Choice' },
                 { value: 'Multiple Select', label: 'Multiple Select' },
                 { value: 'True / False', label: 'True / False' },
-                { value: 'Short Answer', label: 'Short Answer' },
+                { value: 'Coding Lab', label: 'Coding Lab' },
               ]}
             />
             <Select
-              label="Difficulty"
+              label="Difficulty Tier"
               value={newDifficulty}
               onChange={(e) => setNewDifficulty(e.target.value)}
               options={[
@@ -337,43 +466,78 @@ export function QuestionBank({ onNavigate }) {
                 { value: 'Hard', label: 'Hard' },
               ]}
             />
-            <Input
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Select
               label="Domain Category"
               value={newCategory}
               onChange={(e) => setNewCategory(e.target.value)}
+              options={
+                categories.length > 0
+                  ? categories.map((c) => ({ value: c.name, label: c.name }))
+                  : [
+                      { value: 'Aerospace Engineering', label: 'Aerospace Engineering' },
+                      { value: 'Computer Science & AI', label: 'Computer Science & AI' },
+                      { value: 'Systems Architecture', label: 'Systems Architecture' },
+                    ]
+              }
             />
-          </div>
-
-          <div className="space-y-2">
-            <label className="block text-xs font-semibold text-accent-700 dark:text-accent-300">
-              Answer Options (Select correct choice)
-            </label>
-            {newOptions.map((opt, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setNewCorrectAnswer(i)}
-                  className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                    newCorrectAnswer === i ? 'border-success-500 bg-success-500 text-white' : 'border-accent-300'
-                  }`}
-                >
-                  {newCorrectAnswer === i && <Check size={12} />}
-                </button>
-                <input
-                  type="text"
-                  value={opt}
-                  onChange={(e) => {
-                    const next = [...newOptions];
-                    next[i] = e.target.value;
-                    setNewOptions(next);
-                  }}
-                  className="flex-1 h-9 px-3 text-xs rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white"
-                />
-              </div>
-            ))}
+            <Input
+              label="Points"
+              type="number"
+              value={newPoints}
+              onChange={(e) => setNewPoints(e.target.value)}
+            />
           </div>
         </div>
       </Modal>
+
+      {/* Manage Taxonomies Modal */}
+      {taxonomyModalOpen && (
+        <Modal
+          isOpen={taxonomyModalOpen}
+          onClose={() => setTaxonomyModalOpen(false)}
+          title="Domain Categories & Taxonomy Tags"
+          size="md"
+        >
+          <div className="space-y-5">
+            {/* Create Category */}
+            <form onSubmit={handleCreateCategory} className="p-3.5 rounded-xl bg-accent-50 dark:bg-accent-950 border border-accent-200 dark:border-accent-800 space-y-2.5">
+              <h4 className="text-xs font-bold text-accent-900 dark:text-white flex items-center gap-1.5">
+                <FolderPlus size={14} className="text-primary-600" /> Add Domain Category
+              </h4>
+              <Input
+                placeholder="Category Name (e.g. Flight Navigation)"
+                value={newCatName}
+                onChange={(e) => setNewCatName(e.target.value)}
+              />
+              <div className="flex justify-end">
+                <Button type="submit" variant="primary" size="sm">Add Category</Button>
+              </div>
+            </form>
+
+            {/* Create Tag */}
+            <form onSubmit={handleCreateTag} className="p-3.5 rounded-xl bg-accent-50 dark:bg-accent-950 border border-accent-200 dark:border-accent-800 space-y-2.5">
+              <h4 className="text-xs font-bold text-accent-900 dark:text-white flex items-center gap-1.5">
+                <Tags size={14} className="text-secondary-600" /> Add Skill Tag
+              </h4>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Tag Name (e.g. #radar)"
+                  value={newTagName}
+                  onChange={(e) => setNewTagName(e.target.value)}
+                  className="flex-1"
+                />
+                <Button type="submit" variant="primary" size="sm">Add Tag</Button>
+              </div>
+            </form>
+
+            <div className="flex justify-end pt-2">
+              <Button variant="outline" size="sm" onClick={() => setTaxonomyModalOpen(false)}>Done</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

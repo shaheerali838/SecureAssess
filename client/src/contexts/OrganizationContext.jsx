@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 import organizationService from '../services/organization.service';
 import { organizations as staticOrganizations } from '@/data';
+import { translateTerm, getTerminology } from '@/utils/terminology';
 
 const OrganizationContext = createContext(null);
 
@@ -11,6 +12,15 @@ export const OrganizationProvider = ({ children }) => {
   const [currentOrganization, setCurrentOrganization] = useState(null);
   const [currentMembership, setCurrentMembership] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // On mount: purge any previously-stored non-ObjectId value (e.g. 'org-stanford')
+  // that would cause requireTenantContext to return 400 Invalid ID format
+  useEffect(() => {
+    const stored = localStorage.getItem('secureassess_current_org_id');
+    if (stored && !/^[0-9a-fA-F]{24}$/.test(stored)) {
+      localStorage.removeItem('secureassess_current_org_id');
+    }
+  }, []);
 
   // Fetch memberships / organizations for authenticated user
   const fetchMemberships = useCallback(async () => {
@@ -52,6 +62,7 @@ export const OrganizationProvider = ({ children }) => {
             name: 'Stanford Engineering',
             slug: 'stanford-engineering',
             code: 'STANFORD',
+            tenantIndustry: 'academic',
             brandColor: '#4f46e5',
             status: 'ACTIVE',
           },
@@ -78,8 +89,11 @@ export const OrganizationProvider = ({ children }) => {
         const orgData = active.organization || active;
         setCurrentOrganization(orgData);
         setCurrentMembership(active.organization ? active : null);
-        const orgIdToStore = orgData._id || orgData.id || 'org-stanford';
-        localStorage.setItem('secureassess_current_org_id', orgIdToStore);
+        const orgIdToStore = orgData._id || orgData.id;
+        // Only persist real MongoDB ObjectIds — never store mock/fallback strings
+        if (orgIdToStore && /^[0-9a-fA-F]{24}$/.test(String(orgIdToStore))) {
+          localStorage.setItem('secureassess_current_org_id', orgIdToStore);
+        }
       }
     } catch (err) {
       console.warn('Failed to load organization context:', err.message);
@@ -138,11 +152,29 @@ export const OrganizationProvider = ({ children }) => {
     );
   };
 
+  // Dynamic Terminology Mapping based on active Tenant Industry
+  const tenantIndustry = currentOrganization?.tenantIndustry || 'academic';
+
+  const t = useCallback(
+    (entityKey, isPlural = false) => {
+      const industry = currentOrganization?.tenantIndustry || 'academic';
+      return translateTerm(industry, entityKey, isPlural);
+    },
+    [currentOrganization?.tenantIndustry]
+  );
+
+  const terminology = useMemo(() => {
+    return getTerminology(tenantIndustry);
+  }, [tenantIndustry]);
+
   const value = {
     organizations,
     currentOrganization: currentOrganization || staticOrganizations?.[0] || null,
     currentMembership,
     currentOrgId: currentOrganization?._id || currentOrganization?.id || null,
+    tenantIndustry,
+    t,
+    terminology,
     userRole,
     permissions,
     hasPermission,

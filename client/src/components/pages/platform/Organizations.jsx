@@ -71,11 +71,68 @@ export function Organizations({ onNavigate }) {
     }
   };
 
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    name: '',
+    tenantIndustry: 'academic',
+    type: 'UNIVERSITY',
+    email: '',
+    phone: '',
+    ownerFirstName: '',
+    ownerLastName: '',
+    ownerEmail: '',
+  });
+  const [creating, setCreating] = useState(false);
+
+  const handleCreateOrg = async (e) => {
+    e.preventDefault();
+    if (!createForm.name || !createForm.ownerEmail || !createForm.ownerFirstName) {
+      setToastMessage({ type: 'error', text: 'Organization name, owner name, and owner email are required.' });
+      return;
+    }
+
+    setCreating(true);
+    try {
+      await organizationService.createOrganization({
+        name: createForm.name.trim(),
+        tenantIndustry: createForm.tenantIndustry,
+        type: createForm.type,
+        contact: {
+          email: createForm.email || createForm.ownerEmail,
+          phone: createForm.phone,
+        },
+        owner: {
+          firstName: createForm.ownerFirstName.trim(),
+          lastName: createForm.ownerLastName?.trim() || '',
+          email: createForm.ownerEmail.trim(),
+        },
+      });
+
+      setToastMessage({ type: 'success', text: `Created organization '${createForm.name}' successfully!` });
+      setIsCreateModalOpen(false);
+      setCreateForm({
+        name: '',
+        tenantIndustry: 'academic',
+        type: 'UNIVERSITY',
+        email: '',
+        phone: '',
+        ownerFirstName: '',
+        ownerLastName: '',
+        ownerEmail: '',
+      });
+      fetchOrgs();
+    } catch (err) {
+      setToastMessage({ type: 'error', text: err.message || 'Failed to create organization' });
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const filtered = organizationsList.filter((o) => {
     const name = (o.name || '').toLowerCase();
-    const industry = (o.industry || o.type || '').toLowerCase();
+    const industry = (o.tenantIndustry || o.industry || o.type || '').toLowerCase();
     const matchesSearch = name.includes(search.toLowerCase()) || industry.includes(search.toLowerCase());
-    const matchesIndustry = industryFilter === 'all' || industry.includes(industryFilter.toLowerCase());
+    const matchesIndustry = industryFilter === 'all' || (o.tenantIndustry || '').toLowerCase() === industryFilter.toLowerCase();
     const matchesStatus = statusFilter === 'all' || (o.status || '').toLowerCase() === statusFilter.toLowerCase();
     return matchesSearch && matchesIndustry && matchesStatus;
   });
@@ -92,7 +149,7 @@ export function Organizations({ onNavigate }) {
 
       <PageHeader
         title="Tenant Organizations"
-        subtitle="Manage subscribed B2B customers, tier allocations, and workspace provisioning."
+        subtitle="Manage subscribed B2B customers, industry niches, and workspace provisioning."
         icon={<Building2 size={22} className="text-primary-600 dark:text-primary-400" />}
         breadcrumbs={[{ label: 'Platform', onClick: () => onNavigate('platform-dashboard') }, { label: 'Organizations' }]}
         actions={
@@ -112,9 +169,9 @@ export function Organizations({ onNavigate }) {
               variant="primary"
               size="sm"
               icon={<Plus size={15} />}
-              onClick={() => onNavigate('platform-onboarding')}
+              onClick={() => setIsCreateModalOpen(true)}
             >
-              Provision Organization
+              Provision Tenant
             </Button>
           </div>
         }
@@ -122,6 +179,18 @@ export function Organizations({ onNavigate }) {
 
       <div className="flex flex-col sm:flex-row gap-3">
         <SearchBar value={search} onChange={setSearch} placeholder="Search organizations..." className="flex-1" />
+        <Select
+          value={industryFilter}
+          onChange={(e) => setIndustryFilter(e.target.value)}
+          options={[
+            { value: 'all', label: 'All Industries' },
+            { value: 'academic', label: 'Academic' },
+            { value: 'corporate', label: 'Corporate' },
+            { value: 'aviation', label: 'Aviation' },
+            { value: 'recruitment', label: 'Recruitment' },
+          ]}
+          className="w-40"
+        />
         <Select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
@@ -149,7 +218,8 @@ export function Organizations({ onNavigate }) {
               <thead>
                 <tr className="border-b border-accent-100 dark:border-accent-800 bg-accent-50/50 dark:bg-accent-900/50 text-[11px] font-bold text-accent-500 uppercase tracking-wider">
                   <th className="py-3 px-4">Organization</th>
-                  <th className="py-3 px-4">Type / Code</th>
+                  <th className="py-3 px-4">Industry / Niche</th>
+                  <th className="py-3 px-4">Org Code</th>
                   <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
@@ -170,7 +240,23 @@ export function Organizations({ onNavigate }) {
                       </div>
                     </td>
                     <td className="py-3.5 px-4">
-                      <span className="font-mono text-accent-700 dark:text-accent-300 font-bold">{org.code || org.industry || 'TENANT'}</span>
+                      <Badge
+                        variant={
+                          org.tenantIndustry === 'aviation'
+                            ? 'warning'
+                            : org.tenantIndustry === 'corporate'
+                            ? 'secondary'
+                            : org.tenantIndustry === 'recruitment'
+                            ? 'accent'
+                            : 'primary'
+                        }
+                        className="capitalize font-semibold text-[11px]"
+                      >
+                        {org.tenantIndustry || 'academic'}
+                      </Badge>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className="font-mono text-accent-700 dark:text-accent-300 font-bold">{org.code || 'TENANT'}</span>
                     </td>
                     <td className="py-3.5 px-4">
                       <StatusBadge status={org.status || 'ACTIVE'} />
@@ -190,6 +276,118 @@ export function Organizations({ onNavigate }) {
             </table>
           </div>
         </Card>
+      )}
+
+      {/* Provision Tenant Modal */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-accent-900 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-accent-200 dark:border-accent-800 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-4 border-b border-accent-100 dark:border-accent-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-primary-50 dark:bg-primary-950/60 text-primary-600 flex items-center justify-center">
+                  <Building2 size={18} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-accent-900 dark:text-white">Provision New Tenant</h3>
+                  <p className="text-[11px] text-accent-400">Configure tenant industry and initial administrator.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsCreateModalOpen(false)}
+                className="text-accent-400 hover:text-accent-600 dark:hover:text-accent-200"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateOrg} className="space-y-4 mt-4 text-xs">
+              <div>
+                <label className="block font-semibold text-accent-700 dark:text-accent-300 mb-1">
+                  Organization Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Oxford Institute of Technology"
+                  value={createForm.name}
+                  onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-accent-700 dark:text-accent-300 mb-1">
+                  Industry / Niche *
+                </label>
+                <select
+                  value={createForm.tenantIndustry}
+                  onChange={(e) => {
+                    const ind = e.target.value;
+                    const typeMap = { academic: 'UNIVERSITY', corporate: 'CORPORATE', aviation: 'TRAINING_INSTITUTE', recruitment: 'CORPORATE' };
+                    setCreateForm({ ...createForm, tenantIndustry: ind, type: typeMap[ind] || 'CORPORATE' });
+                  }}
+                  className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="academic">Academic & Higher Education (Students, Courses, Departments)</option>
+                  <option value="corporate">Corporate & Enterprise (Employees, Modules, Divisions)</option>
+                  <option value="aviation">Aviation & Defense (Trainees, Flight Modules, Units)</option>
+                  <option value="recruitment">Recruitment & Hiring (Applicants, Skill Assessments, Pipelines)</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-accent-700 dark:text-accent-300 mb-1">
+                    Owner First Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="First Name"
+                    value={createForm.ownerFirstName}
+                    onChange={(e) => setCreateForm({ ...createForm, ownerFirstName: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-accent-700 dark:text-accent-300 mb-1">
+                    Owner Last Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Last Name"
+                    value={createForm.ownerLastName}
+                    onChange={(e) => setCreateForm({ ...createForm, ownerLastName: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-accent-700 dark:text-accent-300 mb-1">
+                  Owner Business Email *
+                </label>
+                <input
+                  type="email"
+                  required
+                  placeholder="admin@institution.edu"
+                  value={createForm.ownerEmail}
+                  onChange={(e) => setCreateForm({ ...createForm, ownerEmail: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-accent-100 dark:border-accent-800">
+                <Button type="button" variant="outline" size="sm" onClick={() => setIsCreateModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" variant="primary" size="sm" loading={creating}>
+                  Create Tenant
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

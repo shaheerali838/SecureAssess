@@ -78,6 +78,45 @@ class SocketService {
     }
   }
 
+  connectInterviewSocket(token) {
+    const url = `${SOCKET_SERVER_URL}/interviews`;
+    try {
+      const interviewSocket = io(url, {
+        auth: { token },
+        query: { token },
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+      });
+
+      interviewSocket.on('connect', () => {
+        console.log('[SocketService] Connected to /interviews namespace:', interviewSocket.id);
+      });
+
+      interviewSocket.on('connect_error', (err) => {
+        console.warn('[SocketService] Interview namespace connection note:', err.message);
+      });
+
+      return interviewSocket;
+    } catch (err) {
+      console.warn('[SocketService] Interview namespace connection failed:', err);
+      return null;
+    }
+  }
+
+  joinInterviewRoom(socket, interviewId, token, participantInfo = {}) {
+    if (socket) {
+      socket.emit('interview:join', { interviewId, token, ...participantInfo });
+    }
+  }
+
+  sendInterviewSignal(socket, event, data) {
+    if (socket) {
+      socket.emit(event, data);
+    }
+  }
+
   disconnect() {
     if (this.socket) {
       this.socket.disconnect();

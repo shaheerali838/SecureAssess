@@ -15,8 +15,11 @@ import {
   Settings,
   GraduationCap,
 } from 'lucide-react';
+import { useOrganization } from '@/contexts/OrganizationContext';
 
 export const Sidebar = ({ portalType = 'organization' }) => {
+  const { t } = useOrganization();
+
   const platformNav = [
     { name: 'Dashboard', path: '/platform/dashboard', icon: LayoutDashboard },
     { name: 'Organizations', path: '/platform/organizations', icon: Building2 },
@@ -28,10 +31,11 @@ export const Sidebar = ({ portalType = 'organization' }) => {
 
   const organizationNav = [
     { name: 'Overview', path: '/organization/dashboard', icon: LayoutDashboard },
+    { name: t('structure'), path: '/organization/structure', icon: GraduationCap },
     { name: 'Assessments', path: '/organization/assessments', icon: FileCheck },
     { name: 'Question Banks', path: '/organization/question-banks', icon: HelpCircle },
-    { name: 'Candidates & Batches', path: '/organization/candidates', icon: Users },
-    { name: 'Grading Queue', path: '/organization/grading', icon: FolderKanban },
+    { name: `${t('roster')} & ${t('candidateGroup', true)}`, path: '/organization/candidates', icon: Users },
+    { name: `${t('grading')} & Rubrics`, path: '/organization/grading', icon: FolderKanban },
     { name: 'Live Proctoring', path: '/organization/proctoring', icon: Video },
     { name: 'Results & Reports', path: '/organization/results', icon: BarChart3 },
     { name: 'Certificates', path: '/organization/certificates', icon: Award },

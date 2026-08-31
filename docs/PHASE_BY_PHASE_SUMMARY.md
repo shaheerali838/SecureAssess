@@ -393,4 +393,28 @@ node server/tests/integration/step46_organization_management.test.js
 
 # Candidate Management & Candidate Portal (Step 47)
 node server/tests/integration/step47_candidate_management_portal.test.js
+
+# Assessment Authoring & Question Bank Engine (Step 48)
+node server/tests/integration/step48_authoring_question_bank_engine.test.js
+
+# Reporting, Analytics & Results Management (Step 49)
+node server/tests/integration/step49_reporting_analytics_results.test.js
+
+# Advanced Proctoring & Exam Integrity Engine (Step 50)
+node server/tests/integration/step50_advanced_proctoring_exam_integrity.test.js
+
+# Live Video Interview & WebRTC Engine (Step 51)
+node server/tests/integration/step51_live_video_interview_webrtc.test.js
+
+# Notifications, Communication & Event Delivery Engine (Step 52)
+node server/tests/integration/step52_notifications_communication_events.test.js
+
+# Analytics, Reporting & Business Intelligence Engine (Step 53)
+node server/tests/integration/step53_analytics_reporting_bi_engine.test.js
+
+# Certificate & Credential Verification Engine (Step 54)
+node server/tests/integration/step54_certificate_credential_verification.test.js
+
+# Audit, Compliance & Security Governance Engine (Step 55)
+node server/tests/integration/step55_audit_security_governance.test.js
 ```

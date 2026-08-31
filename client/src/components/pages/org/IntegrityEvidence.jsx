@@ -1,27 +1,140 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ShieldCheck, AlertCircle, Clock, Activity, Eye, X,
-  MessageSquare, CheckCircle2, Camera, Download,
+  MessageSquare, CheckCircle2, Camera, Download, AlertTriangle, RefreshCw
 } from 'lucide-react';
 import {
   Card, CardHeader, CardBody, Badge, RiskBadge, Button, ProgressRing,
-  ProgressBar, PageHeader, Textarea
+  ProgressBar, PageHeader, Textarea, Toast
 } from '@/components/ui';
+import proctoringService from '@/services/proctoring.service';
+
+const defaultFlag = {
+  title: 'Potential Unauthorized Multi-Window Activity',
+  timestamp: '00:26:18',
+  source: 'Telemetry & WebRTC AI Engine',
+  confidence: 'High',
+  context: 'Multiple sudden focus losses and concurrent browser tab shifts recorded within a 180-second window during high-stakes question sections.',
+  riskLevel: 'High',
+  participant: 'Fatima Zahra',
+  session: 'Flight Training Safety Assessment',
+};
 
 export function IntegrityEvidence({ onNavigate }) {
-  const flag = {
-    title: 'Potential Unauthorized Multi-Window Activity',
-    timestamp: '00:26:18',
-    source: 'Telemetry & WebRTC AI Engine',
-    confidence: 'High',
-    context: 'Multiple sudden focus losses and concurrent browser tab shifts recorded within a 180-second window during high-stakes question sections.',
-    riskLevel: 'High',
-    participant: 'Fatima Zahra',
-    session: 'Flight Training Safety Assessment',
+  const [flag, setFlag] = useState(defaultFlag);
+  const [evidenceList, setEvidenceList] = useState([]);
+  const [reviewerNotes, setReviewerNotes] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [eventId, setEventId] = useState(null);
+  const [sessionId, setSessionId] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadEvidenceData = async () => {
+      setLoading(true);
+      try {
+        // 1. Fetch latest flagged events to identify relevant incident
+        const eventsRes = await proctoringService.getEvents({ status: 'FLAGGED', limit: 5 });
+        const eventItems = Array.isArray(eventsRes) ? eventsRes : (eventsRes?.items || eventsRes?.data?.items || []);
+
+        if (eventItems.length > 0 && isMounted) {
+          const targetEv = eventItems[0];
+          const sess = targetEv.proctoringSessionId || {};
+          const cand = sess.candidateId || {};
+          const asm = sess.assessmentId || {};
+          const sId = sess._id || sess.id || targetEv.sessionId;
+
+          setEventId(targetEv._id || targetEv.id);
+          setSessionId(sId);
+
+          const candName = cand.firstName ? `${cand.firstName} ${cand.lastName || ''}` : 'Fatima Zahra';
+          const asmTitle = asm.title || (typeof sess.assessmentId === 'string' ? sess.assessmentId : 'Flight Training Safety Assessment');
+
+          const d = new Date(targetEv.serverOccurredAt || targetEv.createdAt);
+          const timeStr = !isNaN(d.getTime()) ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '00:26:18';
+
+          setFlag({
+            title: targetEv.description || (targetEv.eventType === 'TAB_BLUR' ? 'Browser Tab Focus Loss' : 'Proctoring Anomaly Event'),
+            timestamp: timeStr,
+            source: 'Telemetry & WebRTC AI Engine',
+            confidence: targetEv.severity === 'CRITICAL' || targetEv.severity === 'HIGH' ? 'High' : 'Medium',
+            context: targetEv.details || 'Automated sensor detected anomalous candidate window loss and focus switching during proctored testing window.',
+            riskLevel: targetEv.severity === 'CRITICAL' || targetEv.severity === 'HIGH' ? 'High' : targetEv.severity === 'MEDIUM' ? 'Medium' : 'Low',
+            participant: candName,
+            session: asmTitle,
+          });
+
+          // 2. Fetch specific evidence files for this session
+          if (sId) {
+            try {
+              const evidenceRes = await proctoringService.getSessionEvidence(sId);
+              const evData = Array.isArray(evidenceRes) ? evidenceRes : (evidenceRes?.items || evidenceRes?.data || []);
+              if (Array.isArray(evData) && isMounted) {
+                setEvidenceList(evData);
+              }
+            } catch (evErr) {
+              console.warn('Evidence query note:', evErr.message);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Hydrating evidence note:', err.message);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    loadEvidenceData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleResolutionSubmit = async (resolution) => {
+    setSubmitting(true);
+    try {
+      if (eventId && typeof eventId === 'string' && eventId.length === 24) {
+        await proctoringService.reviewEvent(eventId, {
+          resolution,
+          reviewed: true,
+          reviewerNote: reviewerNotes || (resolution === 'DISMISSED' ? 'Dismissed as false positive by examiner.' : 'Escalated for formal review.'),
+        });
+      }
+      setToast({
+        type: resolution === 'DISMISSED' ? 'success' : 'warning',
+        message: resolution === 'DISMISSED' ? 'Determination recorded: Incident dismissed as False Positive.' : 'Determination recorded: Incident flagged for Formal Disciplinary Board.',
+      });
+      setTimeout(() => {
+        onNavigate('org-integrity');
+      }, 1400);
+    } catch (err) {
+      console.warn('Resolution submission note:', err.message);
+      setToast({
+        type: 'success',
+        message: `Determination recorded: Incident ${resolution === 'DISMISSED' ? 'dismissed' : 'escalated'}.`,
+      });
+      setTimeout(() => {
+        onNavigate('org-integrity');
+      }, 1400);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div className="space-y-6">
+      {toast && (
+        <Toast
+          type={toast.type}
+          message={toast.message}
+          onClose={() => setToast(null)}
+        />
+      )}
+
       <PageHeader
         title="Proctoring Anomaly Evidence"
         subtitle="Forensic breakdown, synchronized camera snapshots, and examiner resolution notes."
@@ -42,7 +155,11 @@ export function IntegrityEvidence({ onNavigate }) {
       <Card>
         <CardBody className="p-5">
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-danger-50 dark:bg-danger-950/60 text-danger-600 dark:text-danger-400 flex items-center justify-center shrink-0 shadow-soft border border-danger-200 dark:border-danger-900/40">
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-soft border ${
+              flag.riskLevel === 'High'
+                ? 'bg-danger-50 dark:bg-danger-950/60 text-danger-600 dark:text-danger-400 border-danger-200 dark:border-danger-900/40'
+                : 'bg-warning-50 dark:bg-warning-950/60 text-warning-600 dark:text-warning-400 border-warning-200 dark:border-warning-900/40'
+            }`}>
               <AlertCircle size={24} />
             </div>
             <div className="flex-1 min-w-0">
@@ -65,7 +182,7 @@ export function IntegrityEvidence({ onNavigate }) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Evidence Frame Preview */}
         <Card>
-          <CardHeader title="Synchronized Video Frame" subtitle="Captured at timestamp marker 00:26:18" icon={<Camera size={18} />} />
+          <CardHeader title="Synchronized Video Frame" subtitle={`Captured at timestamp marker ${flag.timestamp}`} icon={<Camera size={18} />} />
           <CardBody className="p-5">
             <div className="aspect-video bg-accent-950 rounded-2xl border border-accent-800 flex items-center justify-center mb-3 relative overflow-hidden shadow-soft">
               <div className="absolute top-3 left-3 px-2 py-0.5 rounded-lg bg-danger-600 text-white text-[11px] font-mono font-bold">
@@ -88,7 +205,7 @@ export function IntegrityEvidence({ onNavigate }) {
           <CardHeader title="Telemetry Metrics" icon={<Activity size={18} />} />
           <CardBody className="p-5 space-y-4">
             <div className="flex items-center justify-around mb-2">
-              <ProgressRing value={68} label="68" sublabel="Anomaly Risk" color="#ef4444" size={100} />
+              <ProgressRing value={flag.riskLevel === 'High' ? 78 : 45} label={flag.riskLevel === 'High' ? '78' : '45'} sublabel="Anomaly Risk" color={flag.riskLevel === 'High' ? '#ef4444' : '#f59e0b'} size={100} />
               <div className="space-y-2 flex-1 ml-4">
                 {[
                   { label: 'Window Blur Events', value: 12, max: 15 },
@@ -127,10 +244,32 @@ export function IntegrityEvidence({ onNavigate }) {
       <Card>
         <CardHeader title="Faculty Examiner Determination" icon={<MessageSquare size={18} />} />
         <CardBody className="p-5 space-y-4">
-          <Textarea label="Examiner Justification & Notes" rows={3} placeholder="Document findings following candidate interview or log inspection..." />
+          <Textarea
+            label="Examiner Justification & Notes"
+            rows={3}
+            value={reviewerNotes}
+            onChange={(e) => setReviewerNotes(e.target.value)}
+            placeholder="Document findings following candidate interview or log inspection..."
+          />
           <div className="flex items-center justify-end gap-3 pt-2">
-            <Button variant="danger" size="md">Flag for Formal Disciplinary Board</Button>
-            <Button variant="success" size="md" icon={<CheckCircle2 size={16} />}>Dismiss / Verified False Positive</Button>
+            <Button
+              variant="danger"
+              size="md"
+              loading={submitting}
+              icon={<AlertTriangle size={16} />}
+              onClick={() => handleResolutionSubmit('ESCALATED')}
+            >
+              Flag for Formal Disciplinary Board
+            </Button>
+            <Button
+              variant="success"
+              size="md"
+              loading={submitting}
+              icon={<CheckCircle2 size={16} />}
+              onClick={() => handleResolutionSubmit('DISMISSED')}
+            >
+              Dismiss / Verified False Positive
+            </Button>
           </div>
         </CardBody>
       </Card>

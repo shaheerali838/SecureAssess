@@ -40,6 +40,11 @@ import { Settings } from '@/components/pages/org/Settings';
 import { OrgUsers } from '@/components/pages/org/OrgUsers';
 import { Interviews } from '@/components/pages/org/Interviews';
 import { Evaluations } from '@/components/pages/org/Evaluations';
+import { Notifications } from '@/modules/notifications/pages/Notifications';
+import { AuditLogs } from '@/modules/auditLogs/pages/AuditLogs';
+import { OrgStructure } from '@/components/pages/org/OrgStructure';
+import { AcademicStructure } from '@/components/pages/org/AcademicStructure';
+import { RubricsManager } from '@/components/pages/org/RubricsManager';
 
 // Candidate Examination Views
 import { SystemCheck } from '@/components/pages/participant/SystemCheck';
@@ -47,6 +52,7 @@ import { Consent } from '@/components/pages/participant/Consent';
 import { AssessmentExperience } from '@/components/pages/participant/AssessmentExperience';
 import { LiveInterview } from '@/components/pages/participant/LiveInterview';
 import { Evaluation } from '@/components/pages/participant/Evaluation';
+import { CandidatePortal } from '@/components/pages/participant/CandidatePortal';
 
 // Error Views
 import { Forbidden } from '@/pages/errors/Forbidden';
@@ -85,6 +91,14 @@ const NavWrapper = ({ Component, activeKey, layer = 'organization' }) => {
       'org-users': '/organization/users',
       'org-interviews': '/organization/interviews',
       'org-evaluations': '/organization/evaluations',
+      'org-notifications': '/organization/notifications',
+      'org-audit-logs': '/organization/audit-logs',
+      'org-academic-structure': '/organization/academic-structure',
+      'org-departments': '/organization/academic-structure',
+      'org-rubrics': '/organization/rubrics',
+      'platform-audit-logs': '/platform/audit-logs',
+      'candidate-portal': '/candidate/portal',
+      'candidate-dashboard': '/candidate/portal',
       'participant-system-check': '/candidate/system-check',
       'participant-consent': '/candidate/consent',
       'participant-assessment': '/candidate/assessment',
@@ -127,11 +141,44 @@ export const AppRoutes = () => {
       landing: '/',
       'request-demo': '/request-demo',
       'platform-dashboard': '/platform/dashboard',
+      'platform-organizations': '/platform/organizations',
+      'platform-onboarding': '/platform/onboarding',
+      'platform-audit-logs': '/platform/audit-logs',
       'org-dashboard': '/organization/dashboard',
+      'org-assessments': '/organization/assessments',
+      'org-assessment-builder': '/organization/builder',
+      'org-question-bank': '/organization/question-bank',
+      'org-participants': '/organization/participants',
+      'org-participant-profile': '/organization/participants/profile',
+      'org-sessions': '/organization/sessions',
+      'org-session-review': '/organization/sessions/review',
+      'org-integrity': '/organization/integrity',
+      'org-integrity-evidence': '/organization/integrity/evidence',
+      'org-reports': '/organization/reports',
+      'org-billing': '/organization/billing',
+      'org-settings': '/organization/settings',
+      'org-users': '/organization/users',
+      'org-interviews': '/organization/interviews',
+      'org-evaluations': '/organization/evaluations',
+      'org-notifications': '/organization/notifications',
+      'org-audit-logs': '/organization/audit-logs',
+      'org-academic-structure': '/organization/academic-structure',
+      'org-departments': '/organization/academic-structure',
+      'org-rubrics': '/organization/rubrics',
+      'candidate-portal': '/candidate/portal',
+      'candidate-dashboard': '/candidate/portal',
       'participant-system-check': '/candidate/system-check',
+      'participant-consent': '/candidate/consent',
+      'participant-assessment': '/candidate/assessment',
+      'participant-interview': '/candidate/interview',
+      'participant-evaluation': '/candidate/evaluation',
     };
     if (keyMap[targetKey]) {
       navigate(keyMap[targetKey]);
+    } else if (typeof targetKey === 'string' && targetKey.startsWith('/')) {
+      navigate(targetKey);
+    } else {
+      navigate('/organization/dashboard');
     }
   };
 
@@ -158,6 +205,10 @@ export const AppRoutes = () => {
             <Route
               path="onboarding"
               element={<Onboarding onNavigate={handleDirectNavigate} />}
+            />
+            <Route
+              path="audit-logs"
+              element={<NavWrapper Component={AuditLogs} activeKey="platform-audit-logs" layer="platform" />}
             />
           </Route>
         </Route>
@@ -232,13 +283,43 @@ export const AppRoutes = () => {
               path="evaluations"
               element={<NavWrapper Component={Evaluations} activeKey="org-evaluations" layer="organization" />}
             />
+            <Route
+              path="notifications"
+              element={<NavWrapper Component={Notifications} activeKey="org-notifications" layer="organization" />}
+            />
+            <Route
+              path="audit-logs"
+              element={<NavWrapper Component={AuditLogs} activeKey="org-audit-logs" layer="organization" />}
+            />
+            <Route
+              path="structure"
+              element={<NavWrapper Component={OrgStructure} activeKey="org-academic-structure" layer="organization" />}
+            />
+            <Route
+              path="org-structure"
+              element={<NavWrapper Component={OrgStructure} activeKey="org-academic-structure" layer="organization" />}
+            />
+            <Route
+              path="academic-structure"
+              element={<NavWrapper Component={OrgStructure} activeKey="org-academic-structure" layer="organization" />}
+            />
+            <Route
+              path="departments"
+              element={<NavWrapper Component={OrgStructure} activeKey="org-academic-structure" layer="organization" />}
+            />
+            <Route
+              path="rubrics"
+              element={<NavWrapper Component={RubricsManager} activeKey="org-rubrics" layer="organization" />}
+            />
           </Route>
         </Route>
       </Route>
 
       {/* 3. Candidate / Participant Examination Portal */}
       <Route path="/candidate">
-        <Route index element={<Navigate to="/candidate/system-check" replace />} />
+        <Route index element={<Navigate to="/candidate/portal" replace />} />
+        <Route path="portal" element={<CandidatePortal onNavigate={handleDirectNavigate} />} />
+        <Route path="dashboard" element={<CandidatePortal onNavigate={handleDirectNavigate} />} />
         <Route path="system-check" element={<SystemCheck onNavigate={handleDirectNavigate} />} />
         <Route path="consent" element={<Consent onNavigate={handleDirectNavigate} />} />
         <Route path="assessment" element={<AssessmentExperience onNavigate={handleDirectNavigate} />} />

@@ -66,10 +66,34 @@ export const assessmentService = {
   },
 
   /**
+   * Bulk add questions to an assessment
+   */
+  async bulkAddAssessmentQuestions(assessmentId, data) {
+    const response = await api.post(`/assessments/${assessmentId}/questions/bulk`, data);
+    return response.data || response;
+  },
+
+  /**
+   * Fetch all questions in an assessment
+   */
+  async getAssessmentQuestions(assessmentId, params = {}) {
+    const response = await api.get(`/assessments/${assessmentId}/questions`, { params });
+    return response.data || response;
+  },
+
+  /**
    * Add a section to an assessment
    */
   async createAssessmentSection(assessmentId, data) {
     const response = await api.post(`/assessments/${assessmentId}/sections`, data);
+    return response.data || response;
+  },
+
+  /**
+   * Fetch all sections in an assessment
+   */
+  async getAssessmentSections(assessmentId) {
+    const response = await api.get(`/assessments/${assessmentId}/sections`);
     return response.data || response;
   },
 

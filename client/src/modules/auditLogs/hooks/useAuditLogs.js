@@ -13,8 +13,10 @@ export const useAuditLogs = (initialFilters = {}) => {
       setIsLoading(true);
       const queryParams = { ...filters, ...customParams };
       const res = await auditLogService.getAuditLogs(queryParams);
-      setLogs(res.data?.items || []);
-      setPagination(res.data?.pagination || { page: 1, limit: 20, total: 0, totalPages: 1 });
+      const items = res?.items || res?.data?.items || (Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : []);
+      const pag = res?.pagination || res?.data?.pagination || { page: 1, limit: 20, total: items.length, totalPages: 1 };
+      setLogs(items);
+      setPagination(pag);
       setError(null);
     } catch (err) {
       setError(err.response?.data?.message || err.message);
