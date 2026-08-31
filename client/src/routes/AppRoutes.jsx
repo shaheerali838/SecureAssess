@@ -77,29 +77,38 @@ const NavWrapper = ({ Component, activeKey, layer = 'organization' }) => {
       'platform-dashboard': '/platform/dashboard',
       'platform-organizations': '/platform/organizations',
       'platform-onboarding': '/platform/onboarding',
+      'platform-users': '/platform/users',
+      'platform-roles': '/platform/roles',
+      'platform-analytics': '/platform/analytics',
+      'platform-audit-logs': '/platform/audit-logs',
       'org-dashboard': '/organization/dashboard',
       'org-assessments': '/organization/assessments',
       'org-assessment-builder': '/organization/builder',
       'org-question-bank': '/organization/question-bank',
+      'org-question-banks': '/organization/question-bank',
       'org-participants': '/organization/participants',
+      'org-candidates': '/organization/participants',
       'org-participant-profile': '/organization/participants/profile',
       'org-sessions': '/organization/sessions',
       'org-session-review': '/organization/sessions/review',
       'org-integrity': '/organization/integrity',
+      'org-proctoring': '/organization/integrity',
       'org-integrity-evidence': '/organization/integrity/evidence',
       'org-reports': '/organization/reports',
+      'org-results': '/organization/reports',
       'org-billing': '/organization/billing',
       'org-settings': '/organization/settings',
       'org-users': '/organization/users',
       'org-interviews': '/organization/interviews',
       'org-evaluations': '/organization/evaluations',
+      'org-grading': '/organization/evaluations',
+      'org-certificates': '/organization/certificates',
       'org-notifications': '/organization/notifications',
       'org-audit-logs': '/organization/audit-logs',
       'org-academic-structure': '/organization/academic-structure',
       'org-departments': '/organization/academic-structure',
+      'org-structure': '/organization/academic-structure',
       'org-rubrics': '/organization/rubrics',
-      'org-certificates': '/organization/certificates',
-      'platform-audit-logs': '/platform/audit-logs',
       'candidate-portal': '/candidate/portal',
       'candidate-dashboard': '/candidate/portal',
       'candidate-results': '/candidate/results',
@@ -113,6 +122,14 @@ const NavWrapper = ({ Component, activeKey, layer = 'organization' }) => {
 
     if (keyMap[targetKey]) {
       navigate(keyMap[targetKey]);
+    } else if (typeof targetKey === 'string' && targetKey.startsWith('/')) {
+      navigate(targetKey);
+    } else if (typeof targetKey === 'string' && targetKey.startsWith('platform-')) {
+      const sub = targetKey.replace('platform-', '');
+      navigate(`/platform/${sub}`);
+    } else if (typeof targetKey === 'string' && targetKey.startsWith('org-')) {
+      const sub = targetKey.replace('org-', '');
+      navigate(`/organization/${sub}`);
     } else {
       console.warn(`Unmapped navigation target: ${targetKey}`);
     }
@@ -148,30 +165,42 @@ export const AppRoutes = () => {
       'platform-dashboard': '/platform/dashboard',
       'platform-organizations': '/platform/organizations',
       'platform-onboarding': '/platform/onboarding',
+      'platform-users': '/platform/users',
+      'platform-roles': '/platform/roles',
+      'platform-analytics': '/platform/analytics',
       'platform-audit-logs': '/platform/audit-logs',
       'org-dashboard': '/organization/dashboard',
       'org-assessments': '/organization/assessments',
       'org-assessment-builder': '/organization/builder',
       'org-question-bank': '/organization/question-bank',
+      'org-question-banks': '/organization/question-bank',
       'org-participants': '/organization/participants',
+      'org-candidates': '/organization/participants',
       'org-participant-profile': '/organization/participants/profile',
       'org-sessions': '/organization/sessions',
       'org-session-review': '/organization/sessions/review',
       'org-integrity': '/organization/integrity',
+      'org-proctoring': '/organization/integrity',
       'org-integrity-evidence': '/organization/integrity/evidence',
       'org-reports': '/organization/reports',
+      'org-results': '/organization/reports',
       'org-billing': '/organization/billing',
       'org-settings': '/organization/settings',
       'org-users': '/organization/users',
       'org-interviews': '/organization/interviews',
       'org-evaluations': '/organization/evaluations',
+      'org-grading': '/organization/evaluations',
+      'org-certificates': '/organization/certificates',
       'org-notifications': '/organization/notifications',
       'org-audit-logs': '/organization/audit-logs',
       'org-academic-structure': '/organization/academic-structure',
       'org-departments': '/organization/academic-structure',
+      'org-structure': '/organization/academic-structure',
       'org-rubrics': '/organization/rubrics',
       'candidate-portal': '/candidate/portal',
       'candidate-dashboard': '/candidate/portal',
+      'candidate-results': '/candidate/results',
+      'candidate-certificates': '/candidate/certificates',
       'participant-system-check': '/candidate/system-check',
       'participant-consent': '/candidate/consent',
       'participant-assessment': '/candidate/assessment',
@@ -182,6 +211,12 @@ export const AppRoutes = () => {
       navigate(keyMap[targetKey]);
     } else if (typeof targetKey === 'string' && targetKey.startsWith('/')) {
       navigate(targetKey);
+    } else if (typeof targetKey === 'string' && targetKey.startsWith('platform-')) {
+      const sub = targetKey.replace('platform-', '');
+      navigate(`/platform/${sub}`);
+    } else if (typeof targetKey === 'string' && targetKey.startsWith('org-')) {
+      const sub = targetKey.replace('org-', '');
+      navigate(`/organization/${sub}`);
     } else {
       navigate('/organization/dashboard');
     }
