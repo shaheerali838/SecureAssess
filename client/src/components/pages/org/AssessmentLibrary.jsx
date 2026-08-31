@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   FileText, Plus, Filter, Download,
-  Clock, Users, Star, Pencil, Copy, Trash2, Eye, RefreshCw
+  Clock, Users, Star, Pencil, Copy, Trash2, Eye, RefreshCw,
+  CheckCircle2, AlertCircle, ShieldCheck
 } from 'lucide-react';
 import {
   Card, Badge, StatusBadge, SecurityBadge, Button, SearchBar,
-  PageHeader, Select, EmptyState, SkeletonCards,
+  PageHeader, Select, EmptyState, SkeletonCards, Toast, Modal
 } from '@/components/ui';
 import { assessments as fallbackAssessments } from '@/data';
 import assessmentService from '@/services/assessment.service';
@@ -16,12 +17,18 @@ export function AssessmentLibrary({ onNavigate }) {
   const [search, setSearch] = useState('');
   const [formatFilter, setFormatFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [toastMessage, setToastMessage] = useState(null);
+
+  // Delete Confirmation Modal
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [selectedAssessment, setSelectedAssessment] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchAssessments = useCallback(async () => {
     setLoading(true);
     try {
       const data = await assessmentService.getAssessments();
-      const items = Array.isArray(data) ? data : (data?.items || data?.assessments || data?.data || []);
+      const items = Array.isArray(data) ? data : (data?.items || data?.assessments || data?.data?.items || data?.data || []);
       if (items && items.length > 0) {
         setAssessmentsList(items);
       } else {
@@ -39,6 +46,45 @@ export function AssessmentLibrary({ onNavigate }) {
     fetchAssessments();
   }, [fetchAssessments]);
 
+  const handleClone = async (e, assessment) => {
+    e.stopPropagation();
+    try {
+      const title = assessment.title || assessment.name || 'Assessment';
+      const cleanCode = `CLONE-${Date.now().toString(36).toUpperCase()}`;
+      const payload = {
+        title: `Copy of ${title}`,
+        code: cleanCode,
+        type: assessment.type || 'EXAMINATION',
+        duration: assessment.duration || { value: 60, unit: 'MINUTES' },
+        durationSeconds: 3600,
+        passingScore: assessment.passingScore || 60,
+        status: 'DRAFT',
+      };
+
+      await assessmentService.createAssessment(payload);
+      setToastMessage({ type: 'success', text: `Cloned "${title}" successfully!` });
+      fetchAssessments();
+    } catch (err) {
+      setToastMessage({ type: 'error', text: 'Failed to clone assessment: ' + err.message });
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedAssessment) return;
+    setDeleting(true);
+    try {
+      const id = selectedAssessment._id || selectedAssessment.id;
+      await assessmentService.deleteAssessment(id);
+      setToastMessage({ type: 'success', text: 'Assessment deleted successfully.' });
+      setDeleteModalOpen(false);
+      fetchAssessments();
+    } catch (err) {
+      setToastMessage({ type: 'error', text: 'Failed to delete assessment: ' + err.message });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const filtered = assessmentsList.filter((a) => {
     const title = (a.title || a.name || '').toLowerCase();
     const category = (a.category || a.type || '').toLowerCase();
@@ -50,6 +96,14 @@ export function AssessmentLibrary({ onNavigate }) {
 
   return (
     <div className="space-y-6">
+      {toastMessage && (
+        <Toast
+          type={toastMessage.type}
+          message={toastMessage.text}
+          onClose={() => setToastMessage(null)}
+        />
+      )}
+
       <PageHeader
         title="Assessment Library"
         subtitle="Author, configure, schedule, and monitor exams across your organization."
@@ -64,9 +118,6 @@ export function AssessmentLibrary({ onNavigate }) {
               onClick={fetchAssessments}
             >
               Refresh
-            </Button>
-            <Button variant="outline" size="sm" icon={<Download size={15} />}>
-              Export Matrix
             </Button>
             <Button
               variant="primary"
@@ -203,12 +254,22 @@ export function AssessmentLibrary({ onNavigate }) {
                     <button
                       type="button"
                       className="p-1.5 text-accent-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-950/60 rounded-lg transition-colors cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                      }}
+                      onClick={(e) => handleClone(e, a)}
                       title="Clone Assessment"
                     >
                       <Copy size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      className="p-1.5 text-accent-400 hover:text-danger-600 dark:hover:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/60 rounded-lg transition-colors cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedAssessment(a);
+                        setDeleteModalOpen(true);
+                      }}
+                      title="Delete Assessment"
+                    >
+                      <Trash2 size={13} />
                     </button>
                   </div>
                 </div>
@@ -217,6 +278,32 @@ export function AssessmentLibrary({ onNavigate }) {
           })}
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        title="Delete Assessment"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => setDeleteModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              loading={deleting}
+              onClick={handleDelete}
+            >
+              Delete Assessment
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-xs text-accent-600 dark:text-accent-300">
+          Are you sure you want to delete <span className="font-bold text-accent-900 dark:text-white">"{selectedAssessment?.title || selectedAssessment?.name}"</span>? This action cannot be undone.
+        </p>
+      </Modal>
     </div>
   );
 }
