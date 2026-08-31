@@ -134,6 +134,7 @@ export class OrganizationService {
 
       // 4. Create Organization
       const orgType = data.type || ORGANIZATION_TYPES.CORPORATE;
+      const tenantIndustry = data.tenantIndustry || "academic";
       const orgEmail = data.contact?.email || data.email || "";
       const orgPhone = data.contact?.phone || data.phone || "";
       const orgWebsite = data.contact?.website || data.website || "";
@@ -144,6 +145,7 @@ export class OrganizationService {
           slug,
           code,
           type: orgType,
+          tenantIndustry,
           description: data.description || "",
           contact: {
             email: orgEmail,
@@ -344,6 +346,7 @@ export class OrganizationService {
     const safeUpdate = {};
     if (updateData.name) safeUpdate.name = updateData.name.trim();
     if (updateData.type) safeUpdate.type = updateData.type;
+    if (updateData.tenantIndustry) safeUpdate.tenantIndustry = updateData.tenantIndustry;
     if (updateData.description !== undefined) safeUpdate.description = updateData.description;
     if (updateData.address) safeUpdate.address = updateData.address;
     if (updateData.logo) safeUpdate.logo = updateData.logo;

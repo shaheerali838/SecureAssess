@@ -7,6 +7,8 @@ import {
   getResults,
   publishResult,
   unpublishResult,
+  voidResult,
+  correctResult,
 } from "./result.controller.js";
 import { requireAuth } from "../../middleware/auth.middleware.js";
 import { requireTenantContext } from "../../middleware/tenant.middleware.js";
@@ -58,6 +60,18 @@ router.get(
   getResultById
 );
 
+// PATCH /api/v1/results/:resultId/correct - Controlled correction of results
+router.patch(
+  "/:resultId/correct",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.RESULTS_UPDATE || PERMISSIONS.RESULTS_CREATE,
+    PERMISSIONS.RESULTS_UPDATE || PERMISSIONS.RESULTS_CREATE
+  ),
+  correctResult
+);
+
 // POST /api/v1/results/:resultId/publish
 router.post(
   "/:resultId/publish",
@@ -80,6 +94,18 @@ router.post(
     PERMISSIONS.RESULTS_PUBLISH
   ),
   unpublishResult
+);
+
+// POST /api/v1/results/:resultId/void
+router.post(
+  "/:resultId/void",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.RESULTS_DELETE || PERMISSIONS.RESULTS_UPDATE,
+    PERMISSIONS.RESULTS_DELETE || PERMISSIONS.RESULTS_UPDATE
+  ),
+  voidResult
 );
 
 export default router;

@@ -15,6 +15,8 @@ import {
   getEvidenceById,
   reviewEvent,
   getSessions,
+  getEvents,
+  setIntegrityDecision,
 } from "./proctoring.controller.js";
 import { requireAuth } from "../../middleware/auth.middleware.js";
 import { requireTenantContext } from "../../middleware/tenant.middleware.js";
@@ -33,6 +35,17 @@ router.get(
     PERMISSIONS.PROCTORING_VIEW
   ),
   getSessions
+);
+
+router.get(
+  "/events",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.PROCTORING_VIEW,
+    PERMISSIONS.PROCTORING_VIEW
+  ),
+  getEvents
 );
 
 // --- Candidate Proctoring Session Lifecycle Endpoints ---
@@ -230,6 +243,17 @@ router.patch(
     PERMISSIONS.PROCTORING_REVIEW
   ),
   reviewEvent
+);
+
+router.post(
+  ["/sessions/:sessionId/decision", "/:sessionId/decision", "/attempts/:attemptId/decision"],
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.PROCTORING_REVIEW || PERMISSIONS.PROCTORING_MONITOR,
+    PERMISSIONS.PROCTORING_REVIEW || PERMISSIONS.PROCTORING_MONITOR
+  ),
+  setIntegrityDecision
 );
 
 export default router;

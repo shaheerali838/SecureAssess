@@ -1,3 +1,10 @@
+export const TENANT_INDUSTRIES = Object.freeze({
+  ACADEMIC: "academic",
+  CORPORATE: "corporate",
+  AVIATION: "aviation",
+  RECRUITMENT: "recruitment",
+});
+
 export const ORGANIZATION_TYPES = Object.freeze({
   UNIVERSITY: "UNIVERSITY",
   COLLEGE: "COLLEGE",

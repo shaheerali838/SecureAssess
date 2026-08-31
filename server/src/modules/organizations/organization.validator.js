@@ -33,6 +33,16 @@ export class OrganizationValidator {
       }
     }
 
+    // 2.1 Validate Tenant Industry
+    if (body.tenantIndustry !== undefined) {
+      const validIndustries = ["academic", "corporate", "aviation", "recruitment"];
+      if (!validIndustries.includes(body.tenantIndustry)) {
+        errors.push(
+          `Tenant industry must be one of: ${validIndustries.join(", ")}`
+        );
+      }
+    }
+
     // 3. Validate Contact Information
     if (body.contact && typeof body.contact === "object") {
       if (body.contact.email) {
@@ -147,6 +157,16 @@ export class OrganizationValidator {
       if (!Object.values(ORGANIZATION_TYPES).includes(body.type)) {
         errors.push(
           `Organization type must be one of: ${Object.values(ORGANIZATION_TYPES).join(", ")}`
+        );
+      }
+    }
+
+    // Validate Tenant Industry if provided
+    if (body.tenantIndustry !== undefined) {
+      const validIndustries = ["academic", "corporate", "aviation", "recruitment"];
+      if (!validIndustries.includes(body.tenantIndustry)) {
+        errors.push(
+          `Tenant industry must be one of: ${validIndustries.join(", ")}`
         );
       }
     }

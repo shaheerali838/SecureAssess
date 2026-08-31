@@ -5,6 +5,7 @@ import {
   getResourceAuditLogs,
   getUserAuditLogs,
   exportAuditLogs,
+  setRetentionHold,
 } from "./auditLog.controller.js";
 import {
   queryAuditLogsSchema,
@@ -65,6 +66,18 @@ router.get(
     PERMISSIONS.AUDIT_LOGS_VIEW
   ),
   getAuditLogById
+);
+
+// PATCH /api/v1/audit-logs/:auditLogId/retention-hold
+router.patch(
+  "/:auditLogId/retention-hold",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.AUDIT_LOGS_EXPORT,
+    PERMISSIONS.AUDIT_LOGS_EXPORT
+  ),
+  setRetentionHold
 );
 
 // GET /api/v1/audit-logs

@@ -8,6 +8,7 @@ import {
   getPreferences,
   updatePreferences,
   createNotification,
+  retryNotification,
 } from "./notification.controller.js";
 import {
   createNotificationSchema,
@@ -44,6 +45,9 @@ router.patch("/:notificationId/read", requireAuth, markAsRead);
 
 // DELETE /api/v1/notifications/:notificationId - Soft delete notification
 router.delete("/:notificationId", requireAuth, deleteNotification);
+
+// POST /api/v1/notifications/:notificationId/retry - Retry failed notification
+router.post("/:notificationId/retry", requireAuth, retryNotification);
 
 // POST /api/v1/notifications - Create notification manually
 router.post(

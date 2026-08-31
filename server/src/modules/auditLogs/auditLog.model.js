@@ -6,6 +6,8 @@ import {
   AUDIT_SCOPE_LIST,
   AUDIT_STATUSES,
   AUDIT_STATUS_LIST,
+  AUDIT_SEVERITIES,
+  AUDIT_SEVERITY_LIST,
   AUDIT_ACTIONS,
   AUDIT_ACTION_LIST,
   AUDIT_RESOURCES,
@@ -25,6 +27,10 @@ const auditLogSchema = new mongoose.Schema(
       ref: "User",
       default: null,
       index: true,
+    },
+    actorPlatformRole: {
+      type: String,
+      default: null,
     },
     actorType: {
       type: String,
@@ -53,6 +59,12 @@ const auditLogSchema = new mongoose.Schema(
       enum: AUDIT_SCOPE_LIST,
       default: AUDIT_SCOPES.ORGANIZATION,
       required: true,
+    },
+    severity: {
+      type: String,
+      enum: AUDIT_SEVERITY_LIST,
+      default: AUDIT_SEVERITIES.INFO,
+      index: true,
     },
     description: {
       type: String,
@@ -89,6 +101,11 @@ const auditLogSchema = new mongoose.Schema(
       default: null,
       trim: true,
     },
+    retentionHold: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
   },
   {
     timestamps: { createdAt: true, updatedAt: false },
@@ -98,9 +115,11 @@ const auditLogSchema = new mongoose.Schema(
 
 // Indexes
 auditLogSchema.index({ organizationId: 1, createdAt: -1 });
+auditLogSchema.index({ organizationId: 1, action: 1, createdAt: -1 });
 auditLogSchema.index({ actorId: 1, createdAt: -1 });
 auditLogSchema.index({ resource: 1, resourceId: 1, createdAt: -1 });
 auditLogSchema.index({ action: 1, createdAt: -1 });
+auditLogSchema.index({ severity: 1, createdAt: -1 });
 auditLogSchema.index({ requestId: 1 });
 
 // Immutability Guards: Disallow updates and deletions to preserve tamper-evident audit trails

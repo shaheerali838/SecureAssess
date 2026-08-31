@@ -279,3 +279,44 @@ export const getReportById = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, result, "Report details retrieved"));
 });
+
+export const getInterviewAnalytics = asyncHandler(async (req, res) => {
+  const organizationId =
+    req.params.organizationId ||
+    req.organizationId ||
+    req.query.organizationId ||
+    req.headers["x-organization-id"] ||
+    req.user?.activeOrganizationId;
+
+  const result = await ReportService.getInterviewAnalytics(organizationId, req.query);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, result, "Interview analytics retrieved"));
+});
+
+export const downloadReport = asyncHandler(async (req, res) => {
+  const organizationId =
+    req.params.organizationId ||
+    req.organizationId ||
+    req.query.organizationId ||
+    req.headers["x-organization-id"] ||
+    req.user?.activeOrganizationId;
+  const { reportId } = req.params;
+
+  const report = await ReportService.getReportById(organizationId, reportId);
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        {
+          reportId: report._id,
+          name: report.name,
+          format: report.format,
+          fileUrl: report.fileUrl,
+          downloadUrl: `/api/v1/reports/${report._id}/download?file=true`,
+        },
+        "Report download reference retrieved"
+      )
+    );
+});

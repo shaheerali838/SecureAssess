@@ -88,3 +88,11 @@ export const createNotification = asyncHandler(async (req, res) => {
     .status(201)
     .json(new ApiResponse(201, result, "Notification created successfully"));
 });
+
+export const retryNotification = asyncHandler(async (req, res) => {
+  const { notificationId } = req.params;
+  const result = await NotificationService.retryNotification(notificationId);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, result, "Notification retry processed"));
+});

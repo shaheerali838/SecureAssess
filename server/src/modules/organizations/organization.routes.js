@@ -21,8 +21,9 @@ import {
 import departmentsRouter from "../departments/index.js";
 import programsRouter from "../programs/index.js";
 import subjectsRouter from "../subjects/index.js";
-import questionBankRouter from "../questionBank/index.js";
+import questionBankRouter, { questionRouter } from "../questionBank/index.js";
 import questionTagsRouter from "../questionTags/index.js";
+import questionCategoriesRouter from "../questionCategories/index.js";
 import assessmentsRouter from "../assessments/index.js";
 import candidatesRouter from "../candidates/index.js";
 import candidateGroupsRouter from "../candidateGroups/index.js";
@@ -37,6 +38,7 @@ import interviewsRouter from "../interviews/index.js";
 import resultsRouter from "../results/index.js";
 import notificationsRouter from "../notifications/index.js";
 import subscriptionsRouter from "../subscriptions/index.js";
+import auditLogRoutes from "../auditLogs/auditLog.routes.js";
 import { requireAuth } from "../../middleware/auth.middleware.js";
 import {
   requirePlatformPermission,
@@ -70,9 +72,31 @@ router.get(
   getOrganizationById
 );
 
+// GET /api/v1/organizations/:organizationId/settings - View organization settings
+router.get(
+  "/:organizationId/settings",
+  requireAuth,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.ORGANIZATIONS_VIEW,
+    PERMISSIONS.ORG_PROFILE_VIEW
+  ),
+  getOrganizationById
+);
+
 // PATCH /api/v1/organizations/:organizationId - Update organization details
 router.patch(
   "/:organizationId",
+  requireAuth,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.ORGANIZATIONS_UPDATE,
+    PERMISSIONS.ORG_PROFILE_UPDATE
+  ),
+  updateOrganization
+);
+
+// PATCH /api/v1/organizations/:organizationId/settings - Update organization settings
+router.patch(
+  "/:organizationId/settings",
   requireAuth,
   requireOrganizationOrPlatformPermission(
     PERMISSIONS.ORGANIZATIONS_UPDATE,
@@ -160,8 +184,10 @@ router.use("/:organizationId/programs", programsRouter);
 router.use("/:organizationId/subjects", subjectsRouter);
 
 // --- Organization Question Banks, Questions & Question Tags Sub-routes ---
-router.use("/:organizationId", questionBankRouter);
 router.use("/:organizationId/question-tags", questionTagsRouter);
+router.use("/:organizationId/question-categories", questionCategoriesRouter);
+router.use("/:organizationId/question-banks", questionBankRouter);
+router.use("/:organizationId/questions", questionRouter);
 
 // --- Organization Assessments Sub-routes ---
 router.use("/:organizationId/assessments", assessmentsRouter);
@@ -175,6 +201,9 @@ router.use("/:organizationId", assessmentAssignmentsRouter);
 router.use("/:organizationId/candidate", attemptsRouter);
 router.use("/:organizationId/candidate", answersRouter);
 
+// --- Audit & Security Governance Sub-routes ---
+router.use("/:organizationId/audit-logs", auditLogRoutes);
+
 // --- Evaluation & Result Sub-routes ---
 router.use("/:organizationId/evaluations", evaluationsRouter);
 router.use("/:organizationId/results", resultsRouter);
@@ -186,6 +215,7 @@ router.use("/:organizationId/proctoring", proctoringRouter);
 router.use("/:organizationId", proctoringRouter);
 
 // --- Reports & Analytics Sub-routes ---
+router.use("/:organizationId/reports", reportsRouter);
 router.use("/:organizationId", reportsRouter);
 
 // --- Certificates & Credentials Sub-routes ---

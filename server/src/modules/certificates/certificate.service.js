@@ -264,4 +264,94 @@ export class CertificateService {
 
     return certificate;
   }
+
+  /**
+   * Reissues a certificate by marking the previous one REVOKED and creating a new one
+   */
+  static async reissueCertificate(organizationId, certificateId, userId, reason = "") {
+    if (!mongoose.Types.ObjectId.isValid(certificateId)) {
+      throw new ApiError(400, "Invalid certificate ID format");
+    }
+
+    const oldCertificate = await Certificate.findOne({ _id: certificateId, organizationId });
+    if (!oldCertificate) {
+      throw new ApiError(404, "Certificate not found in this organization");
+    }
+
+    // Revoke old certificate if not already revoked
+    if (oldCertificate.status !== CERTIFICATE_STATUSES.REVOKED) {
+      oldCertificate.status = CERTIFICATE_STATUSES.REVOKED;
+      oldCertificate.revokedAt = new Date();
+      oldCertificate.revokedBy = userId;
+      oldCertificate.revocationReason = reason || "Revoked for reissue";
+      await oldCertificate.save();
+    }
+
+    // Generate fresh certificate with new identifiers
+    const certificateNumber = await CertificateNumberService.generateCertificateNumber();
+    const verificationCode = CertificateNumberService.generateVerificationCode();
+
+    const [assessment, candidate, organization, result] = await Promise.all([
+      Assessment.findById(oldCertificate.assessmentId).lean(),
+      Candidate.findById(oldCertificate.candidateId).lean(),
+      Organization.findById(organizationId).lean(),
+      Result.findById(oldCertificate.resultId).lean(),
+    ]);
+
+    const recipientName = candidate ? `${candidate.firstName} ${candidate.lastName}`.trim() : oldCertificate.recipientName;
+    const title = assessment?.title || oldCertificate.title;
+    const issuerName = organization?.name || oldCertificate.issuerName;
+
+    const generatedFile = await CertificateGenerator.generateCertificateFile({
+      recipientName,
+      certificateNumber,
+      verificationCode,
+      title,
+      issuerName,
+      issuedAt: new Date(),
+      score: oldCertificate.score,
+      percentage: oldCertificate.percentage,
+      grade: oldCertificate.grade,
+      templateId: oldCertificate.templateId || "MODERN",
+    });
+
+    const newCertificate = await Certificate.create({
+      organizationId,
+      certificateNumber,
+      verificationCode,
+      candidateId: oldCertificate.candidateId,
+      assessmentId: oldCertificate.assessmentId,
+      attemptId: oldCertificate.attemptId,
+      resultId: oldCertificate.resultId,
+      type: oldCertificate.type || "ASSESSMENT",
+      title,
+      description: `Reissued certificate for '${title}'.`,
+      recipientName,
+      issuedAt: new Date(),
+      status: CERTIFICATE_STATUSES.ISSUED,
+      score: oldCertificate.score,
+      percentage: oldCertificate.percentage,
+      grade: oldCertificate.grade,
+      issuerName,
+      issuerTitle: oldCertificate.issuerTitle,
+      templateId: generatedFile.templateId,
+      fileUrl: generatedFile.fileUrl,
+      verificationUrl: generatedFile.verificationUrl,
+      metadata: {
+        reissuedFrom: oldCertificate._id,
+        reissueReason: reason,
+      },
+    });
+
+    AuditLogService.createAuditLog({
+      organizationId,
+      actorId: userId,
+      action: "CREATE",
+      resource: "CERTIFICATE",
+      resourceId: newCertificate._id,
+      description: `Reissued certificate '${newCertificate.certificateNumber}' replacing revoked '${oldCertificate.certificateNumber}'`,
+    }).catch(() => {});
+
+    return newCertificate;
+  }
 }

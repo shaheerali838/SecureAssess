@@ -7,6 +7,7 @@ import {
   getCertificateDetails,
   downloadCertificate,
   revokeCertificate,
+  reissueCertificate,
 } from "./certificate.controller.js";
 import {
   issueCertificateSchema,
@@ -166,17 +167,28 @@ router.post(
   revokeCertificate
 );
 
-// PATCH /certificates/:certificateId/revoke - Alias
-router.patch(
-  "/certificates/:certificateId/revoke",
+// POST /:certificateId/reissue - Reissue certificate
+router.post(
+  "/:certificateId/reissue",
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
-    PERMISSIONS.CERTIFICATES_REVOKE,
-    PERMISSIONS.CERTIFICATES_REVOKE
+    PERMISSIONS.CERTIFICATES_GENERATE,
+    PERMISSIONS.CERTIFICATES_GENERATE
   ),
-  validateRequest(revokeCertificateSchema),
-  revokeCertificate
+  reissueCertificate
+);
+
+// POST /certificates/:certificateId/reissue - Alias
+router.post(
+  "/certificates/:certificateId/reissue",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.CERTIFICATES_GENERATE,
+    PERMISSIONS.CERTIFICATES_GENERATE
+  ),
+  reissueCertificate
 );
 
 export default router;

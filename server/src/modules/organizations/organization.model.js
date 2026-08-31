@@ -31,6 +31,12 @@ const organizationSchema = new mongoose.Schema(
       default: ORGANIZATION_TYPES.CORPORATE,
       required: true,
     },
+    tenantIndustry: {
+      type: String,
+      enum: ["academic", "corporate", "aviation", "recruitment"],
+      default: "academic",
+      required: true,
+    },
     description: {
       type: String,
       trim: true,
@@ -109,6 +115,7 @@ organizationSchema.index({ slug: 1 }, { unique: true });
 organizationSchema.index({ code: 1 }, { unique: true });
 organizationSchema.index({ status: 1 });
 organizationSchema.index({ type: 1 });
+organizationSchema.index({ tenantIndustry: 1 });
 organizationSchema.index({ name: "text", description: "text" });
 
 const Organization =

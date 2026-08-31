@@ -13,7 +13,7 @@ import {
 } from "../../constants/proctoringConstants.js";
 import { ATTEMPT_STATUSES } from "../../constants/attemptStatuses.js";
 import { ApiError } from "../../utils/ApiError.js";
-import AuditLog from "../auditLogs/auditLog.model.js";
+import { AuditLogService } from "../auditLogs/auditLog.service.js";
 
 export class ProctoringService {
   /**
@@ -127,12 +127,13 @@ export class ProctoringService {
     }
 
     // Audit Logging
-    await AuditLog.create({
+    await AuditLogService.createAuditLog({
       organizationId,
-      actor: { id: userId, email: candidate.email, role: "CANDIDATE" },
-      action: "PROCTORING_SESSION_STARTED",
-      target: { entity: "ProctoringSession", entityId: session._id.toString() },
-      details: { attemptId: attempt._id.toString() },
+      actorId: userId,
+      action: "START",
+      resource: "PROCTORING_SESSION",
+      resourceId: session._id,
+      description: `Candidate '${candidate.email}' started proctoring session for attempt '${attempt._id}'`,
     }).catch(() => {});
 
     return {
@@ -250,20 +251,31 @@ export class ProctoringService {
       throw new ApiError(400, "Invalid proctoring session ID format");
     }
 
-    const session = await ProctoringSession.findOneAndUpdate(
-      {
-        _id: sessionId,
-        organizationId,
-      },
-      {
-        $set: { lastHeartbeatAt: new Date() },
-      },
-      { returnDocument: "after" }
-    );
+    const session = await ProctoringSession.findOne({
+      _id: sessionId,
+      organizationId,
+    });
 
     if (!session) {
-      throw new ApiError(404, "Proctoring session not found");
+      throw new ApiError(404, "Proctoring session not found in this organization");
     }
+
+    // Verify associated attempt is still valid and not expired
+    const attempt = await Attempt.findById(session.attemptId);
+    if (!attempt) {
+      throw new ApiError(404, "Attempt associated with session not found");
+    }
+
+    if (attempt.status !== ATTEMPT_STATUSES.IN_PROGRESS) {
+      throw new ApiError(400, `Cannot send heartbeat: Attempt is in '${attempt.status}' status`);
+    }
+
+    if (attempt.expiresAt && new Date(attempt.expiresAt) < new Date()) {
+      throw new ApiError(400, "Cannot send heartbeat: Attempt has expired");
+    }
+
+    session.lastHeartbeatAt = new Date();
+    await session.save();
 
     return {
       success: true,
@@ -271,6 +283,65 @@ export class ProctoringService {
       status: session.status,
       warnings: session.warningsSent || [],
     };
+  }
+
+  /**
+   * Proctor / Admin Action: Set final integrity decision
+   */
+  static async setIntegrityDecision(organizationId, sessionIdOrAttemptId, decision, note = "", userId = null) {
+    if (!sessionIdOrAttemptId || !mongoose.Types.ObjectId.isValid(sessionIdOrAttemptId)) {
+      throw new ApiError(400, "Invalid ID format");
+    }
+
+    const validDecisions = [
+      "CLEAR",
+      "UNDER_REVIEW",
+      "FLAGGED",
+      "CONFIRMED_VIOLATION",
+      "DISQUALIFIED",
+      "LOW_RISK",
+      "MEDIUM_RISK",
+      "HIGH_RISK",
+      "CRITICAL",
+    ];
+    if (!validDecisions.includes(decision)) {
+      throw new ApiError(400, `Invalid integrity decision: ${decision}`);
+    }
+
+    const session = await ProctoringSession.findOne({
+      $or: [{ _id: sessionIdOrAttemptId }, { attemptId: sessionIdOrAttemptId }],
+      organizationId,
+    });
+
+    if (!session) {
+      throw new ApiError(404, "Proctoring session not found in this organization");
+    }
+
+    session.integrityStatus = decision;
+    if (decision === "DISQUALIFIED" || decision === "CONFIRMED_VIOLATION") {
+      session.status = PROCTORING_STATUSES.TERMINATED;
+      session.terminatedReason = note || `Integrity violation: ${decision}`;
+      session.endedAt = session.endedAt || new Date();
+
+      await Attempt.findByIdAndUpdate(session.attemptId, {
+        $set: {
+          status: ATTEMPT_STATUSES.TERMINATED,
+          terminationReason: note || `Integrity violation: ${decision}`,
+        },
+      });
+    }
+    await session.save();
+
+    await AuditLogService.createAuditLog({
+      organizationId,
+      actorId: userId,
+      action: "UPDATE",
+      resource: "PROCTORING_SESSION",
+      resourceId: session._id,
+      description: `Integrity decision updated to '${decision}' (Note: ${note || "None"})`,
+    }).catch(() => {});
+
+    return session;
   }
 
   /**
@@ -351,12 +422,13 @@ export class ProctoringService {
     });
 
     // Audit Log
-    await AuditLog.create({
+    await AuditLogService.createAuditLog({
       organizationId,
-      actor: { id: proctorUserId, role: "PROCTOR" },
-      action: "PROCTOR_ISSUED_WARNING",
-      target: { entity: "ProctoringSession", entityId: session._id.toString() },
-      details: { warningMessage },
+      actorId: proctorUserId,
+      action: "WARNING",
+      resource: "PROCTORING_SESSION",
+      resourceId: session._id,
+      description: `Proctor issued warning to candidate: "${warningMessage}"`,
     }).catch(() => {});
 
     return { session, warning: warningItem };
@@ -379,12 +451,13 @@ export class ProctoringService {
     session.pausedAt = new Date();
     await session.save();
 
-    await AuditLog.create({
+    await AuditLogService.createAuditLog({
       organizationId,
-      actor: { id: proctorUserId, role: "PROCTOR" },
-      action: "PROCTOR_PAUSED_SESSION",
-      target: { entity: "ProctoringSession", entityId: session._id.toString() },
-      details: { reason },
+      actorId: proctorUserId,
+      action: "UPDATE",
+      resource: "PROCTORING_SESSION",
+      resourceId: session._id,
+      description: `Proctor paused proctoring session (Reason: ${reason || "None"})`,
     }).catch(() => {});
 
     return session;
@@ -422,12 +495,13 @@ export class ProctoringService {
       },
     });
 
-    await AuditLog.create({
+    await AuditLogService.createAuditLog({
       organizationId,
-      actor: { id: proctorUserId, role: "PROCTOR" },
-      action: "PROCTOR_TERMINATED_ATTEMPT",
-      target: { entity: "ProctoringSession", entityId: session._id.toString() },
-      details: { reason, attemptId: session.attemptId.toString() },
+      actorId: proctorUserId,
+      action: "TERMINATE",
+      resource: "PROCTORING_SESSION",
+      resourceId: session._id,
+      description: `Proctor terminated attempt due to violation: "${reason}"`,
     }).catch(() => {});
 
     return session;
@@ -628,6 +702,63 @@ export class ProctoringService {
         .limit(limit)
         .lean(),
       ProctoringSession.countDocuments(filter),
+    ]);
+
+    return {
+      items,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    };
+  }
+
+  /**
+   * Retrieves paginated proctoring events / flags across sessions for an organization
+   */
+  static async getEvents(organizationId, query = {}) {
+    const page = parseInt(query.page || "1", 10);
+    const limit = Math.min(100, Math.max(1, parseInt(query.limit || "50", 10)));
+    const filter = {};
+    if (organizationId && mongoose.Types.ObjectId.isValid(organizationId)) {
+      filter.organizationId = organizationId;
+    }
+    if (query.sessionId || query.proctoringSessionId) {
+      filter.proctoringSessionId = query.sessionId || query.proctoringSessionId;
+    }
+    if (query.status === "FLAGGED") {
+      filter.$or = [
+        { severity: { $in: ["HIGH", "CRITICAL", "MEDIUM"] } },
+        { reviewed: false },
+      ];
+    } else if (query.status) {
+      filter.status = query.status;
+    }
+    if (query.severity) filter.severity = query.severity;
+    if (query.eventType || query.type) filter.eventType = query.eventType || query.type;
+    if (query.reviewed !== undefined) {
+      filter.reviewed = query.reviewed === "true" || query.reviewed === true;
+    }
+
+    const skip = (Math.max(1, page) - 1) * limit;
+
+    const [items, total] = await Promise.all([
+      ProctoringEvent.find(filter)
+        .populate({
+          path: "proctoringSessionId",
+          populate: [
+            { path: "candidateId", select: "firstName lastName email candidateCode" },
+            { path: "assessmentId", select: "title code" },
+          ],
+        })
+        .populate("reviewedBy", "firstName lastName email")
+        .sort({ serverOccurredAt: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      ProctoringEvent.countDocuments(filter),
     ]);
 
     return {

@@ -44,6 +44,11 @@ const candidateSchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
+    phone: {
+      type: String,
+      default: "",
+      trim: true,
+    },
     departmentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Department",
@@ -56,11 +61,26 @@ const candidateSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    candidateGroupId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "CandidateGroup",
+      default: null,
+      index: true,
+    },
     status: {
       type: String,
-      enum: ["ACTIVE", "INVITED", "SUSPENDED", "DEACTIVATED"],
+      enum: ["ACTIVE", "INVITED", "SUSPENDED", "INACTIVE", "DEACTIVATED"],
       default: "ACTIVE",
       index: true,
+    },
+    invitationToken: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    invitationExpiresAt: {
+      type: Date,
+      default: null,
     },
     metadata: {
       type: mongoose.Schema.Types.Mixed,
@@ -77,6 +97,7 @@ candidateSchema.index({ organizationId: 1, candidateCode: 1 }, { unique: true })
 candidateSchema.index({ organizationId: 1, email: 1 });
 candidateSchema.index({ organizationId: 1, departmentId: 1 });
 candidateSchema.index({ organizationId: 1, programId: 1 });
+candidateSchema.index({ organizationId: 1, candidateGroupId: 1 });
 candidateSchema.index({ organizationId: 1, status: 1 });
 
 const Candidate =

@@ -1,4 +1,5 @@
 export const CERTIFICATE_STATUSES = Object.freeze({
+  PENDING: "PENDING",
   DRAFT: "DRAFT",
   ISSUED: "ISSUED",
   REVOKED: "REVOKED",

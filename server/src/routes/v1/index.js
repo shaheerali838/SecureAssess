@@ -7,7 +7,7 @@ import attemptsRoutes from "../../modules/attempts/index.js";
 import proctoringRoutes from "../../modules/proctoring/index.js";
 import resultsRoutes from "../../modules/results/index.js";
 import organizationsRoutes from "../../modules/organizations/index.js";
-import questionBankRoutes from "../../modules/questionBank/index.js";
+import questionBankRoutes, { questionRouter } from "../../modules/questionBank/index.js";
 import interviewsRoutes from "../../modules/interviews/index.js";
 import platformRoutes from "../../modules/platform/index.js";
 import notificationsRoutes from "../../modules/notifications/index.js";
@@ -16,6 +16,12 @@ import reportsRoutes from "../../modules/reports/index.js";
 import auditLogRoutes from "../../modules/auditLogs/index.js";
 import subscriptionsRoutes from "../../modules/subscriptions/index.js";
 import candidatesRoutes from "../../modules/candidates/index.js";
+import questionCategoriesRoutes from "../../modules/questionCategories/index.js";
+import questionTagsRoutes from "../../modules/questionTags/index.js";
+import departmentsRoutes from "../../modules/departments/index.js";
+import programsRoutes from "../../modules/programs/index.js";
+import subjectsRoutes from "../../modules/subjects/index.js";
+import candidateGroupsRoutes from "../../modules/candidateGroups/index.js";
 import { verifyPublicCertificate } from "../../modules/certificates/certificate.controller.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 
@@ -36,8 +42,13 @@ router.get("/health", (req, res) => {
 });
 
 // Public Credential Verification Endpoint
-router.get("/public/certificates/verify/:verificationCode", verifyPublicCertificate);
+router.get(
+  "/public/certificates/verify/:verificationCode",
+  verifyPublicCertificate,
+);
 router.get("/verify/certificates/:verificationCode", verifyPublicCertificate);
+router.get("/verify/certificate/:verificationCode", verifyPublicCertificate);
+router.get("/certificates/verify/:verificationCode", verifyPublicCertificate);
 
 // Core API v1 routes
 router.use("/platform", platformRoutes);
@@ -49,8 +60,14 @@ router.use("/evaluations", evaluationsRoutes);
 router.use("/proctoring", proctoringRoutes);
 router.use("/results", resultsRoutes);
 router.use("/organizations", organizationsRoutes);
-router.use("/questions", questionBankRoutes);
+router.use("/questions", questionRouter);
 router.use("/question-banks", questionBankRoutes);
+router.use("/question-categories", questionCategoriesRoutes);
+router.use("/question-tags", questionTagsRoutes);
+router.use("/departments", departmentsRoutes);
+router.use("/programs", programsRoutes);
+router.use("/subjects", subjectsRoutes);
+router.use("/candidate-groups", candidateGroupsRoutes);
 router.use("/interviews", interviewsRoutes);
 router.use("/notifications", notificationsRoutes);
 router.use("/subscriptions", subscriptionsRoutes);

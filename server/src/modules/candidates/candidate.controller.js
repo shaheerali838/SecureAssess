@@ -5,7 +5,7 @@ import { ApiResponse } from "../../utils/ApiResponse.js";
 import { ApiError } from "../../utils/ApiError.js";
 
 // ==========================================
-// ORGANIZATION CANDIDATE MANAGEMENT
+// ORGANIZATION CANDIDATE MANAGEMENT HANDLERS
 // ==========================================
 
 export const createCandidate = asyncHandler(async (req, res) => {
@@ -98,6 +98,34 @@ export const deleteCandidate = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, result, "Candidate deactivated successfully"));
 });
 
+export const inviteCandidate = asyncHandler(async (req, res) => {
+  const organizationId = req.params.organizationId || req.organizationId;
+  const { candidateId } = req.params;
+  const actorUserId = req.user?.id || req.user?._id;
+  const result = await CandidateService.inviteCandidate(organizationId, candidateId, actorUserId);
+  return res.status(200).json(new ApiResponse(200, result, "Candidate invitation generated successfully"));
+});
+
+export const activateCandidateAccount = asyncHandler(async (req, res) => {
+  const { token, password } = req.body;
+  const result = await CandidateService.activateCandidateByToken(token, password);
+  return res.status(200).json(new ApiResponse(200, result, "Candidate account activated successfully"));
+});
+
+export const bulkImportCandidates = asyncHandler(async (req, res) => {
+  const organizationId = req.params.organizationId || req.organizationId;
+  const actorUserId = req.user?.id || req.user?._id;
+  const { items } = req.body;
+
+  const { isValid, errors } = CandidateValidator.validateBulkImport(items);
+  if (!isValid) {
+    throw new ApiError(400, "Bulk validation failed", errors);
+  }
+
+  const result = await CandidateService.bulkImportCandidates(organizationId, items, actorUserId);
+  return res.status(200).json(new ApiResponse(200, result, "Bulk candidate import processed"));
+});
+
 // ==========================================
 // CANDIDATE PORTAL SELF-SERVICE HANDLERS
 // ==========================================
@@ -121,6 +149,14 @@ export const getCandidatePortalAssignments = asyncHandler(async (req, res) => {
   const organizationId = req.organizationId || req.query.organizationId || null;
   const result = await CandidateService.getCandidatePortalAssignments(userId, organizationId);
   return res.status(200).json(new ApiResponse(200, result, "Candidate assignments retrieved"));
+});
+
+export const getCandidatePortalAssignmentById = asyncHandler(async (req, res) => {
+  const userId = req.user?.id || req.user?._id;
+  const { id } = req.params;
+  const organizationId = req.organizationId || req.query.organizationId || null;
+  const result = await CandidateService.getCandidatePortalAssignmentById(userId, id, organizationId);
+  return res.status(200).json(new ApiResponse(200, result, "Candidate assignment retrieved"));
 });
 
 export const getCandidatePortalAttempts = asyncHandler(async (req, res) => {
