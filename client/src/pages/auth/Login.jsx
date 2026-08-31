@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { Shield, Lock, Mail, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Shield, Lock, Mail, ArrowRight, AlertCircle, CheckCircle2, UserCheck, Sparkles } from 'lucide-react';
 import { PLATFORM_ROLES } from '../../constants/roles';
 
 export const Login = () => {
@@ -14,7 +14,7 @@ export const Login = () => {
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setError(null);
     setLoading(true);
 
@@ -34,7 +34,7 @@ export const Login = () => {
           (m) => (m.roleId?.name || m.roleName) === 'CANDIDATE'
         );
         if (isCandidate) {
-          navigate('/candidate/system-check', { replace: true });
+          navigate('/candidate/portal', { replace: true });
         } else {
           navigate('/organization/dashboard', { replace: true });
         }
@@ -47,18 +47,21 @@ export const Login = () => {
   };
 
   const handleQuickFill = (type) => {
+    const defaultPass = 'Password123!';
+    setPassword(defaultPass);
+
     if (type === 'platform') {
       setEmail('shaheer838838@gmail.com');
-      setPassword('Admin@123');
+    } else if (type === 'owner') {
+      setEmail('owner@secureassess.io');
     } else if (type === 'org_admin') {
-      setEmail('dean@stanford.edu');
-      setPassword('OrgAdmin@123');
+      setEmail('admin@alpha.edu');
     } else if (type === 'examiner') {
-      setEmail('professor@stanford.edu');
-      setPassword('Examiner@123');
+      setEmail('examiner@alpha.edu');
+    } else if (type === 'proctor') {
+      setEmail('proctor@alpha.edu');
     } else if (type === 'candidate') {
-      setEmail('student@stanford.edu');
-      setPassword('Student@123');
+      setEmail('candidate@alpha.edu');
     }
   };
 
@@ -69,9 +72,9 @@ export const Login = () => {
       <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-secondary-500/20 rounded-full blur-3xl pointer-events-none" />
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center z-10">
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-primary-500 to-secondary-400 shadow-glow mb-4">
+        <Link to="/" className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-primary-500 to-secondary-400 shadow-glow mb-4 hover:scale-105 transition-transform">
           <Shield className="w-8 h-8 text-white" />
-        </div>
+        </Link>
         <h2 className="text-3xl font-extrabold tracking-tight font-display">
           Secure<span className="text-primary-400">Assess</span>
         </h2>
@@ -92,7 +95,7 @@ export const Login = () => {
 
             <div>
               <label className="block text-xs font-semibold text-accent-300 uppercase tracking-wider mb-2">
-                Universal Account Email
+                Account Email
               </label>
               <div className="relative rounded-xl shadow-inner-soft">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-accent-500">
@@ -114,9 +117,9 @@ export const Login = () => {
                 <label className="block text-xs font-semibold text-accent-300 uppercase tracking-wider">
                   Password
                 </label>
-                <a href="#forgot" className="text-xs text-primary-400 hover:text-primary-300 transition-colors">
-                  Forgot?
-                </a>
+                <Link to="/verify" className="text-xs text-primary-400 hover:text-primary-300 transition-colors">
+                  Verify Certificate?
+                </Link>
               </div>
               <div className="relative rounded-xl shadow-inner-soft">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-accent-500">
@@ -128,69 +131,99 @@ export const Login = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••••••"
-                  className="block w-full pl-10 pr-3 py-2.5 bg-accent-800/60 border border-white/10 rounded-xl text-sm placeholder-accent-500 text-white focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all"
+                  className="block w-full pl-10 pr-3 py-2.5 bg-accent-800/60 border border-white/10 rounded-xl text-sm placeholder-accent-500 text-white focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all font-mono"
                 />
               </div>
             </div>
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !email || !password}
               className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-500 hover:to-primary-400 shadow-glow focus:outline-none focus:ring-2 focus:ring-primary-400 focus:ring-offset-2 focus:ring-offset-accent-900 transition-all duration-200 disabled:opacity-50 cursor-pointer"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
-                  <span>Sign in to Workspace</span>
+                  <span>Sign In to Workspace</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </button>
           </form>
 
-          {/* Quick Fill Helper for Demo / Testing */}
+          {/* Quick Fill Persona Buttons */}
           <div className="mt-6 pt-5 border-t border-white/10">
-            <p className="text-[11px] font-semibold text-accent-400 uppercase tracking-wider mb-2.5 text-center">
-              Quick Sign In (Seeded Environment)
-            </p>
-            <div className="grid grid-cols-1 gap-2">
+            <div className="flex items-center justify-center gap-1.5 mb-3">
+              <Sparkles className="w-3.5 h-3.5 text-primary-400" />
+              <p className="text-[11px] font-bold text-accent-300 uppercase tracking-wider">
+                1-Click Persona Sign In
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-1.5">
               <button
                 type="button"
                 onClick={() => handleQuickFill('platform')}
-                className="w-full py-1.5 px-3 rounded-lg bg-accent-800/40 hover:bg-accent-800 border border-white/5 text-xs text-accent-300 flex items-center justify-between transition-colors"
+                className="w-full py-2 px-3 rounded-xl bg-accent-800/50 hover:bg-accent-700/60 border border-indigo-500/20 text-xs text-accent-200 flex items-center justify-between transition-colors cursor-pointer group"
               >
-                <span>🛡️ Platform Super Admin</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">🛡️</span>
+                  <span className="font-semibold text-white group-hover:text-primary-300 transition-colors">Platform Super Admin</span>
+                </div>
                 <span className="text-[10px] text-primary-400 font-mono">shaheer838838@gmail.com</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => handleQuickFill('org_admin')}
-                className="w-full py-1.5 px-3 rounded-lg bg-accent-800/40 hover:bg-accent-800 border border-white/5 text-xs text-accent-300 flex items-center justify-between transition-colors"
+                className="w-full py-2 px-3 rounded-xl bg-accent-800/50 hover:bg-accent-700/60 border border-sky-500/20 text-xs text-accent-200 flex items-center justify-between transition-colors cursor-pointer group"
               >
-                <span>🏢 Organization Admin</span>
-                <span className="text-[10px] text-secondary-400 font-mono">dean@stanford.edu</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">🏢</span>
+                  <span className="font-semibold text-white group-hover:text-sky-300 transition-colors">Organization Admin</span>
+                </div>
+                <span className="text-[10px] text-sky-400 font-mono">admin@alpha.edu</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => handleQuickFill('examiner')}
-                className="w-full py-1.5 px-3 rounded-lg bg-accent-800/40 hover:bg-accent-800 border border-white/5 text-xs text-accent-300 flex items-center justify-between transition-colors"
+                className="w-full py-2 px-3 rounded-xl bg-accent-800/50 hover:bg-accent-700/60 border border-amber-500/20 text-xs text-accent-200 flex items-center justify-between transition-colors cursor-pointer group"
               >
-                <span>🎓 Examiner / Faculty</span>
-                <span className="text-[10px] text-warning-400 font-mono">professor@stanford.edu</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">🎓</span>
+                  <span className="font-semibold text-white group-hover:text-amber-300 transition-colors">Examiner / Faculty</span>
+                </div>
+                <span className="text-[10px] text-amber-400 font-mono">examiner@alpha.edu</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickFill('proctor')}
+                className="w-full py-2 px-3 rounded-xl bg-accent-800/50 hover:bg-accent-700/60 border border-purple-500/20 text-xs text-accent-200 flex items-center justify-between transition-colors cursor-pointer group"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">👁️</span>
+                  <span className="font-semibold text-white group-hover:text-purple-300 transition-colors">Proctor / Invigilator</span>
+                </div>
+                <span className="text-[10px] text-purple-400 font-mono">proctor@alpha.edu</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => handleQuickFill('candidate')}
-                className="w-full py-1.5 px-3 rounded-lg bg-accent-800/40 hover:bg-accent-800 border border-white/5 text-xs text-accent-300 flex items-center justify-between transition-colors"
+                className="w-full py-2 px-3 rounded-xl bg-accent-800/50 hover:bg-accent-700/60 border border-emerald-500/20 text-xs text-accent-200 flex items-center justify-between transition-colors cursor-pointer group"
               >
-                <span>📝 Candidate / Student</span>
-                <span className="text-[10px] text-success-400 font-mono">student@stanford.edu</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">📝</span>
+                  <span className="font-semibold text-white group-hover:text-emerald-300 transition-colors">Candidate / Student</span>
+                </div>
+                <span className="text-[10px] text-emerald-400 font-mono">candidate@alpha.edu</span>
               </button>
             </div>
+            <p className="text-[10px] text-accent-500 text-center mt-2.5">
+              Password for all seeded accounts: <span className="text-accent-300 font-mono font-semibold">Password123!</span>
+            </p>
           </div>
         </div>
       </div>
