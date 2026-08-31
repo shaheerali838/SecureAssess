@@ -15,6 +15,8 @@ import evaluationsRoutes from "../../modules/evaluations/index.js";
 import reportsRoutes from "../../modules/reports/index.js";
 import auditLogRoutes from "../../modules/auditLogs/index.js";
 import subscriptionsRoutes from "../../modules/subscriptions/index.js";
+import planRoutes from "../../modules/subscriptions/plan.routes.js";
+import billingRoutes from "../../modules/billing/index.js";
 import candidatesRoutes from "../../modules/candidates/index.js";
 import questionCategoriesRoutes from "../../modules/questionCategories/index.js";
 import questionTagsRoutes from "../../modules/questionTags/index.js";
@@ -27,18 +29,47 @@ import { ApiResponse } from "../../utils/ApiResponse.js";
 
 const router = express.Router();
 
-// Health Check Endpoint
+// Health Check Endpoints (General, Liveness & Readiness)
 router.get("/health", (req, res) => {
   const isDbConnected = mongoose.connection.readyState === 1;
   const statusData = {
-    application: "healthy",
+    status: isDbConnected ? "HEALTHY" : "DEGRADED",
+    application: "SecureAssess API",
     database: isDbConnected ? "connected" : "disconnected",
+    uptime: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
   };
 
   const statusCode = isDbConnected ? 200 : 503;
   return res
     .status(statusCode)
     .json(new ApiResponse(statusCode, statusData, "Platform health status"));
+});
+
+router.get("/health/live", (req, res) => {
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      { status: "LIVE", uptime: Math.floor(process.uptime()), timestamp: new Date().toISOString() },
+      "Liveness probe ok"
+    )
+  );
+});
+
+router.get("/health/ready", (req, res) => {
+  const isDbConnected = mongoose.connection.readyState === 1;
+  const statusCode = isDbConnected ? 200 : 503;
+  return res.status(statusCode).json(
+    new ApiResponse(
+      statusCode,
+      {
+        status: isDbConnected ? "READY" : "NOT_READY",
+        database: isDbConnected ? "CONNECTED" : "DISCONNECTED",
+        timestamp: new Date().toISOString(),
+      },
+      isDbConnected ? "Readiness probe ok" : "Dependencies unavailable"
+    )
+  );
 });
 
 // Public Credential Verification Endpoint
@@ -71,6 +102,8 @@ router.use("/candidate-groups", candidateGroupsRoutes);
 router.use("/interviews", interviewsRoutes);
 router.use("/notifications", notificationsRoutes);
 router.use("/subscriptions", subscriptionsRoutes);
+router.use("/plans", planRoutes);
+router.use("/billing", billingRoutes);
 router.use("/candidate-portal", candidatesRoutes);
 router.use("/candidates", candidatesRoutes);
 router.use("/reports", reportsRoutes);

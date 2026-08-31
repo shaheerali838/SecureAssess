@@ -1,32 +1,7 @@
 import crypto from "crypto";
+import { BaseBillingProvider } from "./base.provider.js";
 
-export class BillingProvider {
-  async createCustomer(organization, user) {
-    throw new Error("createCustomer() not implemented");
-  }
-
-  async createSubscription(customerId, plan, paymentMethodId) {
-    throw new Error("createSubscription() not implemented");
-  }
-
-  async cancelSubscription(subscriptionId, atPeriodEnd = true) {
-    throw new Error("cancelSubscription() not implemented");
-  }
-
-  async changePlan(subscriptionId, newPlan) {
-    throw new Error("changePlan() not implemented");
-  }
-
-  async getSubscription(subscriptionId) {
-    throw new Error("getSubscription() not implemented");
-  }
-
-  verifyWebhookSignature(payload, signature, secret) {
-    throw new Error("verifyWebhookSignature() not implemented");
-  }
-}
-
-export class MockBillingProvider extends BillingProvider {
+export class MockBillingProvider extends BaseBillingProvider {
   async createCustomer(organization, user) {
     const customerId = `cus_mock_${crypto.randomBytes(8).toString("hex")}`;
     return {
@@ -36,16 +11,18 @@ export class MockBillingProvider extends BillingProvider {
     };
   }
 
-  async createSubscription(customerId, plan, paymentMethodId = null) {
-    const subscriptionId = `sub_mock_${crypto.randomBytes(8).toString("hex")}`;
-    const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  async createCheckoutSession({ organizationId, planId, planCode, price, currency, successUrl, cancelUrl }) {
+    const sessionId = `cs_mock_${crypto.randomBytes(12).toString("hex")}`;
     return {
-      id: subscriptionId,
-      customerId,
-      plan,
-      status: "ACTIVE",
-      currentPeriodStart: new Date(),
-      currentPeriodEnd: periodEnd,
+      sessionId,
+      url: `${successUrl || "https://secureassess.app/billing/success"}?session_id=${sessionId}`,
+      status: "OPEN",
+    };
+  }
+
+  async createBillingPortalSession(customerId, returnUrl) {
+    return {
+      url: `${returnUrl || "https://secureassess.app/billing"}?portal_session=active`,
     };
   }
 
@@ -58,7 +35,7 @@ export class MockBillingProvider extends BillingProvider {
     };
   }
 
-  async changePlan(subscriptionId, newPlan) {
+  async changeSubscription(subscriptionId, newPlan) {
     return {
       id: subscriptionId,
       plan: newPlan,
@@ -70,15 +47,20 @@ export class MockBillingProvider extends BillingProvider {
     return {
       id: subscriptionId,
       status: "ACTIVE",
+      currentPeriodStart: new Date(),
+      currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     };
   }
 
   verifyWebhookSignature(payload, signature, secret) {
-    if (!signature || !secret) {
+    if (!signature) {
       return false;
     }
     if (signature === "mock_sig_valid" || signature === "test_signature") {
       return true;
+    }
+    if (!secret) {
+      return false;
     }
     const computed = crypto
       .createHmac("sha256", secret)

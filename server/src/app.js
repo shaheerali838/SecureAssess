@@ -24,6 +24,17 @@ app.use(tenantMiddleware);
 // Static uploads folder
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
+// Root Health Check Probes for Orchestrators (Kubernetes / Load Balancers)
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "HEALTHY", timestamp: new Date().toISOString() });
+});
+app.get("/health/live", (req, res) => {
+  res.status(200).json({ status: "LIVE", uptime: Math.floor(process.uptime()), timestamp: new Date().toISOString() });
+});
+app.get("/health/ready", (req, res) => {
+  res.status(200).json({ status: "READY", timestamp: new Date().toISOString() });
+});
+
 // Mount API routes
 app.use("/api", rootRoutes);
 

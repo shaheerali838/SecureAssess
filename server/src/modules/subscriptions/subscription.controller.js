@@ -51,6 +51,19 @@ export const cancelSubscription = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, result, "Subscription cancelled successfully"));
 });
 
+export const reactivateSubscription = asyncHandler(async (req, res) => {
+  const organizationId =
+    req.params.organizationId ||
+    req.organizationId;
+  const userId = req.user?.id || req.user?._id;
+
+  const result = await SubscriptionService.reactivateSubscription(
+    organizationId,
+    userId
+  );
+  return res.status(200).json(new ApiResponse(200, result, "Subscription reactivated successfully"));
+});
+
 export const handleBillingWebhook = asyncHandler(async (req, res) => {
   const signature = req.headers["x-billing-signature"] || req.headers["stripe-signature"] || "";
   const result = await SubscriptionService.processWebhook(req.body, signature);

@@ -38,6 +38,7 @@ import interviewsRouter from "../interviews/index.js";
 import resultsRouter from "../results/index.js";
 import notificationsRouter from "../notifications/index.js";
 import subscriptionsRouter from "../subscriptions/index.js";
+import billingRoutes from "../billing/index.js";
 import auditLogRoutes from "../auditLogs/auditLog.routes.js";
 import { requireAuth } from "../../middleware/auth.middleware.js";
 import {
@@ -201,37 +202,31 @@ router.use("/:organizationId", assessmentAssignmentsRouter);
 router.use("/:organizationId/candidate", attemptsRouter);
 router.use("/:organizationId/candidate", answersRouter);
 
+// --- Subscriptions & Billing Sub-routes ---
+router.use("/:organizationId/subscriptions", subscriptionsRouter);
+router.use("/:organizationId/subscription", subscriptionsRouter);
+router.use("/:organizationId/billing", billingRoutes);
+
 // --- Audit & Security Governance Sub-routes ---
 router.use("/:organizationId/audit-logs", auditLogRoutes);
 
 // --- Evaluation & Result Sub-routes ---
 router.use("/:organizationId/evaluations", evaluationsRouter);
 router.use("/:organizationId/results", resultsRouter);
-router.use("/:organizationId", evaluationsRouter);
-router.use("/:organizationId", resultsRouter);
 
 // --- Proctoring Sub-routes ---
 router.use("/:organizationId/proctoring", proctoringRouter);
-router.use("/:organizationId", proctoringRouter);
 
 // --- Reports & Analytics Sub-routes ---
 router.use("/:organizationId/reports", reportsRouter);
-router.use("/:organizationId", reportsRouter);
 
 // --- Certificates & Credentials Sub-routes ---
 router.use("/:organizationId/certificates", certificatesRouter);
-router.use("/:organizationId", certificatesRouter);
 
 // --- Live Interviews & WebRTC Sub-routes ---
 router.use("/:organizationId/interviews", interviewsRouter);
-router.use("/:organizationId", interviewsRouter);
 
 // --- Notifications Sub-routes ---
 router.use("/:organizationId/notifications", notificationsRouter);
-router.use("/:organizationId", notificationsRouter);
-
-// --- Subscriptions & Billing Sub-routes ---
-router.use("/:organizationId/subscriptions", subscriptionsRouter);
-router.use("/:organizationId/subscription", subscriptionsRouter);
 
 export default router;
