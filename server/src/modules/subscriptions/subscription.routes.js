@@ -4,6 +4,7 @@ import {
   getUsageAndEntitlements,
   changePlan,
   cancelSubscription,
+  reactivateSubscription,
   handleBillingWebhook,
   getAllSubscriptions,
   updateSubscriptionStatus,
@@ -77,6 +78,17 @@ router.post(
     PERMISSIONS.SUBSCRIPTIONS_MANAGE
   ),
   cancelSubscription
+);
+
+router.post(
+  "/reactivate",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.SUBSCRIPTIONS_MANAGE,
+    PERMISSIONS.SUBSCRIPTIONS_MANAGE
+  ),
+  reactivateSubscription
 );
 
 // --- Platform Administration Endpoints ---

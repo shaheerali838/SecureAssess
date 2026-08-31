@@ -20,13 +20,16 @@ import { requireTenantContext } from "../../middleware/tenant.middleware.js";
 import { requireOrganizationOrPlatformPermission } from "../../middleware/permission.middleware.js";
 import { PERMISSIONS } from "../../constants/permissions.js";
 
-const router = express.Router({ mergeParams: true });
+export const questionBankRouter = express.Router({ mergeParams: true });
+export const questionRouter = express.Router({ mergeParams: true });
 
-// --- Question Bank Routes ---
+// ==========================================
+// QUESTION BANK ROUTES
+// ==========================================
 
-// POST /api/v1/organizations/:organizationId/question-banks or /api/v1/question-banks
-router.post(
-  ["/question-banks", "/"],
+// POST /api/v1/organizations/:organizationId/question-banks
+questionBankRouter.post(
+  "/",
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
@@ -36,9 +39,9 @@ router.post(
   createQuestionBank
 );
 
-// GET /api/v1/organizations/:organizationId/question-banks or /api/v1/question-banks
-router.get(
-  ["/question-banks", "/"],
+// GET /api/v1/organizations/:organizationId/question-banks
+questionBankRouter.get(
+  "/",
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
@@ -49,8 +52,8 @@ router.get(
 );
 
 // GET /api/v1/organizations/:organizationId/question-banks/:questionBankId
-router.get(
-  "/question-banks/:questionBankId",
+questionBankRouter.get(
+  "/:questionBankId",
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
@@ -61,8 +64,8 @@ router.get(
 );
 
 // PATCH /api/v1/organizations/:organizationId/question-banks/:questionBankId
-router.patch(
-  "/question-banks/:questionBankId",
+questionBankRouter.patch(
+  "/:questionBankId",
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
@@ -72,9 +75,21 @@ router.patch(
   updateQuestionBank
 );
 
+// POST /api/v1/organizations/:organizationId/question-banks/:questionBankId/archive
+questionBankRouter.post(
+  "/:questionBankId/archive",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.QUESTION_BANKS_DELETE,
+    PERMISSIONS.QUESTION_BANKS_DELETE
+  ),
+  deleteQuestionBank
+);
+
 // DELETE /api/v1/organizations/:organizationId/question-banks/:questionBankId
-router.delete(
-  "/question-banks/:questionBankId",
+questionBankRouter.delete(
+  "/:questionBankId",
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
@@ -85,8 +100,8 @@ router.delete(
 );
 
 // --- Bulk Import & Export ---
-router.post(
-  "/question-banks/:questionBankId/questions/import",
+questionBankRouter.post(
+  "/:questionBankId/questions/import",
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
@@ -96,8 +111,8 @@ router.post(
   importQuestions
 );
 
-router.get(
-  "/question-banks/:questionBankId/questions/export",
+questionBankRouter.get(
+  "/:questionBankId/questions/export",
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
@@ -108,9 +123,8 @@ router.get(
 );
 
 // --- Nested Questions in Question Bank ---
-
-router.post(
-  "/question-banks/:questionBankId/questions",
+questionBankRouter.post(
+  "/:questionBankId/questions",
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
@@ -120,8 +134,8 @@ router.post(
   createQuestion
 );
 
-router.get(
-  "/question-banks/:questionBankId/questions",
+questionBankRouter.get(
+  "/:questionBankId/questions",
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
@@ -131,10 +145,16 @@ router.get(
   getQuestions
 );
 
-// --- Global Questions Endpoints (Supports both /api/v1/questions and /api/v1/organizations/:id/questions) ---
+// --- Nested Categories ---
+questionBankRouter.use("/:questionBankId/categories", categoriesRouter);
 
-router.post(
-  ["/questions", "/"],
+// ==========================================
+// DIRECT QUESTIONS ROUTES
+// ==========================================
+
+// POST /api/v1/organizations/:organizationId/questions
+questionRouter.post(
+  "/",
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
@@ -144,8 +164,9 @@ router.post(
   createQuestion
 );
 
-router.get(
-  ["/questions", "/"],
+// GET /api/v1/organizations/:organizationId/questions
+questionRouter.get(
+  "/",
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
@@ -155,8 +176,9 @@ router.get(
   getQuestions
 );
 
-router.get(
-  ["/questions/:questionId", "/:questionId"],
+// GET /api/v1/organizations/:organizationId/questions/:questionId
+questionRouter.get(
+  "/:questionId",
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
@@ -166,8 +188,9 @@ router.get(
   getQuestion
 );
 
-router.patch(
-  ["/questions/:questionId", "/:questionId"],
+// PATCH /api/v1/organizations/:organizationId/questions/:questionId
+questionRouter.patch(
+  "/:questionId",
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
@@ -177,19 +200,24 @@ router.patch(
   updateQuestion
 );
 
-router.get(
-  ["/questions/:questionId/versions", "/:questionId/versions"],
+// POST /api/v1/organizations/:organizationId/questions/:questionId/publish
+questionRouter.post(
+  "/:questionId/publish",
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
-    PERMISSIONS.QUESTIONS_VIEW,
-    PERMISSIONS.QUESTIONS_VIEW
+    PERMISSIONS.QUESTIONS_UPDATE,
+    PERMISSIONS.QUESTIONS_UPDATE
   ),
-  getQuestionVersions
+  (req, res, next) => {
+    req.body.status = "PUBLISHED";
+    updateQuestion(req, res, next);
+  }
 );
 
-router.delete(
-  ["/questions/:questionId", "/:questionId"],
+// POST /api/v1/organizations/:organizationId/questions/:questionId/archive
+questionRouter.post(
+  "/:questionId/archive",
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
@@ -199,7 +227,28 @@ router.delete(
   deleteQuestion
 );
 
-// Nested categories route
-router.use("/question-banks/:questionBankId/categories", categoriesRouter);
+// GET /api/v1/organizations/:organizationId/questions/:questionId/versions
+questionRouter.get(
+  "/:questionId/versions",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.QUESTIONS_VIEW,
+    PERMISSIONS.QUESTIONS_VIEW
+  ),
+  getQuestionVersions
+);
 
-export default router;
+// DELETE /api/v1/organizations/:organizationId/questions/:questionId
+questionRouter.delete(
+  "/:questionId",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.QUESTIONS_DELETE,
+    PERMISSIONS.QUESTIONS_DELETE
+  ),
+  deleteQuestion
+);
+
+export default questionBankRouter;

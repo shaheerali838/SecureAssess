@@ -359,4 +359,60 @@ export class NotificationService {
 
     return { success: true };
   }
+
+  /**
+   * Retries delivery for a failed notification (bounded to 3 attempts)
+   */
+  static async retryNotification(notificationId) {
+    if (!mongoose.Types.ObjectId.isValid(notificationId)) {
+      throw new ApiError(400, "Invalid notification ID format");
+    }
+
+    const notification = await Notification.findById(notificationId);
+    if (!notification) {
+      throw new ApiError(404, "Notification not found");
+    }
+
+    if (notification.status !== NOTIFICATION_STATUSES.FAILED) {
+      throw new ApiError(400, `Cannot retry notification in status '${notification.status}'`);
+    }
+
+    if (notification.retryCount >= 3) {
+      throw new ApiError(400, "Maximum retry limit (3) reached");
+    }
+
+    notification.retryCount += 1;
+    notification.status = NOTIFICATION_STATUSES.PROCESSING;
+    await notification.save();
+
+    if (notification.channel === NOTIFICATION_CHANNELS.EMAIL) {
+      try {
+        const recipient = await User.findById(notification.recipientId);
+        if (recipient && recipient.email) {
+          await EmailService.sendEmail({
+            to: recipient.email,
+            subject: notification.title,
+            html: `<p>${notification.message}</p>`,
+            text: notification.message,
+          });
+          notification.status = NOTIFICATION_STATUSES.SENT;
+          notification.sentAt = new Date();
+          notification.failureReason = null;
+          await notification.save();
+        }
+      } catch (err) {
+        notification.status = NOTIFICATION_STATUSES.FAILED;
+        notification.failureReason = err.message;
+        notification.failedAt = new Date();
+        await notification.save();
+      }
+    } else {
+      notification.status = NOTIFICATION_STATUSES.SENT;
+      notification.sentAt = new Date();
+      notification.failureReason = null;
+      await notification.save();
+    }
+
+    return notification;
+  }
 }

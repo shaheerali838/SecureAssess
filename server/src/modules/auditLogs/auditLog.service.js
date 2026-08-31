@@ -52,20 +52,30 @@ export class AuditLogService {
   static async createAuditLog({
     organizationId = null,
     actorId = null,
+    actorUserId = null,
+    actorPlatformRole = null,
     actorType = ACTOR_TYPES.USER,
     action,
-    resource,
+    resource = null,
+    resourceType = null,
     resourceId = null,
     scope = null,
+    severity = "INFO",
     description,
     metadata = {},
     ipAddress = null,
     userAgent = null,
     requestId = null,
-    status = AUDIT_STATUSES.SUCCESS,
+    status = null,
+    result = null,
     errorCode = null,
+    retentionHold = false,
   }) {
-    if (!action || !resource || !description) {
+    const finalActorId = actorId || actorUserId;
+    const finalResource = resource || resourceType;
+    const finalStatus = status || result || AUDIT_STATUSES.SUCCESS;
+
+    if (!action || !finalResource || !description) {
       throw new ApiError(400, "action, resource, and description are required for audit logging");
     }
 
@@ -81,19 +91,22 @@ export class AuditLogService {
 
     const log = await AuditLog.create({
       organizationId: organizationId ? (mongoose.Types.ObjectId.isValid(organizationId) ? new mongoose.Types.ObjectId(organizationId) : organizationId) : null,
-      actorId: actorId ? (mongoose.Types.ObjectId.isValid(actorId) ? new mongoose.Types.ObjectId(actorId) : actorId) : null,
+      actorId: finalActorId ? (mongoose.Types.ObjectId.isValid(finalActorId) ? new mongoose.Types.ObjectId(finalActorId) : finalActorId) : null,
+      actorPlatformRole,
       actorType,
       action,
-      resource,
+      resource: finalResource,
       resourceId: resourceId ? resourceId.toString() : null,
       scope: resolvedScope,
+      severity,
       description,
       metadata: safeMeta,
       ipAddress,
       userAgent,
       requestId,
-      status,
+      status: finalStatus,
       errorCode,
+      retentionHold: Boolean(retentionHold),
     });
 
     return log;
@@ -191,8 +204,9 @@ export class AuditLogService {
       filter.organizationId = new mongoose.Types.ObjectId(organizationId);
     }
 
-    if (query.actorId) {
-      filter.actorId = new mongoose.Types.ObjectId(query.actorId);
+    const actorIdParam = query.actorId || query.actorUserId;
+    if (actorIdParam && mongoose.Types.ObjectId.isValid(actorIdParam)) {
+      filter.actorId = new mongoose.Types.ObjectId(actorIdParam);
     }
     if (query.actorType) {
       filter.actorType = query.actorType;
@@ -200,8 +214,9 @@ export class AuditLogService {
     if (query.action) {
       filter.action = query.action;
     }
-    if (query.resource) {
-      filter.resource = query.resource;
+    const resourceParam = query.resource || query.resourceType;
+    if (resourceParam) {
+      filter.resource = resourceParam;
     }
     if (query.resourceId) {
       filter.resourceId = query.resourceId;
@@ -209,11 +224,18 @@ export class AuditLogService {
     if (query.scope) {
       filter.scope = query.scope;
     }
-    if (query.status) {
-      filter.status = query.status;
+    if (query.severity) {
+      filter.severity = query.severity;
+    }
+    const statusParam = query.status || query.result;
+    if (statusParam) {
+      filter.status = statusParam;
     }
     if (query.requestId) {
       filter.requestId = query.requestId;
+    }
+    if (query.retentionHold !== undefined) {
+      filter.retentionHold = String(query.retentionHold) === "true";
     }
 
     if (query.search) {
@@ -336,5 +358,48 @@ export class AuditLogService {
     }
 
     return items;
+  }
+
+  /**
+   * 9. Set / Toggle Retention Hold on an Audit Record
+   */
+  static async setRetentionHold(organizationId, auditLogId, retentionHold = true) {
+    if (!mongoose.Types.ObjectId.isValid(auditLogId)) {
+      throw new ApiError(400, "Invalid audit log ID format");
+    }
+
+    const filter = { _id: auditLogId };
+    if (organizationId) filter.organizationId = organizationId;
+
+    const log = await AuditLog.findOne(filter);
+    if (!log) {
+      throw new ApiError(404, "Audit log record not found");
+    }
+
+    await AuditLog.collection.updateOne(
+      { _id: log._id },
+      { $set: { retentionHold: Boolean(retentionHold) } }
+    );
+
+    return { id: log._id, retentionHold: Boolean(retentionHold) };
+  }
+
+  /**
+   * 10. Execute Retention Cleanup Policy (Purge expired non-hold logs)
+   */
+  static async applyRetentionPolicy(organizationId = null, days = 90) {
+    const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const filter = {
+      createdAt: { $lt: cutoffDate },
+      retentionHold: { $ne: true },
+    };
+    if (organizationId) filter.organizationId = new mongoose.Types.ObjectId(organizationId);
+
+    const deleteResult = await AuditLog.collection.deleteMany(filter);
+    return {
+      deletedCount: deleteResult.deletedCount || 0,
+      cutoffDate,
+      days,
+    };
   }
 }

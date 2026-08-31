@@ -4,45 +4,49 @@ import QuestionBank from "../questionBank/questionBank.model.js";
 import { ApiError } from "../../utils/ApiError.js";
 
 export class QuestionCategoryService {
-  static async createCategory(organizationId, questionBankId, data, userId = null) {
-    if (!mongoose.Types.ObjectId.isValid(questionBankId)) {
-      throw new ApiError(400, "Invalid questionBank ID format");
-    }
+  static async createCategory(organizationId, questionBankId = null, data, userId = null) {
+    if (questionBankId) {
+      if (!mongoose.Types.ObjectId.isValid(questionBankId)) {
+        throw new ApiError(400, "Invalid questionBank ID format");
+      }
 
-    // Verify QuestionBank exists in this organization
-    const questionBank = await QuestionBank.findOne({
-      _id: questionBankId,
-      organizationId,
-    });
-    if (!questionBank) {
-      throw new ApiError(404, "Question bank not found in this organization");
+      // Verify QuestionBank exists in this organization
+      const questionBank = await QuestionBank.findOne({
+        _id: questionBankId,
+        organizationId,
+      });
+      if (!questionBank) {
+        throw new ApiError(404, "Question bank not found in this organization");
+      }
     }
 
     // Verify parentCategoryId if provided
     if (data.parentCategoryId) {
-      const parent = await QuestionCategory.findOne({
+      const parentFilter = {
         _id: data.parentCategoryId,
         organizationId,
-        questionBankId,
-      });
+      };
+      if (questionBankId) parentFilter.questionBankId = questionBankId;
+
+      const parent = await QuestionCategory.findOne(parentFilter);
       if (!parent) {
-        throw new ApiError(400, "Parent category not found in this question bank");
+        throw new ApiError(400, "Parent category not found in this organization");
       }
     }
 
     const name = data.name.trim();
     const existing = await QuestionCategory.findOne({
       organizationId,
-      questionBankId,
+      questionBankId: questionBankId || null,
       name,
     });
     if (existing) {
-      throw new ApiError(409, `Category '${name}' already exists in this question bank`);
+      throw new ApiError(409, `Category '${name}' already exists in this scope`);
     }
 
     const category = await QuestionCategory.create({
       organizationId,
-      questionBankId,
+      questionBankId: questionBankId || null,
       name,
       description: data.description || "",
       parentCategoryId: data.parentCategoryId || null,
@@ -54,17 +58,22 @@ export class QuestionCategoryService {
   }
 
   static async getCategories(organizationId, questionBankId, query = {}) {
-    if (!mongoose.Types.ObjectId.isValid(questionBankId)) {
-      throw new ApiError(400, "Invalid questionBank ID format");
+    // questionBankId is optional — when absent, list all categories for the org
+    const filter = { organizationId };
+    if (questionBankId && mongoose.Types.ObjectId.isValid(questionBankId)) {
+      filter.questionBankId = questionBankId;
     }
-
-    const filter = { organizationId, questionBankId };
     if (query.status) filter.status = query.status;
     if (query.parentCategoryId) filter.parentCategoryId = query.parentCategoryId;
+    if (query.search) {
+      filter.name = { $regex: query.search, $options: "i" };
+    }
 
+    const limit = parseInt(query.limit || "200", 10);
     const categories = await QuestionCategory.find(filter)
       .populate("parentCategoryId", "name")
-      .sort({ name: 1 });
+      .sort({ name: 1 })
+      .limit(limit);
 
     return categories;
   }
@@ -74,14 +83,17 @@ export class QuestionCategoryService {
       throw new ApiError(400, "Invalid category ID format");
     }
 
-    const category = await QuestionCategory.findOne({
-      _id: categoryId,
-      organizationId,
-      questionBankId,
-    }).populate("parentCategoryId", "name");
+    // questionBankId is optional for cross-bank category lookup
+    const filter = { _id: categoryId, organizationId };
+    if (questionBankId && mongoose.Types.ObjectId.isValid(questionBankId)) {
+      filter.questionBankId = questionBankId;
+    }
+
+    const category = await QuestionCategory.findOne(filter)
+      .populate("parentCategoryId", "name");
 
     if (!category) {
-      throw new ApiError(404, "Category not found in this question bank");
+      throw new ApiError(404, "Category not found in this organization");
     }
 
     return category;

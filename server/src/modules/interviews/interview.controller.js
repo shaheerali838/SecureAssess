@@ -154,3 +154,38 @@ export const removeParticipant = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, result, "Participant removed successfully"));
 });
+
+export const addNote = asyncHandler(async (req, res) => {
+  const organizationId = req.params.organizationId || req.organizationId;
+  const { interviewId } = req.params;
+  const userId = req.user?.id || req.user?._id;
+
+  const result = await InterviewService.addNote(
+    organizationId,
+    interviewId,
+    userId,
+    req.body
+  );
+
+  return res
+    .status(201)
+    .json(new ApiResponse(201, result, "Interview note added successfully"));
+});
+
+export const getNotes = asyncHandler(async (req, res) => {
+  const organizationId = req.params.organizationId || req.organizationId;
+  const { interviewId } = req.params;
+  const userId = req.user?.id || req.user?._id;
+  const isCandidate = Boolean(req.user?.role === "CANDIDATE" || req.path?.includes("candidate"));
+
+  const result = await InterviewService.getNotes(
+    organizationId,
+    interviewId,
+    userId,
+    isCandidate
+  );
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, result, "Interview notes retrieved"));
+});

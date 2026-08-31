@@ -413,4 +413,77 @@ export class InterviewService {
       organizationId,
     });
   }
+
+  /**
+   * Adds an examiner evaluation note to an interview
+   */
+  static async addNote(organizationId, interviewId, authorUserId, noteData) {
+    if (!mongoose.Types.ObjectId.isValid(interviewId)) {
+      throw new ApiError(400, "Invalid interview ID format");
+    }
+
+    const interview = await Interview.findOne({ _id: interviewId, organizationId });
+    if (!interview) {
+      throw new ApiError(404, "Interview not found in this organization");
+    }
+
+    const note = {
+      content: noteData.content || noteData.note || "",
+      category: noteData.category || "GENERAL",
+      rating: noteData.rating || null,
+      isPrivate: noteData.isPrivate !== false,
+      createdAt: new Date(),
+    };
+
+    const event = await InterviewEvent.create({
+      interviewId,
+      organizationId,
+      userId: authorUserId,
+      type: INTERVIEW_EVENT_TYPES.INTERVIEW_NOTE_ADDED,
+      data: note,
+    });
+
+    AuditLogService.createAuditLog({
+      organizationId,
+      actorId: authorUserId,
+      action: "CREATE",
+      resource: "INTERVIEW",
+      resourceId: interview._id,
+      description: `Examiner added interview note in category '${note.category}'`,
+    }).catch(() => {});
+
+    return event;
+  }
+
+  /**
+   * Retrieves interview notes (filtered based on candidate vs examiner role)
+   */
+  static async getNotes(organizationId, interviewId, requestingUserId) {
+    if (!mongoose.Types.ObjectId.isValid(interviewId)) {
+      throw new ApiError(400, "Invalid interview ID format");
+    }
+
+    const interview = await Interview.findOne({ _id: interviewId, organizationId });
+    if (!interview) {
+      throw new ApiError(404, "Interview not found in this organization");
+    }
+
+    const participant = await InterviewParticipant.findOne({ interviewId, userId: requestingUserId });
+    const isCandidate =
+      participant?.role === PARTICIPANT_ROLES.CANDIDATE ||
+      Boolean(await Candidate.exists({ userId: requestingUserId, organizationId, _id: interview.candidateId }));
+
+    const events = await InterviewEvent.find({
+      interviewId,
+      organizationId,
+      type: INTERVIEW_EVENT_TYPES.INTERVIEW_NOTE_ADDED,
+    }).populate("userId", "firstName lastName email").lean();
+
+    if (isCandidate) {
+      // Candidates can ONLY see non-private notes
+      return events.filter((e) => e.data && e.data.isPrivate === false);
+    }
+
+    return events;
+  }
 }

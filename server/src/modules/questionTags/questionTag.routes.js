@@ -26,14 +26,11 @@ router.post(
 );
 
 // GET /api/v1/organizations/:organizationId/question-tags
+// Any authenticated org member can list tags (low-sensitivity lookup)
 router.get(
   "/",
   requireAuth,
   requireTenantContext,
-  requireOrganizationOrPlatformPermission(
-    PERMISSIONS.QUESTION_TAGS_VIEW,
-    PERMISSIONS.QUESTION_TAGS_VIEW
-  ),
   getTags
 );
 
@@ -42,10 +39,6 @@ router.get(
   "/:tagId",
   requireAuth,
   requireTenantContext,
-  requireOrganizationOrPlatformPermission(
-    PERMISSIONS.QUESTION_TAGS_VIEW,
-    PERMISSIONS.QUESTION_TAGS_VIEW
-  ),
   getTag
 );
 

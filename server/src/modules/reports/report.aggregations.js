@@ -10,6 +10,8 @@ import User from "../users/user.model.js";
 import Organization from "../organizations/organization.model.js";
 import ProctoringSession from "../proctoring/proctoringSession.model.js";
 import ProctoringEvent from "../proctoring/proctoringEvent.model.js";
+import Interview from "../interviews/interview.model.js";
+import InterviewSession from "../interviews/interviewSession.model.js";
 
 const toObjectId = (id) => (mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id);
 const safeFixed = (num, digits = 2) =>
@@ -54,15 +56,15 @@ export class ReportAggregations {
         },
       ]),
       Result.aggregate([
-        { $match: { assessmentId: assId, organizationId: orgId } },
+        { $match: { assessmentId: assId, organizationId: orgId, status: { $ne: "VOIDED" } } },
         {
           $group: {
             _id: null,
             totalResults: { $sum: 1 },
-            avgScore: { $avg: "$earnedPoints" },
+            avgScore: { $avg: { $ifNull: ["$obtainedMarks", "$earnedPoints"] } },
             avgPercentage: { $avg: "$percentage" },
-            highestScore: { $max: "$earnedPoints" },
-            lowestScore: { $min: "$earnedPoints" },
+            highestScore: { $max: { $ifNull: ["$obtainedMarks", "$earnedPoints"] } },
+            lowestScore: { $min: { $ifNull: ["$obtainedMarks", "$earnedPoints"] } },
             passedCount: { $sum: { $cond: [{ $eq: ["$passed", true] }, 1, 0] } },
           },
         },
@@ -137,15 +139,15 @@ export class ReportAggregations {
         },
       ]),
       Result.aggregate([
-        { $match: { candidateId: candId, organizationId: orgId } },
+        { $match: { candidateId: candId, organizationId: orgId, status: { $ne: "VOIDED" } } },
         {
           $group: {
             _id: null,
             totalResults: { $sum: 1 },
-            avgScore: { $avg: "$earnedPoints" },
+            avgScore: { $avg: { $ifNull: ["$obtainedMarks", "$earnedPoints"] } },
             avgPercentage: { $avg: "$percentage" },
-            highestScore: { $max: "$earnedPoints" },
-            lowestScore: { $min: "$earnedPoints" },
+            highestScore: { $max: { $ifNull: ["$obtainedMarks", "$earnedPoints"] } },
+            lowestScore: { $min: { $ifNull: ["$obtainedMarks", "$earnedPoints"] } },
             passedCount: { $sum: { $cond: [{ $eq: ["$passed", true] }, 1, 0] } },
           },
         },
@@ -169,10 +171,11 @@ export class ReportAggregations {
     const passRate = res.totalResults > 0 ? (res.passedCount / res.totalResults) * 100 : 0;
 
     return {
-      candidate: candidate ? { id: candidate._id, name: `${candidate.firstName} ${candidate.lastName}`, email: candidate.email, code: candidate.candidateCode } : null,
+      candidate: candidate ? { id: candidate._id, name: `${candidate.firstName} ${candidate.lastName}`, email: candidate.email, code: candidate.candidateCode, candidateCode: candidate.candidateCode } : null,
       assessmentsAssigned: assignmentsCount,
       attemptsStarted: att.totalAttempts,
       attemptsCompleted: att.completed,
+      totalCompleted: att.completed,
       averageScore: safeFixed(res.avgScore),
       averagePercentage: safeFixed(res.avgPercentage),
       highestScore: res.highestScore ?? 0,
@@ -277,6 +280,10 @@ export class ReportAggregations {
 
     return {
       totalProctoredAttempts: sess.totalSessions,
+      lowRisk: sess.lowRisk,
+      mediumRisk: sess.mediumRisk,
+      highRisk: sess.highRisk,
+      criticalRisk: sess.criticalRisk,
       lowRiskAttempts: sess.lowRisk,
       mediumRiskAttempts: sess.mediumRisk,
       highRiskAttempts: sess.highRisk,
@@ -417,6 +424,7 @@ export class ReportAggregations {
 
     return {
       totalAssessments: assessmentsCount,
+      totalCandidates: candidatesCount,
       candidates: candidatesCount,
       attempts: att.totalAttempts,
       completedAttempts: att.completedAttempts,
@@ -490,7 +498,7 @@ export class ReportAggregations {
             _id: null,
             totalStarted: { $sum: 1 },
             submitted: { $sum: { $cond: [{ $in: ["$status", ["SUBMITTED", "AUTO_SUBMITTED", "COMPLETED", "EVALUATED"]] }, 1, 0] } },
-            completed: { $sum: { $cond: [{ $in: ["$status", ["COMPLETED", "EVALUATED"]] }, 1, 0] } },
+            completed: { $sum: { $cond: [{ $in: ["$status", ["COMPLETED", "EVALUATED", "SUBMITTED"]] }, 1, 0] } },
             avgDurationSeconds: {
               $avg: {
                 $cond: [
@@ -531,6 +539,7 @@ export class ReportAggregations {
       started: att.totalStarted,
       submitted: att.submitted,
       completed: att.completed,
+      completedAttempts: att.completed,
       passed: res.passedCount,
       failed: res.failedCount,
       pendingEvaluation: pendingEvalCount,
@@ -741,6 +750,56 @@ export class ReportAggregations {
       confirmedViolations: sess.confirmedViolations,
       warnings: warningsCount,
       terminations: sess.terminations,
+    };
+  }
+
+  /**
+   * 11. Live Interview Statistics Aggregation (Step 51 integration)
+   */
+  static async getInterviewStatistics(organizationId, filters = {}) {
+    const orgId = toObjectId(organizationId);
+    const dateMatch = {};
+    if (filters.startDate || filters.endDate) {
+      dateMatch.scheduledStartAt = {};
+      if (filters.startDate) dateMatch.scheduledStartAt.$gte = new Date(filters.startDate);
+      if (filters.endDate) dateMatch.scheduledStartAt.$lte = new Date(filters.endDate);
+    }
+
+    const [interviewStats, sessionCount] = await Promise.all([
+      Interview.aggregate([
+        { $match: { organizationId: orgId, ...dateMatch } },
+        {
+          $group: {
+            _id: null,
+            totalInterviews: { $sum: 1 },
+            scheduled: { $sum: { $cond: [{ $eq: ["$status", "SCHEDULED"] }, 1, 0] } },
+            live: { $sum: { $cond: [{ $eq: ["$status", "LIVE"] }, 1, 0] } },
+            completed: { $sum: { $cond: [{ $eq: ["$status", "COMPLETED"] }, 1, 0] } },
+            cancelled: { $sum: { $cond: [{ $eq: ["$status", "CANCELLED"] }, 1, 0] } },
+            noShow: { $sum: { $cond: [{ $eq: ["$status", "NO_SHOW"] }, 1, 0] } },
+          },
+        },
+      ]),
+      InterviewSession.countDocuments({ organizationId: orgId }),
+    ]);
+
+    const stats = interviewStats[0] || {
+      totalInterviews: 0,
+      scheduled: 0,
+      live: 0,
+      completed: 0,
+      cancelled: 0,
+      noShow: 0,
+    };
+
+    return {
+      totalInterviews: stats.totalInterviews,
+      scheduled: stats.scheduled,
+      live: stats.live,
+      completed: stats.completed,
+      cancelled: stats.cancelled,
+      noShow: stats.noShow,
+      totalSessions: sessionCount,
     };
   }
 }

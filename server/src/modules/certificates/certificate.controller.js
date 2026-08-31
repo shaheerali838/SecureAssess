@@ -118,3 +118,21 @@ export const revokeCertificate = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, result, "Certificate revoked successfully"));
 });
+
+export const reissueCertificate = asyncHandler(async (req, res) => {
+  const userId = req.user?.id || req.user?._id;
+  const organizationId = req.params.organizationId || req.organizationId;
+  const { certificateId } = req.params;
+  const { reason } = req.body;
+
+  const result = await CertificateService.reissueCertificate(
+    organizationId,
+    certificateId,
+    userId,
+    reason
+  );
+
+  return res
+    .status(201)
+    .json(new ApiResponse(201, result, "Certificate reissued successfully"));
+});

@@ -11,25 +11,39 @@ const subscriptionLimitsSchema = new mongoose.Schema(
   {
     candidates: { type: Number, default: 25 },
     assessments: { type: Number, default: 5 },
+    questions: { type: Number, default: 50 },
     activeAssessments: { type: Number, default: 2 },
     staffUsers: { type: Number, default: 3 },
     interviews: { type: Number, default: 5 },
     monthlyAttempts: { type: Number, default: 50 },
     storageGb: { type: Number, default: 1 },
+    maxUsers: { type: Number, default: 5 },
+    maxCandidates: { type: Number, default: 200 },
+    maxAssessments: { type: Number, default: 15 },
+    maxQuestions: { type: Number, default: 500 },
+    maxAttempts: { type: Number, default: 500 },
+    maxInterviews: { type: Number, default: 20 },
+    maxStorage: { type: Number, default: 10 },
   },
-  { _id: false }
+  { strict: false, _id: false }
 );
 
 const subscriptionFeaturesSchema = new mongoose.Schema(
   {
+    assessmentBuilder: { type: Boolean, default: true },
+    advancedQuestionBank: { type: Boolean, default: false },
     proctoring: { type: Boolean, default: false },
     liveInterviews: { type: Boolean, default: true },
+    analytics: { type: Boolean, default: false },
+    certificates: { type: Boolean, default: false },
     customCertificates: { type: Boolean, default: false },
+    customBranding: { type: Boolean, default: false },
+    exports: { type: Boolean, default: true },
     apiAccess: { type: Boolean, default: false },
     prioritySupport: { type: Boolean, default: false },
     whiteLabeling: { type: Boolean, default: false },
   },
-  { _id: false }
+  { strict: false, _id: false }
 );
 
 const subscriptionUsageSchema = new mongoose.Schema(
@@ -53,17 +67,46 @@ const subscriptionSchema = new mongoose.Schema(
       unique: true,
       index: true,
     },
+    planId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Plan",
+      default: null,
+      index: true,
+    },
+    planCode: {
+      type: String,
+      default: "FREE",
+      uppercase: true,
+      trim: true,
+      index: true,
+    },
     plan: {
       type: String,
-      enum: SUBSCRIPTION_PLAN_LIST,
-      default: SUBSCRIPTION_PLANS.FREE_TRIAL,
+      default: "FREE_TRIAL",
       index: true,
     },
     status: {
       type: String,
-      enum: SUBSCRIPTION_STATUS_LIST,
-      default: SUBSCRIPTION_STATUSES.TRIALING,
+      default: "TRIALING",
       index: true,
+    },
+    billingInterval: {
+      type: String,
+      enum: ["MONTHLY", "YEARLY"],
+      default: "MONTHLY",
+    },
+    price: {
+      type: Number,
+      default: 0,
+    },
+    currency: {
+      type: String,
+      default: "USD",
+      uppercase: true,
+    },
+    startDate: {
+      type: Date,
+      default: Date.now,
     },
     startedAt: {
       type: Date,

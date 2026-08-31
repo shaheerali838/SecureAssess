@@ -16,7 +16,7 @@ import { requireAuth } from "../../middleware/auth.middleware.js";
 const router = express.Router({ mergeParams: true });
 
 // Start a new attempt or resume active attempt
-router.post("/start", requireAuth, startAttempt);
+router.post(["/", "/start"], requireAuth, startAttempt);
 router.post("/assignments/:assignmentId/start", requireAuth, startAttempt);
 
 // List attempts for authenticated candidate
@@ -32,6 +32,12 @@ router.get("/:attemptId/questions/:questionId", requireAuth, getAttemptQuestion)
 // Save candidate answer (Autosave & Updates)
 router.put("/:attemptId/questions/:questionId/answer", requireAuth, saveAnswer);
 router.post("/:attemptId/questions/:questionId/answer", requireAuth, saveAnswer);
+router.post("/:attemptId/answers", requireAuth, (req, res, next) => {
+  if (!req.params.questionId && (req.body.questionId || req.body.attemptQuestionId)) {
+    req.params.questionId = req.body.questionId || req.body.attemptQuestionId;
+  }
+  return saveAnswer(req, res, next);
+});
 
 // Flag question for review
 router.patch("/:attemptId/questions/:questionId/flag", requireAuth, flagQuestion);

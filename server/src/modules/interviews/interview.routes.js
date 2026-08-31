@@ -9,6 +9,8 @@ import {
   cancelInterview,
   addParticipant,
   removeParticipant,
+  addNote,
+  getNotes,
 } from "./interview.controller.js";
 import {
   createInterviewSchema,
@@ -229,16 +231,24 @@ router.delete(
   removeParticipant
 );
 
-// DELETE /interviews/:interviewId/participants/:userId - Alias
-router.delete(
-  "/interviews/:interviewId/participants/:userId",
+// POST /:interviewId/notes - Add examiner note
+router.post(
+  ["/:interviewId/notes", "/interviews/:interviewId/notes"],
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
-    INTERVIEW_PERMISSIONS.MANAGE_PARTICIPANTS,
-    INTERVIEW_PERMISSIONS.MANAGE_PARTICIPANTS
+    INTERVIEW_PERMISSIONS.UPDATE || INTERVIEW_PERMISSIONS.VIEW,
+    INTERVIEW_PERMISSIONS.UPDATE || INTERVIEW_PERMISSIONS.VIEW
   ),
-  removeParticipant
+  addNote
+);
+
+// GET /:interviewId/notes - View notes
+router.get(
+  ["/:interviewId/notes", "/interviews/:interviewId/notes"],
+  requireAuth,
+  requireTenantContext,
+  getNotes
 );
 
 export default router;

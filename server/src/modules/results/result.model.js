@@ -47,7 +47,16 @@ const resultSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["PENDING", "PROCESSING", "READY", "PUBLISHED", "WITHHELD", "CANCELLED"],
+      enum: [
+        "PENDING",
+        "CALCULATING",
+        "PROCESSING",
+        "READY",
+        "PUBLISHED",
+        "WITHHELD",
+        "VOIDED",
+        "CANCELLED",
+      ],
       default: "READY",
       index: true,
     },
@@ -63,6 +72,15 @@ const resultSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    sectionScores: [
+      {
+        sectionId: { type: mongoose.Schema.Types.ObjectId, ref: "AssessmentSection" },
+        title: { type: String, default: "" },
+        totalMarks: { type: Number, default: 0 },
+        obtainedMarks: { type: Number, default: 0 },
+        percentage: { type: Number, default: 0 },
+      },
+    ],
     published: {
       type: Boolean,
       default: false,
@@ -77,6 +95,32 @@ const resultSchema = new mongoose.Schema(
       ref: "User",
       default: null,
     },
+    voidedAt: {
+      type: Date,
+      default: null,
+    },
+    voidedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    voidReason: {
+      type: String,
+      default: "",
+    },
+    correctionHistory: [
+      {
+        oldObtainedMarks: Number,
+        newObtainedMarks: Number,
+        oldPercentage: Number,
+        newPercentage: Number,
+        oldGrade: String,
+        newGrade: String,
+        correctedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        reason: String,
+        timestamp: { type: Date, default: Date.now },
+      },
+    ],
     metadata: {
       type: mongoose.Schema.Types.Mixed,
       default: {},
@@ -89,6 +133,7 @@ const resultSchema = new mongoose.Schema(
 
 resultSchema.index({ organizationId: 1, candidateId: 1 });
 resultSchema.index({ organizationId: 1, assessmentId: 1 });
+resultSchema.index({ organizationId: 1, status: 1 });
 
 const Result =
   mongoose.models.Result || mongoose.model("Result", resultSchema);

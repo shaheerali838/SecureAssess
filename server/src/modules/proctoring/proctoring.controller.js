@@ -327,3 +327,41 @@ export const getSessions = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, result, "Proctoring sessions retrieved successfully"));
 });
+
+export const getEvents = asyncHandler(async (req, res) => {
+  const organizationId =
+    req.params.organizationId ||
+    req.organizationId ||
+    req.query.organizationId ||
+    req.headers["x-organization-id"] ||
+    req.user?.activeOrganizationId;
+
+  const result = await ProctoringService.getEvents(organizationId, req.query);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, result, "Proctoring events retrieved successfully"));
+});
+
+export const setIntegrityDecision = asyncHandler(async (req, res) => {
+  const organizationId =
+    req.params.organizationId ||
+    req.organizationId ||
+    req.query.organizationId ||
+    req.headers["x-organization-id"] ||
+    req.user?.activeOrganizationId;
+  const targetId = req.params.sessionId || req.params.attemptId;
+  const userId = req.user?.id || req.user?._id;
+  const { decision, note } = req.body;
+
+  const result = await ProctoringService.setIntegrityDecision(
+    organizationId,
+    targetId,
+    decision,
+    note,
+    userId
+  );
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, result, "Integrity decision updated successfully"));
+});

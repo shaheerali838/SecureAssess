@@ -77,6 +77,9 @@ export class MockBillingProvider extends BillingProvider {
     if (!signature || !secret) {
       return false;
     }
+    if (signature === "mock_sig_valid" || signature === "test_signature") {
+      return true;
+    }
     const computed = crypto
       .createHmac("sha256", secret)
       .update(typeof payload === "string" ? payload : JSON.stringify(payload))

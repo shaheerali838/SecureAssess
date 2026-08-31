@@ -15,6 +15,8 @@ import {
   exportReport,
   listReports,
   getReportById,
+  getInterviewAnalytics,
+  downloadReport,
 } from "./report.controller.js";
 import { exportReportSchema } from "./report.validation.js";
 import { validateRequest } from "../../middleware/validation.middleware.js";
@@ -43,9 +45,9 @@ router.get(
 
 // --- Organization Reports & Analytics Endpoints ---
 
-// GET /api/v1/reports/dashboard
+// GET /api/v1/reports/dashboard & /api/v1/reports/overview
 router.get(
-  "/dashboard",
+  ["/dashboard", "/overview"],
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
@@ -57,7 +59,7 @@ router.get(
 
 // GET /api/v1/reports/assessments/:assessmentId/summary
 router.get(
-  "/assessments/:assessmentId/summary",
+  ["/assessments/:assessmentId/summary", "/assessments/:assessmentId"],
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
@@ -117,7 +119,7 @@ router.get(
 
 // GET /api/v1/reports/candidates/:candidateId/performance
 router.get(
-  "/candidates/:candidateId/performance",
+  ["/candidates/:candidateId/performance", "/candidates/:candidateId"],
   requireAuth,
   requireTenantContext,
   requireOrganizationOrPlatformPermission(
@@ -186,6 +188,30 @@ router.get(
     PERMISSIONS.REPORTS_VIEW
   ),
   listReports
+);
+
+// GET /api/v1/reports/interviews
+router.get(
+  "/interviews",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.REPORTS_VIEW,
+    PERMISSIONS.REPORTS_VIEW
+  ),
+  getInterviewAnalytics
+);
+
+// GET /api/v1/reports/:reportId/download
+router.get(
+  "/:reportId/download",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.REPORTS_DOWNLOAD || PERMISSIONS.REPORTS_VIEW,
+    PERMISSIONS.REPORTS_DOWNLOAD || PERMISSIONS.REPORTS_VIEW
+  ),
+  downloadReport
 );
 
 // GET /api/v1/reports/:reportId

@@ -69,6 +69,15 @@ export class ResultService {
       assessment.gradingSettings?.passingScore || assessment.passingScore || 50;
     const passed = evaluation.percentage >= passingScore;
 
+    // Build section scores breakdown if available
+    const sectionScores = (evaluation.sectionScores || []).map((sec) => ({
+      sectionId: sec.sectionId,
+      title: sec.title || "",
+      totalMarks: sec.totalMarks || 0,
+      obtainedMarks: sec.obtainedMarks || 0,
+      percentage: sec.percentage || 0,
+    }));
+
     const result = await Result.findOneAndUpdate(
       { attemptId: evaluation.attemptId },
       {
@@ -83,6 +92,7 @@ export class ResultService {
           percentage: evaluation.percentage,
           grade,
           passed,
+          sectionScores,
           status: isAutoPublish ? "PUBLISHED" : "READY",
           published: isAutoPublish,
           publishedAt: isAutoPublish ? new Date() : null,
@@ -130,6 +140,7 @@ export class ResultService {
     const filter = {
       candidateId: candidate._id,
       published: true, // Only published results visible to candidate
+      status: { $ne: "VOIDED" },
     };
 
     if (organizationId) filter.organizationId = organizationId;
@@ -158,6 +169,7 @@ export class ResultService {
         percentage: r.percentage,
         grade: r.grade,
         passed: r.passed,
+        sectionScores: r.sectionScores || [],
         publishedAt: r.publishedAt,
         status: r.status,
       })),
@@ -190,6 +202,7 @@ export class ResultService {
     const filter = {
       $or: [{ _id: resultOrAttemptId }, { attemptId: resultOrAttemptId }],
       candidateId: candidate._id,
+      status: { $ne: "VOIDED" },
     };
     if (organizationId) filter.organizationId = organizationId;
 
@@ -214,6 +227,7 @@ export class ResultService {
       percentage: result.percentage,
       grade: result.grade,
       passed: result.passed,
+      sectionScores: result.sectionScores || [],
       publishedAt: result.publishedAt,
       status: result.status,
     };
@@ -269,7 +283,8 @@ export class ResultService {
       .populate("assessmentId", "title code duration resultSettings")
       .populate("candidateId", "firstName lastName candidateCode email")
       .populate("evaluationId")
-      .populate("publishedBy", "firstName lastName email");
+      .populate("publishedBy", "firstName lastName email")
+      .populate("voidedBy", "firstName lastName email");
 
     if (!result) {
       throw new ApiError(404, "Result not found in this organization");
@@ -323,7 +338,7 @@ export class ResultService {
     AuditLogService.createAuditLog({
       organizationId,
       actorId: publishedByUserId,
-      action: "UPDATE",
+      action: "PUBLISH",
       resource: "RESULT",
       resourceId: result._id,
       description: `Published assessment result for candidate '${result.candidateId?.email}'`,
@@ -363,7 +378,7 @@ export class ResultService {
     AuditLogService.createAuditLog({
       organizationId,
       actorId: unpublishedByUserId,
-      action: "UPDATE",
+      action: "UNPUBLISH",
       resource: "RESULT",
       resourceId: result._id,
       description: `Unpublished assessment result (Reason: ${reason || "Organization review"})`,
@@ -371,4 +386,98 @@ export class ResultService {
 
     return result;
   }
+
+  /**
+   * Staff: Void result (with audit trail)
+   */
+  static async voidResult(organizationId, resultId, voidedByUserId, reason = "Examination irregularity") {
+    if (!mongoose.Types.ObjectId.isValid(resultId)) {
+      throw new ApiError(400, "Invalid result ID format");
+    }
+
+    const result = await Result.findOneAndUpdate(
+      { _id: resultId, organizationId },
+      {
+        $set: {
+          status: "VOIDED",
+          published: false,
+          voidedAt: new Date(),
+          voidedBy: voidedByUserId,
+          voidReason: reason,
+        },
+      },
+      { returnDocument: "after" }
+    );
+
+    if (!result) {
+      throw new ApiError(404, "Result not found in this organization");
+    }
+
+    AuditLogService.createAuditLog({
+      organizationId,
+      actorId: voidedByUserId,
+      action: "VOID_RESULT",
+      resource: "RESULT",
+      resourceId: result._id,
+      description: `Voided result '${result._id}' (Reason: ${reason})`,
+    }).catch(() => {});
+
+    return result;
+  }
+
+  /**
+   * Staff: Controlled correction of result scores with revision audit
+   */
+  static async correctResult(organizationId, resultId, corrections, correctedByUserId, reason = "") {
+    if (!mongoose.Types.ObjectId.isValid(resultId)) {
+      throw new ApiError(400, "Invalid result ID format");
+    }
+
+    const result = await Result.findOne({ _id: resultId, organizationId });
+    if (!result) {
+      throw new ApiError(404, "Result not found in this organization");
+    }
+
+    const oldObtainedMarks = result.obtainedMarks;
+    const oldPercentage = result.percentage;
+    const oldGrade = result.grade;
+
+    const newObtainedMarks = corrections.obtainedMarks !== undefined ? corrections.obtainedMarks : oldObtainedMarks;
+    const newPercentage = result.totalMarks > 0 ? (newObtainedMarks / result.totalMarks) * 100 : 0;
+    const newGrade = calculateGrade(newPercentage);
+    const passed = newPercentage >= 50;
+
+    result.obtainedMarks = newObtainedMarks;
+    result.percentage = newPercentage;
+    result.grade = newGrade;
+    result.passed = passed;
+
+    result.correctionHistory = result.correctionHistory || [];
+    result.correctionHistory.push({
+      oldObtainedMarks,
+      newObtainedMarks,
+      oldPercentage,
+      newPercentage,
+      oldGrade,
+      newGrade,
+      correctedBy: correctedByUserId,
+      reason: reason || "Score correction by examiner",
+      timestamp: new Date(),
+    });
+
+    await result.save();
+
+    AuditLogService.createAuditLog({
+      organizationId,
+      actorId: correctedByUserId,
+      action: "CORRECT_RESULT",
+      resource: "RESULT",
+      resourceId: result._id,
+      description: `Corrected result score from ${oldObtainedMarks} to ${newObtainedMarks} (Reason: ${reason})`,
+    }).catch(() => {});
+
+    return result;
+  }
 }
+
+export default ResultService;

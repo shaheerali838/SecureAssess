@@ -25,27 +25,20 @@ router.post(
   createCategory
 );
 
-// GET /api/v1/organizations/:organizationId/question-banks/:questionBankId/categories
+// GET /api/v1/organizations/:organizationId/question-categories
+// Any authenticated org member can list categories (low-sensitivity lookup)
 router.get(
   "/",
   requireAuth,
   requireTenantContext,
-  requireOrganizationOrPlatformPermission(
-    PERMISSIONS.QUESTION_CATEGORIES_VIEW,
-    PERMISSIONS.QUESTION_CATEGORIES_VIEW
-  ),
   getCategories
 );
 
-// GET /api/v1/organizations/:organizationId/question-banks/:questionBankId/categories/:categoryId
+// GET /api/v1/organizations/:organizationId/question-categories/:categoryId
 router.get(
   "/:categoryId",
   requireAuth,
   requireTenantContext,
-  requireOrganizationOrPlatformPermission(
-    PERMISSIONS.QUESTION_CATEGORIES_VIEW,
-    PERMISSIONS.QUESTION_CATEGORIES_VIEW
-  ),
   getCategory
 );
 

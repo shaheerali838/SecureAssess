@@ -352,6 +352,21 @@ node server/tests/integration/step31_notifications_communication.test.js
 # Reports & Analytics Engine (Step 32)
 node server/tests/integration/step32_reports_analytics.test.js
 
+# Audit, Compliance & Security Governance Engine (Step 55)
+node server/tests/integration/step55_audit_security_governance.test.js
+
+# Subscription, Plans & SaaS Entitlement Engine (Step 56)
+node server/tests/integration/step56_subscription_entitlement_engine.test.js
+
+# Billing & Payment Integration Layer (Step 57)
+node server/tests/integration/step57_billing_payment_integration.test.js
+
+# Production Infrastructure, Deployment & Observability (Step 58)
+node server/tests/integration/step58_production_infrastructure.test.js
+
+# Production Readiness & Final System Validation (Step 59)
+node server/tests/integration/step59_final_system_validation.test.js
+
 # Audit Logs & Security Activity (Step 33)
 node server/tests/integration/step33_audit_logs.test.js
 

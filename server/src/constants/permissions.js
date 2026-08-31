@@ -175,6 +175,12 @@ export const PERMISSIONS = Object.freeze({
   // --- Audit Logs Permissions ---
   AUDIT_LOGS_VIEW: "audit_logs.view",
   AUDIT_LOGS_EXPORT: "audit_logs.export",
+
+  // --- Subscription & Plan Permissions ---
+  SUBSCRIPTIONS_VIEW: "subscriptions.view",
+  SUBSCRIPTIONS_MANAGE: "subscriptions.manage",
+  PLANS_VIEW: "plans.view",
+  PLANS_MANAGE: "plans.manage",
 });
 
 export const PERMISSION_LIST = Object.values(PERMISSIONS);

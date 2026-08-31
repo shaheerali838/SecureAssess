@@ -10,7 +10,8 @@ export const createCategory = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Validation failed", errors);
   }
 
-  const { organizationId, questionBankId } = req.params;
+  const { organizationId } = req.params;
+  const questionBankId = req.params.questionBankId || req.body.questionBankId || null;
   const userId = req.user?.id || req.user?._id;
   const category = await QuestionCategoryService.createCategory(
     organizationId,
@@ -22,7 +23,9 @@ export const createCategory = asyncHandler(async (req, res) => {
 });
 
 export const getCategories = asyncHandler(async (req, res) => {
-  const { organizationId, questionBankId } = req.params;
+  const { organizationId } = req.params;
+  // questionBankId may come from URL params (nested route) or query string (org-level route)
+  const questionBankId = req.params.questionBankId || req.query.questionBankId;
   const categories = await QuestionCategoryService.getCategories(
     organizationId,
     questionBankId,
@@ -32,7 +35,8 @@ export const getCategories = asyncHandler(async (req, res) => {
 });
 
 export const getCategory = asyncHandler(async (req, res) => {
-  const { organizationId, questionBankId, categoryId } = req.params;
+  const { organizationId, categoryId } = req.params;
+  const questionBankId = req.params.questionBankId || req.query.questionBankId;
   const category = await QuestionCategoryService.getCategory(
     organizationId,
     questionBankId,

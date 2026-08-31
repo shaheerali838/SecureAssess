@@ -12,6 +12,7 @@ export class OrganizationMapper {
       slug: doc.slug,
       code: doc.code,
       type: doc.type,
+      tenantIndustry: doc.tenantIndustry || "academic",
       status: doc.status,
       contact: {
         email: doc.email || "",

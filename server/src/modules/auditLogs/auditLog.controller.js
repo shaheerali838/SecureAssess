@@ -122,3 +122,24 @@ export const exportAuditLogs = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, result, "Audit logs exported successfully"));
 });
+
+export const setRetentionHold = asyncHandler(async (req, res) => {
+  const organizationId =
+    req.params.organizationId ||
+    req.organizationId ||
+    req.query.organizationId ||
+    req.headers["x-organization-id"] ||
+    req.user?.activeOrganizationId;
+  const { auditLogId } = req.params;
+  const { retentionHold } = req.body;
+
+  const orgId = req.user?.platformRole === "PLATFORM_OWNER" || req.user?.platformRole === "PLATFORM_ADMIN"
+    ? (req.query.organizationId || organizationId || null)
+    : organizationId;
+
+  const result = await AuditLogService.setRetentionHold(orgId, auditLogId, retentionHold);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, result, "Audit log retention hold updated successfully"));
+});

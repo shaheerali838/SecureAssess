@@ -9,6 +9,7 @@ import { ProctoringReportGenerator } from "./generators/proctoringReport.generat
 import { OrganizationReportGenerator } from "./generators/organizationReport.generator.js";
 import { REPORT_TYPES, REPORT_FORMATS, REPORT_STATUSES } from "./report.constants.js";
 import { ApiError } from "../../utils/ApiError.js";
+import { AuditLogService } from "../auditLogs/auditLog.service.js";
 
 export class ReportService {
   /**
@@ -141,6 +142,15 @@ export class ReportService {
       fileUrl: `/downloads/reports/${reportName}.${format.toLowerCase()}`,
     });
 
+    AuditLogService.createAuditLog({
+      organizationId,
+      actorId: userId,
+      action: "GENERATE",
+      resource: "REPORT",
+      resourceId: report._id,
+      description: `Generated report '${reportName}' of type '${type}' in '${format}' format`,
+    }).catch(() => {});
+
     return report;
   }
 
@@ -173,5 +183,12 @@ export class ReportService {
     }
 
     return report;
+  }
+
+  /**
+   * 16. Get interview analytics (Step 51 integration)
+   */
+  static async getInterviewAnalytics(organizationId, filters = {}) {
+    return ReportAggregations.getInterviewStatistics(organizationId, filters);
   }
 }

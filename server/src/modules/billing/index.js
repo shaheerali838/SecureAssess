@@ -1,9 +1,3 @@
-import express from "express";
-const router = express.Router();
+import billingRoutes from "./billing.routes.js";
 
-// Module: billing
-router.get("/", (req, res) => {
-  res.json({ success: true, message: "billing module initialized" });
-});
-
-export default router;
+export default billingRoutes;
