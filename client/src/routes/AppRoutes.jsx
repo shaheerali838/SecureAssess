@@ -55,6 +55,7 @@ import { AssessmentExperience } from '@/components/pages/participant/AssessmentE
 import { LiveInterview } from '@/components/pages/participant/LiveInterview';
 import { Evaluation } from '@/components/pages/participant/Evaluation';
 import { CandidatePortal } from '@/components/pages/participant/CandidatePortal';
+import { ExamInstructions, ExamPage, ExamSubmitted } from '@/modules/candidateExam';
 
 // Error Views
 import { Forbidden } from '@/pages/errors/Forbidden';
@@ -407,6 +408,13 @@ export const AppRoutes = () => {
         <Route path="assessment" element={<AssessmentExperience onNavigate={handleDirectNavigate} />} />
         <Route path="interview" element={<LiveInterview onNavigate={handleDirectNavigate} />} />
         <Route path="evaluation" element={<Evaluation onNavigate={handleDirectNavigate} />} />
+      </Route>
+
+      {/* 4. Live Server-Authoritative Exam Attempt Engine */}
+      <Route path="/exam">
+        <Route path="instructions/:assignmentId" element={<ExamInstructions />} />
+        <Route path="attempts/:attemptId" element={<ExamPage />} />
+        <Route path="attempts/:attemptId/submitted" element={<ExamSubmitted />} />
       </Route>
 
       {/* Errors */}
