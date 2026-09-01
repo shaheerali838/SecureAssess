@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   ShieldCheck, AlertCircle, Clock, Activity, Eye, X,
   MessageSquare, CheckCircle2, Camera, Download, AlertTriangle, RefreshCw
@@ -8,6 +9,8 @@ import {
   ProgressBar, PageHeader, Textarea, Toast
 } from '@/components/ui';
 import proctoringService from '@/services/proctoring.service';
+import { useOrganization } from '@/contexts/OrganizationContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 const defaultFlag = {
   title: 'Potential Unauthorized Multi-Window Activity',
@@ -21,6 +24,11 @@ const defaultFlag = {
 };
 
 export function IntegrityEvidence({ onNavigate }) {
+  const location = useLocation();
+  const { currentOrganization } = useOrganization();
+  const { user } = useAuth();
+  const orgId = currentOrganization?._id || currentOrganization?.id || user?.organizationId || null;
+
   const [flag, setFlag] = useState(defaultFlag);
   const [evidenceList, setEvidenceList] = useState([]);
   const [reviewerNotes, setReviewerNotes] = useState('');
@@ -36,48 +44,71 @@ export function IntegrityEvidence({ onNavigate }) {
     const loadEvidenceData = async () => {
       setLoading(true);
       try {
-        // 1. Fetch latest flagged events to identify relevant incident
-        const eventsRes = await proctoringService.getEvents({ status: 'FLAGGED', limit: 5 });
-        const eventItems = Array.isArray(eventsRes) ? eventsRes : (eventsRes?.items || eventsRes?.data?.items || []);
+        const passedIncident = location.state?.incident;
+        const passedEventId = location.state?.eventId;
+        const passedSessionId = location.state?.sessionId;
 
-        if (eventItems.length > 0 && isMounted) {
-          const targetEv = eventItems[0];
-          const sess = targetEv.proctoringSessionId || {};
-          const cand = sess.candidateId || {};
-          const asm = sess.assessmentId || {};
-          const sId = sess._id || sess.id || targetEv.sessionId;
-
-          setEventId(targetEv._id || targetEv.id);
-          setSessionId(sId);
-
-          const candName = cand.firstName ? `${cand.firstName} ${cand.lastName || ''}` : 'Fatima Zahra';
-          const asmTitle = asm.title || (typeof sess.assessmentId === 'string' ? sess.assessmentId : 'Flight Training Safety Assessment');
-
-          const d = new Date(targetEv.serverOccurredAt || targetEv.createdAt);
-          const timeStr = !isNaN(d.getTime()) ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '00:26:18';
-
+        if (passedIncident && isMounted) {
+          setEventId(passedEventId || passedIncident.eventId || passedIncident.id);
+          setSessionId(passedSessionId || passedIncident.sessionId);
           setFlag({
-            title: targetEv.description || (targetEv.eventType === 'TAB_BLUR' ? 'Browser Tab Focus Loss' : 'Proctoring Anomaly Event'),
-            timestamp: timeStr,
+            title: passedIncident.title || 'Proctoring Anomaly Event',
+            timestamp: passedIncident.timestamp || '00:26:18',
             source: 'Telemetry & WebRTC AI Engine',
-            confidence: targetEv.severity === 'CRITICAL' || targetEv.severity === 'HIGH' ? 'High' : 'Medium',
-            context: targetEv.details || 'Automated sensor detected anomalous candidate window loss and focus switching during proctored testing window.',
-            riskLevel: targetEv.severity === 'CRITICAL' || targetEv.severity === 'HIGH' ? 'High' : targetEv.severity === 'MEDIUM' ? 'Medium' : 'Low',
-            participant: candName,
-            session: asmTitle,
+            confidence: passedIncident.riskLevel === 'High' ? 'High' : 'Medium',
+            context: passedIncident.description || 'Automated sensor detected anomalous candidate window loss and focus switching during proctored testing window.',
+            riskLevel: passedIncident.riskLevel || 'Medium',
+            participant: passedIncident.participant || 'Candidate',
+            session: passedIncident.assessment || 'Proctored Assessment',
           });
+        }
 
-          // 2. Fetch specific evidence files for this session
-          if (sId) {
-            try {
-              const evidenceRes = await proctoringService.getSessionEvidence(sId);
-              const evData = Array.isArray(evidenceRes) ? evidenceRes : (evidenceRes?.items || evidenceRes?.data || []);
-              if (Array.isArray(evData) && isMounted) {
-                setEvidenceList(evData);
-              }
-            } catch (evErr) {
-              console.warn('Evidence query note:', evErr.message);
+        let sId = passedSessionId || passedIncident?.sessionId || null;
+
+        // Fetch latest flagged events to identify relevant incident if not passed
+        if (!passedIncident) {
+          const eventsRes = await proctoringService.getEvents({ status: 'FLAGGED', limit: 5 }, orgId);
+          const eventItems = Array.isArray(eventsRes) ? eventsRes : (eventsRes?.items || eventsRes?.data?.items || []);
+
+          if (eventItems.length > 0 && isMounted) {
+            const targetEv = eventItems[0];
+            const sess = targetEv.proctoringSessionId || {};
+            const cand = sess.candidateId || {};
+            const asm = sess.assessmentId || {};
+            sId = sess._id || sess.id || targetEv.sessionId;
+
+            setEventId(targetEv._id || targetEv.id);
+            setSessionId(sId);
+
+            const candName = cand.firstName ? `${cand.firstName} ${cand.lastName || ''}`.trim() : 'Fatima Zahra';
+            const asmTitle = asm.title || (typeof sess.assessmentId === 'string' ? sess.assessmentId : 'Flight Training Safety Assessment');
+
+            const d = new Date(targetEv.serverOccurredAt || targetEv.createdAt);
+            const timeStr = !isNaN(d.getTime()) ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '00:26:18';
+
+            setFlag({
+              title: targetEv.description || (targetEv.eventType === 'TAB_BLUR' ? 'Browser Tab Focus Loss' : 'Proctoring Anomaly Event'),
+              timestamp: timeStr,
+              source: 'Telemetry & WebRTC AI Engine',
+              confidence: targetEv.severity === 'CRITICAL' || targetEv.severity === 'HIGH' ? 'High' : 'Medium',
+              context: targetEv.details || 'Automated sensor detected anomalous candidate window loss and focus switching during proctored testing window.',
+              riskLevel: targetEv.severity === 'CRITICAL' || targetEv.severity === 'HIGH' ? 'High' : targetEv.severity === 'MEDIUM' ? 'Medium' : 'Low',
+              participant: candName,
+              session: asmTitle,
+            });
+          }
+        }
+
+        // 2. Fetch specific evidence files for this session
+        if (sId) {
+          try {
+            const evidenceRes = await proctoringService.getSessionEvidence(sId, orgId);
+            const evData = Array.isArray(evidenceRes) ? evidenceRes : (evidenceRes?.items || evidenceRes?.data || []);
+            if (Array.isArray(evData) && isMounted) {
+              setEvidenceList(evData);
             }
+          } catch (evErr) {
+            console.warn('Evidence query note:', evErr.message);
           }
         }
       } catch (err) {

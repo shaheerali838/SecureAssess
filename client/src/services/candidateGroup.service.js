@@ -118,6 +118,10 @@ export const candidateGroupService = {
       return response.data || response;
     }
   },
+
+  async getGroups(params = {}, explicitOrgId = null) {
+    return this.getCandidateGroups(params, explicitOrgId);
+  },
 };
 
 export default candidateGroupService;

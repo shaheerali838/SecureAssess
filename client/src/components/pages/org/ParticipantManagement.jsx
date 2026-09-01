@@ -1,85 +1,99 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Users, Plus, ChevronRight, Mail, Send, Upload, RefreshCw, Check,
-  Layers, UserPlus, Trash2, Edit2, ShieldAlert, BookOpen, CheckCircle2,
-  X, UserCheck
+  UserPlus, Trash2, Edit2, BookOpen, CheckCircle2,
+  X, UserCheck, GraduationCap, Building2, Phone, Search, Filter, AlertCircle, FileSpreadsheet
 } from 'lucide-react';
 import {
-  Card, CardBody, CardHeader, StatusBadge, RiskBadge, Button, Avatar,
+  Card, CardBody, CardHeader, StatusBadge, Button, Avatar,
   SearchBar, PageHeader, Select, EmptyState, Modal, Input, Toast, SkeletonTable, Badge
 } from '@/components/ui';
 import { participants as defaultParticipants } from '@/data';
 import candidateService from '@/services/candidate.service';
-import candidateGroupService from '@/services/candidateGroup.service';
+import departmentService from '@/services/department.service';
+import programService from '@/services/program.service';
+import subjectService from '@/services/subject.service';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/contexts/AuthContext';
+
+const extractArray = (res) => {
+  if (!res) return [];
+  const val = res.status === 'fulfilled' ? res.value : res;
+  if (Array.isArray(val)) return val;
+  if (Array.isArray(val?.items)) return val.items;
+  if (Array.isArray(val?.candidates)) return val.candidates;
+  if (Array.isArray(val?.departments)) return val.departments;
+  if (Array.isArray(val?.programs)) return val.programs;
+  if (Array.isArray(val?.data?.items)) return val.data.items;
+  if (Array.isArray(val?.data)) return val.data;
+  return [];
+};
 
 export function ParticipantManagement({ onNavigate }) {
   const { currentOrganization, t } = useOrganization();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('candidates');
+  const orgId = currentOrganization?._id || currentOrganization?.id || user?.organizationId || null;
+
   const [candidatesList, setCandidatesList] = useState([]);
-  const [candidateGroups, setCandidateGroups] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [programs, setPrograms] = useState([]);
+  const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Filter States
   const [search, setSearch] = useState('');
+  const [selectedDeptId, setSelectedDeptId] = useState('all');
+  const [selectedProgId, setSelectedProgId] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [riskFilter, setRiskFilter] = useState('all');
 
-  // Dynamic Terminology
-  const candSingular = t('candidate');
-  const candPlural = t('candidate', true);
-  const grpSingular = t('candidateGroup');
-  const grpPlural = t('candidateGroup', true);
-  const rosterLabel = t('roster');
+  // Terminology
+  const candSingular = t('candidate') || 'Candidate';
+  const candPlural = t('candidate', true) || 'Candidates';
+  const rosterLabel = t('roster') || 'Examinees Roster';
 
-  // Candidate Modal State
-  const [modalOpen, setModalOpen] = useState(false);
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [cohort, setCohort] = useState('General');
+  // Candidate Create/Edit Modal State
+  const [candidateModalOpen, setCandidateModalOpen] = useState(false);
+  const [editingCandidate, setEditingCandidate] = useState(null);
+  const [candForm, setCandForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    candidateCode: '',
+    departmentId: '',
+    programId: '',
+    status: 'ACTIVE',
+  });
+
+  // Bulk Import Modal State
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [bulkText, setBulkText] = useState('');
+  const [bulkDeptId, setBulkDeptId] = useState('');
+  const [bulkProgId, setBulkProgId] = useState('');
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
 
-  // Group Modal State
-  const [groupModalOpen, setGroupModalOpen] = useState(false);
-  const [groupForm, setGroupForm] = useState({ name: '', code: '', description: '' });
-  const [selectedGroup, setSelectedGroup] = useState(null);
-  const [memberModalOpen, setMemberModalOpen] = useState(false);
-  const [selectedCandidateIds, setSelectedCandidateIds] = useState([]);
-
-  const orgId = currentOrganization?._id || currentOrganization?.id || user?.organizationId || 'current';
-
-  // Fetch Candidates & Groups
+  // Fetch Candidates and Academic Structure
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [candRes, groupRes] = await Promise.allSettled([
-        candidateService.getCandidates({}, orgId),
-        candidateGroupService.getCandidateGroups({}, orgId),
+      const [candRes, deptRes, progRes, subjRes] = await Promise.allSettled([
+        candidateService.getCandidates({ limit: 200 }, orgId),
+        departmentService.getDepartments({}, orgId),
+        programService.getPrograms({}, orgId),
+        subjectService.getSubjects({}, orgId),
       ]);
 
-      if (candRes.status === 'fulfilled') {
-        const items = Array.isArray(candRes.value)
-          ? candRes.value
-          : candRes.value?.items || candRes.value?.candidates || candRes.value?.data || [];
-        setCandidatesList(items.length > 0 ? items : defaultParticipants);
-      } else {
-        setCandidatesList(defaultParticipants);
-      }
+      const loadedCandidates = extractArray(candRes);
+      const loadedDepts = extractArray(deptRes);
+      const loadedProgs = extractArray(progRes);
+      const loadedSubjs = extractArray(subjRes);
 
-      if (groupRes.status === 'fulfilled') {
-        const grps = Array.isArray(groupRes.value)
-          ? groupRes.value
-          : groupRes.value?.items || groupRes.value?.groups || groupRes.value?.data || [];
-        setCandidateGroups(
-          grps.length > 0
-            ? grps
-            : [
-                { _id: 'g1', name: 'Alpha Flight Crew 2026', code: 'AFC-26', memberCount: 18, description: 'Flight operations cohort' },
-                { _id: 'g2', name: 'Software Security Cohort 4', code: 'SEC-04', memberCount: 32, description: 'Cybersecurity engineering cohort' },
-              ]
-        );
-      }
+      setCandidatesList(loadedCandidates.length > 0 ? loadedCandidates : defaultParticipants);
+      setDepartments(loadedDepts);
+      setPrograms(loadedProgs);
+      setSubjects(loadedSubjs);
     } catch (err) {
       console.warn('Participant data fetch note:', err.message);
       setCandidatesList(defaultParticipants);
@@ -92,117 +106,207 @@ export function ParticipantManagement({ onNavigate }) {
     fetchData();
   }, [fetchData]);
 
-  // Create Candidate
-  const handleCreateCandidate = async (e) => {
+  // Filter cascaded programs based on selected Department
+  const filteredProgramsForFilter = programs.filter((p) =>
+    selectedDeptId === 'all' ? true : p.departmentId === selectedDeptId || p.departmentId?._id === selectedDeptId
+  );
+
+  // Modal cascaded programs based on form department
+  const formPrograms = programs.filter((p) =>
+    !candForm.departmentId ? true : p.departmentId === candForm.departmentId || p.departmentId?._id === candForm.departmentId
+  );
+
+  // Open Create Candidate Modal
+  const handleOpenCreateModal = () => {
+    setEditingCandidate(null);
+    const defaultDept = selectedDeptId !== 'all' ? selectedDeptId : departments[0]?._id || '';
+    const availProgs = programs.filter((p) => !defaultDept || p.departmentId === defaultDept || p.departmentId?._id === defaultDept);
+    const defaultProg = selectedProgId !== 'all' ? selectedProgId : availProgs[0]?._id || '';
+
+    setCandForm({
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      candidateCode: `STD-${Date.now().toString().slice(-5)}`,
+      departmentId: defaultDept,
+      programId: defaultProg,
+      status: 'ACTIVE',
+    });
+    setCandidateModalOpen(true);
+  };
+
+  // Open Edit Candidate Modal
+  const handleOpenEditModal = (c) => {
+    setEditingCandidate(c);
+    setCandForm({
+      firstName: c.firstName || (c.name ? c.name.split(' ')[0] : ''),
+      lastName: c.lastName || (c.name ? c.name.split(' ').slice(1).join(' ') : ''),
+      email: c.email || '',
+      phone: c.phone || c.phoneNumber || '',
+      candidateCode: c.candidateCode || c.code || `STD-${Date.now().toString().slice(-4)}`,
+      departmentId: c.departmentId?._id || c.departmentId || '',
+      programId: c.programId?._id || c.programId || '',
+      status: c.status || 'ACTIVE',
+    });
+    setCandidateModalOpen(true);
+  };
+
+  // Save or Update Candidate
+  const handleSaveCandidate = async (e) => {
     e.preventDefault();
-    if (!name.trim() || !email.trim()) return;
+    if (!candForm.firstName.trim() || !candForm.email.trim()) {
+      setToastMessage({ type: 'error', text: 'First name and email are required.' });
+      return;
+    }
 
     setIsSubmitting(true);
     try {
-      const nameParts = name.trim().split(/\s+/);
-      const firstName = nameParts[0] || 'Candidate';
-      const lastName = nameParts.slice(1).join(' ') || '';
-      const candidateCode = `CAND-${Date.now().toString().slice(-4)}`;
-
       const payload = {
-        firstName,
-        lastName,
-        candidateCode,
-        email: email.trim().toLowerCase(),
-        status: 'ACTIVE',
+        firstName: candForm.firstName.trim(),
+        lastName: candForm.lastName.trim() || candForm.firstName.trim(),
+        email: candForm.email.trim().toLowerCase(),
+        phone: candForm.phone.trim(),
+        phoneNumber: candForm.phone.trim(),
+        candidateCode: candForm.candidateCode.trim().toUpperCase(),
+        departmentId: candForm.departmentId || null,
+        programId: candForm.programId || null,
+        status: candForm.status || 'ACTIVE',
       };
 
-      try {
-        const created = await candidateService.createCandidate(payload, orgId);
-        const item = created?.data || created || { id: Date.now(), name, email, candidateCode, status: 'ACTIVE' };
-        setCandidatesList((prev) => [item, ...prev]);
-        setToastMessage({ type: 'success', text: `${candSingular} ${candidateCode} created successfully!` });
-      } catch {
-        const item = { id: Date.now(), name, email, candidateCode, status: 'ACTIVE', cohort };
-        setCandidatesList((prev) => [item, ...prev]);
-        setToastMessage({ type: 'success', text: `${candSingular} ${name} enrolled in workspace.` });
+      if (editingCandidate) {
+        const cId = editingCandidate._id || editingCandidate.id;
+        await candidateService.updateCandidate(cId, payload, orgId);
+        setToastMessage({ type: 'success', text: `Updated details for ${payload.firstName} ${payload.lastName}.` });
+      } else {
+        await candidateService.createCandidate(payload, orgId);
+        setToastMessage({ type: 'success', text: `Successfully enrolled ${payload.firstName} ${payload.lastName} (${payload.candidateCode}).` });
       }
 
-      setModalOpen(false);
-      setName('');
-      setEmail('');
+      setCandidateModalOpen(false);
+      fetchData();
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Failed to save candidate.';
+      setToastMessage({ type: 'error', text: msg });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Create Candidate Group
-  const handleCreateGroup = async (e) => {
+  // Toggle Suspend / Active status
+  const handleToggleCandidateStatus = async (e, candidate) => {
+    e.stopPropagation();
+    const cId = candidate._id || candidate.id;
+    const isCurrentlyActive = candidate.status === 'ACTIVE';
+
+    try {
+      if (isCurrentlyActive) {
+        await candidateService.suspendCandidate(cId, orgId);
+        setToastMessage({ type: 'info', text: `Candidate account suspended.` });
+      } else {
+        await candidateService.activateCandidate(cId, orgId);
+        setToastMessage({ type: 'success', text: `Candidate account activated.` });
+      }
+      fetchData();
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Failed to update candidate status.';
+      setToastMessage({ type: 'error', text: msg });
+    }
+  };
+
+  // Delete Candidate
+  const handleDeleteCandidate = async (e, candidate) => {
+    e.stopPropagation();
+    const cName = candidate.name || `${candidate.firstName || ''} ${candidate.lastName || ''}`.trim() || 'Candidate';
+    if (!window.confirm(`Are you sure you want to deactivate and remove ${cName}?`)) return;
+
+    try {
+      const cId = candidate._id || candidate.id;
+      await candidateService.deleteCandidate(cId, orgId);
+      setToastMessage({ type: 'info', text: `Removed ${cName} from roster.` });
+      fetchData();
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Failed to remove candidate.';
+      setToastMessage({ type: 'error', text: msg });
+    }
+  };
+
+  // Bulk Import Candidates
+  const handleBulkImport = async (e) => {
     e.preventDefault();
-    if (!groupForm.name.trim()) return;
+    if (!bulkText.trim()) return;
+
     setIsSubmitting(true);
     try {
-      await candidateGroupService.createCandidateGroup(groupForm, orgId);
-      setToastMessage({ type: 'success', text: `${grpSingular} "${groupForm.name}" created.` });
-      setGroupModalOpen(false);
-      setGroupForm({ name: '', code: '', description: '' });
+      const lines = bulkText.trim().split('\n').filter(Boolean);
+      const items = lines.map((line, idx) => {
+        const parts = line.split(',').map((p) => p.trim());
+        const fullName = parts[0] || `Candidate ${idx + 1}`;
+        const nameParts = fullName.split(' ');
+        const firstName = nameParts[0] || 'Candidate';
+        const lastName = nameParts.slice(1).join(' ') || firstName;
+        const email = parts[1] || `${firstName.toLowerCase()}.${Date.now().toString().slice(-4)}@institution.edu`;
+        const code = parts[2] || `STD-${Date.now().toString().slice(-4)}${idx}`;
+
+        return {
+          firstName,
+          lastName,
+          email,
+          candidateCode: code.toUpperCase(),
+          departmentId: bulkDeptId || null,
+          programId: bulkProgId || null,
+          status: 'ACTIVE',
+        };
+      });
+
+      await candidateService.bulkImportCandidates(items, orgId);
+      setToastMessage({ type: 'success', text: `Successfully imported ${items.length} examinees.` });
+      setBulkModalOpen(false);
+      setBulkText('');
       fetchData();
-    } catch {
-      setCandidateGroups([
-        ...candidateGroups,
-        { ...groupForm, _id: `cg_${Date.now()}`, memberCount: 0 },
-      ]);
-      setGroupModalOpen(false);
-      setToastMessage({ type: 'success', text: `${grpSingular} "${groupForm.name}" registered.` });
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Failed to process bulk import.';
+      setToastMessage({ type: 'error', text: msg });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleDeleteGroup = async (id, grpName) => {
-    if (!window.confirm(`Delete ${grpSingular.toLowerCase()} "${grpName}"?`)) return;
-    try {
-      await candidateGroupService.deleteCandidateGroup(id, orgId);
-      setToastMessage({ type: 'info', text: `${grpSingular} "${grpName}" deleted.` });
-      fetchData();
-    } catch {
-      setCandidateGroups(candidateGroups.filter((g) => g._id !== id));
-      setToastMessage({ type: 'info', text: `${grpSingular} "${grpName}" removed.` });
-    }
-  };
-
-  // Bulk Enroll into Group
-  const handleEnrollMembers = async () => {
-    if (!selectedGroup || selectedCandidateIds.length === 0) return;
-    try {
-      await candidateGroupService.addCandidatesToGroup(selectedGroup._id, selectedCandidateIds, orgId);
-      setToastMessage({
-        type: 'success',
-        text: `Enrolled ${selectedCandidateIds.length} ${candPlural.toLowerCase()} into "${selectedGroup.name}".`,
-      });
-      setMemberModalOpen(false);
-      setSelectedCandidateIds([]);
-      fetchData();
-    } catch {
-      setToastMessage({
-        type: 'success',
-        text: `Enrolled ${selectedCandidateIds.length} ${candPlural.toLowerCase()} into "${selectedGroup.name}".`,
-      });
-      setMemberModalOpen(false);
-      setSelectedCandidateIds([]);
-    }
-  };
-
+  // Filter candidates by search and Academic Hierarchy
   const filtered = candidatesList.filter((p) => {
     const candidateName = (p.name || `${p.firstName || ''} ${p.lastName || ''}`).toLowerCase();
     const candidateEmail = (p.email || '').toLowerCase();
-    const assessment = (p.assessment || '').toLowerCase();
+    const candidateCode = (p.candidateCode || p.code || '').toLowerCase();
+    const phone = (p.phone || p.phoneNumber || '').toLowerCase();
+
     const matchesSearch =
+      !search ||
       candidateName.includes(search.toLowerCase()) ||
       candidateEmail.includes(search.toLowerCase()) ||
-      assessment.includes(search.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || (p.status || '').toLowerCase() === statusFilter.toLowerCase();
-    const matchesRisk = riskFilter === 'all' || (p.riskLevel || '').toLowerCase() === riskFilter.toLowerCase();
-    return matchesSearch && matchesStatus && matchesRisk;
+      candidateCode.includes(search.toLowerCase()) ||
+      phone.includes(search.toLowerCase());
+
+    const matchesDept =
+      selectedDeptId === 'all' ||
+      p.departmentId === selectedDeptId ||
+      p.departmentId?._id === selectedDeptId;
+
+    const matchesProg =
+      selectedProgId === 'all' ||
+      p.programId === selectedProgId ||
+      p.programId?._id === selectedProgId;
+
+    const matchesStatus =
+      statusFilter === 'all' ||
+      (p.status || 'ACTIVE').toUpperCase() === statusFilter.toUpperCase();
+
+    return matchesSearch && matchesDept && matchesProg && matchesStatus;
   });
 
+  const activeCandidatesCount = candidatesList.filter((c) => (c.status || 'ACTIVE') === 'ACTIVE').length;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-full overflow-hidden">
       {toastMessage && (
         <Toast
           type={toastMessage.type}
@@ -211,13 +315,18 @@ export function ParticipantManagement({ onNavigate }) {
         />
       )}
 
+      {/* Page Header */}
       <PageHeader
-        title={`${rosterLabel} & ${grpPlural}`}
-        subtitle={`Manage enrolled ${candPlural.toLowerCase()}, review stage statuses, organize ${grpPlural.toLowerCase()}, and dispatch examination assignments.`}
-        icon={<Users size={22} className="text-primary-600 dark:text-primary-400" />}
-        breadcrumbs={[{ label: 'Dashboard', onClick: () => onNavigate('org-dashboard') }, { label: candPlural }]}
+        title={rosterLabel}
+        subtitle="Manage enrolled students, filter by academic department and degree program, and dispatch examinations."
+        icon={<Users size={22} className="text-primary-600 dark:text-primary-400 shrink-0" />}
+        breadcrumbs={[
+          { label: 'Dashboard', onClick: () => onNavigate('org-dashboard') },
+          { label: 'Academic Structure', onClick: () => onNavigate('org-academic-structure') },
+          { label: candPlural }
+        ]}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -226,383 +335,534 @@ export function ParticipantManagement({ onNavigate }) {
             >
               Sync
             </Button>
-            {activeTab === 'candidates' ? (
-              <Button variant="primary" size="sm" icon={<Plus size={15} />} onClick={() => setModalOpen(true)}>
-                Add {candSingular}
-              </Button>
-            ) : (
-              <Button
-                variant="primary"
-                size="sm"
-                icon={<Plus size={15} />}
-                onClick={() => {
-                  setGroupForm({ name: '', code: '', description: '' });
-                  setGroupModalOpen(true);
-                }}
-              >
-                Create {grpSingular}
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<Upload size={14} />}
+              onClick={() => {
+                setBulkDeptId(selectedDeptId !== 'all' ? selectedDeptId : (departments[0]?._id || ''));
+                setBulkProgId(selectedProgId !== 'all' ? selectedProgId : (programs[0]?._id || ''));
+                setBulkModalOpen(true);
+              }}
+            >
+              Import CSV
+            </Button>
+            <Button variant="primary" size="sm" icon={<Plus size={15} />} onClick={handleOpenCreateModal}>
+              Enroll {candSingular}
+            </Button>
           </div>
         }
       />
 
-      {/* Tabs */}
-      <div className="flex items-center justify-between border-b border-accent-200 dark:border-accent-800 pb-3">
-        <div className="flex items-center gap-1.5 p-1 bg-accent-100 dark:bg-accent-900 rounded-xl">
-          <button
-            onClick={() => setActiveTab('candidates')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-              activeTab === 'candidates'
-                ? 'bg-white dark:bg-accent-800 text-primary-600 dark:text-primary-400 shadow-sm'
-                : 'text-accent-600 dark:text-accent-400 hover:text-accent-900 dark:hover:text-white'
-            }`}
-          >
-            <Users size={14} />
-            <span>Individual {candPlural} ({candidatesList.length})</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('groups')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-              activeTab === 'groups'
-                ? 'bg-white dark:bg-accent-800 text-primary-600 dark:text-primary-400 shadow-sm'
-                : 'text-accent-600 dark:text-accent-400 hover:text-accent-900 dark:hover:text-white'
-            }`}
-          >
-            <Layers size={14} />
-            <span>{grpPlural} ({candidateGroups.length})</span>
-          </button>
-        </div>
-      </div>
-
-      {activeTab === 'candidates' && (
-        <>
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <SearchBar value={search} onChange={setSearch} placeholder="Search by name, email, or assessment..." className="flex-1" />
-            <div className="flex gap-2 flex-wrap sm:flex-nowrap">
-              <Select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                options={[
-                  { value: 'all', label: 'All Statuses' },
-                  { value: 'completed', label: 'Completed' },
-                  { value: 'in progress', label: 'In Progress' },
-                  { value: 'invited', label: 'Invited' },
-                  { value: 'active', label: 'Active' },
-                ]}
-                className="w-36"
-              />
-              <Select
-                value={riskFilter}
-                onChange={(e) => setRiskFilter(e.target.value)}
-                options={[
-                  { value: 'all', label: 'All Integrity Tiers' },
-                  { value: 'low', label: 'Low Risk' },
-                  { value: 'medium', label: 'Medium Risk' },
-                  { value: 'high', label: 'High Risk' },
-                ]}
-                className="w-36"
-              />
+      {/* Academic Structure Metric Counters */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Card className="p-3.5 bg-primary-50/20 dark:bg-primary-950/20 border-primary-200 dark:border-primary-900/50">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-primary-600 dark:text-primary-400">
+                Total Examinees
+              </p>
+              <h3 className="text-xl font-bold text-accent-900 dark:text-white mt-0.5">
+                {candidatesList.length}
+              </h3>
+            </div>
+            <div className="w-8 h-8 rounded-lg bg-primary-100 dark:bg-primary-900/60 text-primary-600 flex items-center justify-center shrink-0">
+              <Users size={16} />
             </div>
           </div>
+        </Card>
 
-          {/* Candidates Table */}
-          {loading ? (
-            <SkeletonTable rows={6} cols={6} />
-          ) : filtered.length === 0 ? (
-            <Card>
-              <EmptyState
-                icon={<Users size={28} />}
-                title="No candidates found"
-                description="Invite candidates or import a roster to schedule assessments."
-                action={<Button variant="primary" icon={<Send size={15} />} onClick={() => setModalOpen(true)}>Invite Candidates</Button>}
-              />
-            </Card>
-          ) : (
-            <Card>
-              <CardBody className="p-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-accent-100 dark:border-accent-800 bg-accent-50/50 dark:bg-accent-900/50">
-                        <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-5 py-3">Candidate</th>
-                        <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 hidden md:table-cell">Cohort / Context</th>
-                        <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 hidden lg:table-cell">Assessment</th>
-                        <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3">Status</th>
-                        <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 hidden sm:table-cell">Score</th>
-                        <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 hidden lg:table-cell">Integrity</th>
-                        <th className="text-right text-xs font-semibold text-accent-600 dark:text-accent-400 px-5 py-3"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-accent-100 dark:divide-accent-800">
-                      {filtered.map((p, idx) => {
-                        const id = p._id || p.id || idx;
-                        const candidateName = p.name || `${p.firstName || ''} ${p.lastName || ''}`.trim() || 'Candidate';
-                        const candidateEmail = p.email || 'candidate@stanford.edu';
-                        const candidateCohort = p.cohort || 'CS101 Fall 2026';
-                        const assessmentTitle = p.assessment || 'General Assessment';
-                        const status = p.status || 'Invited';
-                        const score = p.score != null ? `${p.score}%` : '—';
-                        const riskLevel = p.riskLevel || (p.riskScore > 50 ? 'High' : 'Low');
+        <Card className="p-3.5 bg-success-50/20 dark:bg-success-950/20 border-success-200 dark:border-success-900/50">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-success-600 dark:text-success-400">
+                Active & Enrolled
+              </p>
+              <h3 className="text-xl font-bold text-accent-900 dark:text-white mt-0.5">
+                {activeCandidatesCount}
+              </h3>
+            </div>
+            <div className="w-8 h-8 rounded-lg bg-success-100 dark:bg-success-900/60 text-success-600 flex items-center justify-center shrink-0">
+              <CheckCircle2 size={16} />
+            </div>
+          </div>
+        </Card>
 
-                        return (
-                          <tr
-                            key={id}
-                            onClick={() => onNavigate('org-participant-profile')}
-                            className="hover:bg-accent-50/50 dark:hover:bg-accent-800/40 transition-colors cursor-pointer"
-                          >
-                            <td className="px-5 py-3.5">
-                              <div className="flex items-center gap-3">
-                                <Avatar name={candidateName} color={p.avatarColor || '#2563eb'} size="sm" />
-                                <div className="min-w-0">
-                                  <p className="text-xs font-semibold text-accent-900 dark:text-white truncate">{candidateName}</p>
-                                  <p className="text-[11px] text-accent-500 dark:text-accent-400 truncate">{candidateEmail}</p>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-3 py-3.5 text-xs text-accent-600 dark:text-accent-300 hidden md:table-cell">
-                              {candidateCohort}
-                            </td>
-                            <td className="px-3 py-3.5 text-xs text-accent-700 dark:text-accent-200 hidden lg:table-cell font-medium">
-                              {assessmentTitle}
-                            </td>
-                            <td className="px-3 py-3.5">
-                              <StatusBadge status={status} />
-                            </td>
-                            <td className="px-3 py-3.5 text-xs font-mono font-bold text-accent-900 dark:text-white hidden sm:table-cell">
-                              {score}
-                            </td>
-                            <td className="px-3 py-3.5 hidden lg:table-cell">
-                              <RiskBadge level={riskLevel} />
-                            </td>
-                            <td className="px-5 py-3.5 text-right">
-                              <Button variant="ghost" size="sm" iconRight={<ChevronRight size={14} />}>
-                                View Dossier
-                              </Button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </CardBody>
-            </Card>
-          )}
-        </>
-      )}
+        <Card className="p-3.5 bg-purple-50/20 dark:bg-purple-950/20 border-purple-200 dark:border-purple-900/50">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">
+                Academic Depts
+              </p>
+              <h3 className="text-xl font-bold text-accent-900 dark:text-white mt-0.5">
+                {departments.length}
+              </h3>
+            </div>
+            <div className="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/60 text-purple-600 flex items-center justify-center shrink-0">
+              <Building2 size={16} />
+            </div>
+          </div>
+        </Card>
 
-      {/* Cohorts & Groups Tab */}
-      {activeTab === 'groups' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {candidateGroups.map((grp) => (
-            <Card key={grp._id} className="hover:shadow-md transition-shadow">
-              <CardBody className="p-5 space-y-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-primary-50 dark:bg-primary-950/60 text-primary-600 dark:text-primary-400 font-mono font-bold text-xs flex items-center justify-center border border-primary-200 dark:border-primary-800">
-                      {grp.code || 'GRP'}
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-xs text-accent-900 dark:text-white">{grp.name}</h4>
-                      <Badge variant="primary" className="text-[10px] mt-0.5">
-                        {grp.memberCount || grp.members?.length || 0} Examinees
-                      </Badge>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleDeleteGroup(grp._id, grp.name)}
-                    className="p-1.5 text-accent-400 hover:text-danger-500 rounded-lg hover:bg-danger-50 dark:hover:bg-danger-950/40"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
+        <Card className="p-3.5 bg-amber-50/20 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/50">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                Degree Programs
+              </p>
+              <h3 className="text-xl font-bold text-accent-900 dark:text-white mt-0.5">
+                {programs.length}
+              </h3>
+            </div>
+            <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/60 text-amber-600 flex items-center justify-center shrink-0">
+              <GraduationCap size={16} />
+            </div>
+          </div>
+        </Card>
+      </div>
 
-                <p className="text-[11px] text-accent-500 dark:text-accent-400 line-clamp-2 leading-relaxed">
-                  {grp.description || 'Examination cohort with shared subject schedules.'}
-                </p>
-
-                <div className="pt-2 border-t border-accent-100 dark:border-accent-800 flex items-center justify-between">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    icon={<UserPlus size={13} />}
-                    onClick={() => {
-                      setSelectedGroup(grp);
-                      setSelectedCandidateIds([]);
-                      setMemberModalOpen(true);
-                    }}
-                  >
-                    Enroll Candidates
-                  </Button>
-                  <span className="text-[10px] font-mono text-accent-400">{grp.code}</span>
-                </div>
-              </CardBody>
-            </Card>
-          ))}
+      {/* Academic Structure Filter Bar */}
+      <Card className="p-4 space-y-3 bg-white dark:bg-accent-900/80 border-accent-200 dark:border-accent-800">
+        <div className="flex items-center gap-2 pb-2 border-b border-accent-100 dark:border-accent-800">
+          <GraduationCap size={16} className="text-primary-600 dark:text-primary-400" />
+          <h3 className="text-xs font-bold uppercase tracking-wider text-accent-700 dark:text-accent-300">
+            Academic Curriculum Filters
+          </h3>
         </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          {/* Department Selector */}
+          <div>
+            <label className="block text-[11px] font-semibold text-accent-600 dark:text-accent-400 mb-1">
+              Department
+            </label>
+            <select
+              value={selectedDeptId}
+              onChange={(e) => {
+                setSelectedDeptId(e.target.value);
+                setSelectedProgId('all');
+              }}
+              className="w-full h-8 px-2.5 rounded-lg bg-accent-50 dark:bg-accent-950 border border-accent-200 dark:border-accent-800 text-xs text-accent-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500"
+            >
+              <option value="all">All Departments ({departments.length})</option>
+              {departments.map((d) => (
+                <option key={d._id} value={d._id}>
+                  {d.name} ({d.code})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Degree Program Selector */}
+          <div>
+            <label className="block text-[11px] font-semibold text-accent-600 dark:text-accent-400 mb-1">
+              Degree Program
+            </label>
+            <select
+              value={selectedProgId}
+              onChange={(e) => setSelectedProgId(e.target.value)}
+              className="w-full h-8 px-2.5 rounded-lg bg-accent-50 dark:bg-accent-950 border border-accent-200 dark:border-accent-800 text-xs text-accent-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500"
+            >
+              <option value="all">All Programs ({filteredProgramsForFilter.length})</option>
+              {filteredProgramsForFilter.map((p) => (
+                <option key={p._id} value={p._id}>
+                  {p.name} ({p.code})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Status Selector */}
+          <div>
+            <label className="block text-[11px] font-semibold text-accent-600 dark:text-accent-400 mb-1">
+              Enrollment Status
+            </label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full h-8 px-2.5 rounded-lg bg-accent-50 dark:bg-accent-950 border border-accent-200 dark:border-accent-800 text-xs text-accent-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500"
+            >
+              <option value="all">All Statuses</option>
+              <option value="ACTIVE">Active / Enrolled</option>
+              <option value="INVITED">Invited</option>
+              <option value="SUSPENDED">Suspended</option>
+              <option value="INACTIVE">Inactive</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Search and Clear Filters */}
+        <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+          <div className="relative w-full sm:w-80">
+            <Search size={14} className="absolute left-3 top-2.5 text-accent-400" />
+            <input
+              type="text"
+              placeholder="Search examinee by name, roll no, email..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full h-8 pl-8 pr-3 text-xs rounded-lg bg-accent-50 dark:bg-accent-950 border border-accent-200 dark:border-accent-800 text-accent-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 self-end">
+            {(selectedDeptId !== 'all' || selectedProgId !== 'all' || statusFilter !== 'all' || search) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSelectedDeptId('all');
+                  setSelectedProgId('all');
+                  setStatusFilter('all');
+                  setSearch('');
+                }}
+              >
+                Clear Filters
+              </Button>
+            )}
+            <span className="text-xs text-accent-500 font-medium">
+              Showing <strong>{filtered.length}</strong> of {candidatesList.length} examinees
+            </span>
+          </div>
+        </div>
+      </Card>
+
+      {/* Candidates Table */}
+      {loading ? (
+        <SkeletonTable rows={6} cols={5} />
+      ) : filtered.length === 0 ? (
+        <Card>
+          <EmptyState
+            icon={<Users size={28} />}
+            title="No examinees match academic filters"
+            description="Try clearing your department/program filters, or enroll new candidates into this academic branch."
+            action={
+              <Button variant="primary" icon={<Plus size={15} />} onClick={handleOpenCreateModal}>
+                Enroll Candidate
+              </Button>
+            }
+          />
+        </Card>
+      ) : (
+        <Card>
+          <CardBody className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-accent-100 dark:border-accent-800 bg-accent-50/50 dark:bg-accent-900/50 text-[11px] uppercase tracking-wider font-semibold text-accent-600 dark:text-accent-400">
+                    <th className="text-left px-5 py-3">Examinee Candidate</th>
+                    <th className="text-left px-3 py-3">Academic Department</th>
+                    <th className="text-left px-3 py-3">Degree Program</th>
+                    <th className="text-left px-3 py-3 hidden md:table-cell">Roll / Student Code</th>
+                    <th className="text-left px-3 py-3">Status</th>
+                    <th className="text-right px-5 py-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-accent-100 dark:divide-accent-800">
+                  {filtered.map((p, idx) => {
+                    const id = p._id || p.id || idx;
+                    const candidateName = p.name || `${p.firstName || ''} ${p.lastName || ''}`.trim() || 'Candidate';
+                    const candidateEmail = p.email || 'examinee@stanford.edu';
+                    const candidateCode = p.candidateCode || p.code || `STD-${idx + 1}`;
+
+                    const deptObj = departments.find(
+                      (d) => d._id === p.departmentId || d._id === p.departmentId?._id
+                    );
+                    const progObj = programs.find(
+                      (pr) => pr._id === p.programId || pr._id === p.programId?._id
+                    );
+
+                    const deptTitle = deptObj ? deptObj.name : (p.departmentName || 'Engineering');
+                    const progTitle = progObj ? progObj.name : (p.programName || 'Core Curriculum');
+
+                    const status = p.status || 'ACTIVE';
+                    const isSuspended = status === 'SUSPENDED';
+
+                    return (
+                      <tr
+                        key={id}
+                        onClick={() => onNavigate('org-participant-profile')}
+                        className="hover:bg-accent-50/50 dark:hover:bg-accent-800/40 transition-colors cursor-pointer"
+                      >
+                        {/* Candidate Details */}
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-3">
+                            <Avatar name={candidateName} color={p.avatarColor || '#2563eb'} size="sm" />
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold text-accent-900 dark:text-white truncate">
+                                {candidateName}
+                              </p>
+                              <p className="text-[11px] text-accent-500 dark:text-accent-400 truncate">
+                                {candidateEmail}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Academic Department */}
+                        <td className="px-3 py-3.5">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-primary-50 dark:bg-primary-950 text-primary-700 dark:text-primary-300 border border-primary-200 dark:border-primary-800">
+                            <Building2 size={11} />
+                            <span className="truncate max-w-[140px]">{deptTitle}</span>
+                          </span>
+                        </td>
+
+                        {/* Degree Program */}
+                        <td className="px-3 py-3.5">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-accent-700 dark:text-accent-300">
+                            <GraduationCap size={12} className="text-accent-400" />
+                            <span className="truncate max-w-[140px]">{progTitle}</span>
+                          </span>
+                        </td>
+
+                        {/* Roll Number / Candidate Code */}
+                        <td className="px-3 py-3.5 hidden md:table-cell">
+                          <span className="font-mono text-[11px] font-bold text-accent-600 dark:text-accent-400 bg-accent-100 dark:bg-accent-800 px-1.5 py-0.5 rounded">
+                            {candidateCode}
+                          </span>
+                        </td>
+
+                        {/* Status */}
+                        <td className="px-3 py-3.5">
+                          <StatusBadge status={status} />
+                        </td>
+
+                        {/* Action Buttons */}
+                        <td className="px-5 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={(e) => handleToggleCandidateStatus(e, p)}
+                              className={`p-1.5 rounded-lg text-xs font-semibold cursor-pointer border transition-colors ${
+                                isSuspended
+                                  ? 'text-success-600 bg-success-50 dark:bg-success-950/50 border-success-200 dark:border-success-800'
+                                  : 'text-amber-600 bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800'
+                              }`}
+                              title={isSuspended ? 'Activate Account' : 'Suspend Account'}
+                            >
+                              {isSuspended ? 'Activate' : 'Suspend'}
+                            </button>
+                            <button
+                              onClick={() => handleOpenEditModal(p)}
+                              className="p-1.5 text-accent-400 hover:text-primary-600 dark:hover:text-primary-400 rounded-lg hover:bg-accent-100 dark:hover:bg-accent-800 cursor-pointer"
+                              title="Edit examinee details"
+                            >
+                              <Edit2 size={13} />
+                            </button>
+                            <button
+                              onClick={(e) => handleDeleteCandidate(e, p)}
+                              className="p-1.5 text-accent-400 hover:text-danger-600 dark:hover:text-danger-400 rounded-lg hover:bg-danger-50 dark:hover:bg-danger-950/40 cursor-pointer"
+                              title="Remove examinee"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </CardBody>
+        </Card>
       )}
 
-      {/* Add Candidate Modal */}
-      {modalOpen && (
+      {/* Add / Edit Candidate Modal */}
+      {candidateModalOpen && (
         <Modal
-          open={modalOpen}
-          onClose={() => setModalOpen(false)}
-          title="Enroll & Invite Candidate"
-          subtitle="Provision a candidate account and dispatch examination instructions."
+          open={candidateModalOpen}
+          onClose={() => setCandidateModalOpen(false)}
+          title={editingCandidate ? "Edit Examinee Details" : "Enroll New Examinee"}
+          subtitle="Associate student identity with academic department and degree program."
           footer={
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setModalOpen(false)}>Cancel</Button>
-              <Button variant="primary" size="sm" loading={isSubmitting} icon={<Check size={14} />} onClick={handleCreateCandidate}>
-                Invite Candidate
+              <Button variant="outline" size="sm" onClick={() => setCandidateModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                loading={isSubmitting}
+                icon={<Check size={14} />}
+                onClick={handleSaveCandidate}
+              >
+                {editingCandidate ? "Save Changes" : "Enroll Examinee"}
               </Button>
             </div>
           }
         >
           <div className="space-y-4">
-            <Input
-              label="Full Name"
-              placeholder="e.g. Alex Morgan"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-            <Input
-              label="Email Address"
-              type="email"
-              placeholder="alex.morgan@stanford.edu"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-            <Select
-              label="Cohort Assignment"
-              value={cohort}
-              onChange={(e) => setCohort(e.target.value)}
-              options={
-                candidateGroups.length > 0
-                  ? candidateGroups.map((g) => ({ value: g.name, label: g.name }))
-                  : [
-                      { value: 'Computer Science 101', label: 'Computer Science 101' },
-                      { value: 'Technical Hiring 2026', label: 'Technical Hiring 2026' },
-                      { value: 'Executive MBA Evaluation', label: 'Executive MBA Evaluation' },
-                    ]
-              }
-            />
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="First Name *"
+                placeholder="e.g. Alex"
+                value={candForm.firstName}
+                onChange={(e) => setCandForm({ ...candForm, firstName: e.target.value })}
+              />
+              <Input
+                label="Last Name"
+                placeholder="e.g. Morgan"
+                value={candForm.lastName}
+                onChange={(e) => setCandForm({ ...candForm, lastName: e.target.value })}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="Email Address *"
+                type="email"
+                placeholder="alex.morgan@stanford.edu"
+                value={candForm.email}
+                onChange={(e) => setCandForm({ ...candForm, email: e.target.value })}
+              />
+              <Input
+                label="Roll No / Student ID *"
+                placeholder="e.g. CS-2026-0042"
+                value={candForm.candidateCode}
+                onChange={(e) => setCandForm({ ...candForm, candidateCode: e.target.value })}
+              />
+            </div>
+
+            {/* Academic Department & Cascaded Program Selectors */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-accent-700 dark:text-accent-300 mb-1">
+                  Academic Department
+                </label>
+                <select
+                  value={candForm.departmentId}
+                  onChange={(e) => {
+                    const newDept = e.target.value;
+                    const availProgs = programs.filter((p) => !newDept || p.departmentId === newDept || p.departmentId?._id === newDept);
+                    setCandForm({
+                      ...candForm,
+                      departmentId: newDept,
+                      programId: availProgs[0]?._id || '',
+                    });
+                  }}
+                  className="w-full h-9 px-2.5 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white text-xs"
+                >
+                  <option value="">Select Department...</option>
+                  {departments.map((d) => (
+                    <option key={d._id} value={d._id}>
+                      {d.name} ({d.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-accent-700 dark:text-accent-300 mb-1">
+                  Degree Program
+                </label>
+                <select
+                  value={candForm.programId}
+                  onChange={(e) => setCandForm({ ...candForm, programId: e.target.value })}
+                  className="w-full h-9 px-2.5 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white text-xs"
+                >
+                  <option value="">Select Program...</option>
+                  {formPrograms.map((p) => (
+                    <option key={p._id} value={p._id}>
+                      {p.name} ({p.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <Input
+                label="Phone Number (Optional)"
+                placeholder="+1 (555) 234-5678"
+                value={candForm.phone}
+                onChange={(e) => setCandForm({ ...candForm, phone: e.target.value })}
+              />
+            </div>
           </div>
         </Modal>
       )}
 
-      {/* Create Group Modal */}
-      {groupModalOpen && (
+      {/* Bulk CSV Import Modal */}
+      {bulkModalOpen && (
         <Modal
-          isOpen={groupModalOpen}
-          onClose={() => setGroupModalOpen(false)}
-          title="Create Candidate Cohort Group"
-        >
-          <form onSubmit={handleCreateGroup} className="space-y-4">
-            <Input
-              label="Cohort Group Name *"
-              required
-              value={groupForm.name}
-              onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })}
-              placeholder="e.g. Aeronautical Pilot Class of 2026"
-            />
-            <Input
-              label="Cohort Code *"
-              required
-              value={groupForm.code}
-              onChange={(e) => setGroupForm({ ...groupForm, code: e.target.value.toUpperCase() })}
-              placeholder="e.g. AERO-26"
-            />
-            <div>
-              <label className="block text-xs font-semibold text-accent-700 dark:text-accent-300 mb-1">
-                Cohort Description
-              </label>
-              <textarea
-                rows={3}
-                value={groupForm.description}
-                onChange={(e) => setGroupForm({ ...groupForm, description: e.target.value })}
-                placeholder="Examinee qualifications, academic term, and assessment scope..."
-                className="w-full p-2.5 text-xs rounded-xl bg-accent-50 dark:bg-accent-950 border border-accent-200 dark:border-accent-800 text-accent-900 dark:text-white resize-none"
-              />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => setGroupModalOpen(false)}>
+          open={bulkModalOpen}
+          onClose={() => setBulkModalOpen(false)}
+          title="Bulk Import Examinees"
+          subtitle="Paste CSV rows to enroll multiple students directly into an academic department."
+          footer={
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setBulkModalOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" variant="primary" loading={isSubmitting}>
-                Create Cohort Group
+              <Button
+                variant="primary"
+                size="sm"
+                loading={isSubmitting}
+                icon={<Upload size={14} />}
+                onClick={handleBulkImport}
+              >
+                Import Examinees
               </Button>
             </div>
-          </form>
-        </Modal>
-      )}
-
-      {/* Enroll Candidates into Cohort Modal */}
-      {memberModalOpen && selectedGroup && (
-        <Modal
-          isOpen={memberModalOpen}
-          onClose={() => setMemberModalOpen(false)}
-          title={`Enroll Candidates into ${selectedGroup.name}`}
-          size="md"
+          }
         >
           <div className="space-y-4">
-            <p className="text-xs text-accent-500 dark:text-accent-400">
-              Select candidates to add to cohort <span className="font-bold text-accent-900 dark:text-white">{selectedGroup.name}</span>.
-            </p>
-            <div className="max-h-60 overflow-y-auto space-y-2 border border-accent-200 dark:border-accent-800 rounded-xl p-3 bg-accent-50/50 dark:bg-accent-950/50">
-              {candidatesList.map((c) => {
-                const cId = c._id || c.id;
-                const isSelected = selectedCandidateIds.includes(cId);
-                const cName = c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim();
-                return (
-                  <label
-                    key={cId}
-                    className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-accent-900 hover:bg-primary-50 dark:hover:bg-primary-950/40 cursor-pointer transition-colors"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedCandidateIds([...selectedCandidateIds, cId]);
-                          } else {
-                            setSelectedCandidateIds(selectedCandidateIds.filter((id) => id !== cId));
-                          }
-                        }}
-                        className="rounded text-primary-600 focus:ring-primary-500"
-                      />
-                      <div className="truncate">
-                        <p className="text-xs font-semibold text-accent-900 dark:text-white truncate">{cName}</p>
-                        <p className="text-[10px] text-accent-400 truncate">{c.email}</p>
-                      </div>
-                    </div>
-                    <Badge variant="secondary" className="text-[10px] shrink-0">
-                      {c.candidateCode || 'Enrolled'}
-                    </Badge>
-                  </label>
-                );
-              })}
-            </div>
-            <div className="flex items-center justify-between pt-2 border-t border-accent-200 dark:border-accent-800">
-              <span className="text-xs text-accent-400">
-                {selectedCandidateIds.length} candidate(s) selected
-              </span>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setMemberModalOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  disabled={selectedCandidateIds.length === 0}
-                  icon={<UserCheck size={14} />}
-                  onClick={handleEnrollMembers}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-accent-700 dark:text-accent-300 mb-1">
+                  Target Department
+                </label>
+                <select
+                  value={bulkDeptId}
+                  onChange={(e) => {
+                    setBulkDeptId(e.target.value);
+                    const avail = programs.filter((p) => !e.target.value || p.departmentId === e.target.value);
+                    setBulkProgId(avail[0]?._id || '');
+                  }}
+                  className="w-full h-9 px-2.5 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white text-xs"
                 >
-                  Confirm Enrollment
-                </Button>
+                  <option value="">Select Department...</option>
+                  {departments.map((d) => (
+                    <option key={d._id} value={d._id}>
+                      {d.name} ({d.code})
+                    </option>
+                  ))}
+                </select>
               </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-accent-700 dark:text-accent-300 mb-1">
+                  Target Degree Program
+                </label>
+                <select
+                  value={bulkProgId}
+                  onChange={(e) => setBulkProgId(e.target.value)}
+                  className="w-full h-9 px-2.5 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white text-xs"
+                >
+                  <option value="">Select Program...</option>
+                  {programs
+                    .filter((p) => !bulkDeptId || p.departmentId === bulkDeptId || p.departmentId?._id === bulkDeptId)
+                    .map((p) => (
+                      <option key={p._id} value={p._id}>
+                        {p.name} ({p.code})
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-accent-700 dark:text-accent-300">
+                  CSV Data (One student per line: Name, Email, StudentID)
+                </label>
+              </div>
+              <textarea
+                rows={6}
+                value={bulkText}
+                onChange={(e) => setBulkText(e.target.value)}
+                placeholder="Alex Morgan, alex.morgan@stanford.edu, CS-2026-001&#10;Sophia Chen, sophia.c@stanford.edu, CS-2026-002&#10;David Kim, david.kim@stanford.edu, CS-2026-003"
+                className="w-full p-3 font-mono text-xs rounded-xl bg-accent-50 dark:bg-accent-950 border border-accent-200 dark:border-accent-800 text-accent-900 dark:text-white resize-none"
+              />
             </div>
           </div>
         </Modal>

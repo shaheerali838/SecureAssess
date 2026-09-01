@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   GraduationCap, Building2, BookOpen, Layers, Plus, Search, Filter,
   MoreVertical, Edit2, Trash2, CheckCircle2, XCircle, ChevronRight,
-  RefreshCw, Award, Users, BookMarked, Calendar, AlertCircle
+  RefreshCw, Award, Users, BookMarked, Calendar, AlertCircle, Info,
+  FolderPlus, FileCode
 } from 'lucide-react';
 import {
   Card, CardHeader, CardBody, Badge, Button, Input, Select, PageHeader, Modal, Toast
@@ -21,17 +22,16 @@ export function OrgStructure({ onNavigate }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [toast, setToast] = useState(null);
 
-  // Dynamic Translated Terminology (Clean, non-hardcoded labels)
-  const deptSingular = t('department');
-  const deptPlural = t('department', true);
-  const progSingular = t('program');
-  const progPlural = t('program', true);
-  const subjSingular = t('subject');
-  const subjPlural = t('subject', true);
-  const structureTitle = t('structure');
-  const levelLabel = t('level');
-  const creditsLabel = t('credits');
-  const candidatePlural = t('candidate', true);
+  // Dynamic Terminology
+  const deptSingular = t ? t('department') : 'Department';
+  const deptPlural = t ? t('department', true) : 'Departments';
+  const progSingular = t ? t('program') : 'Degree Program';
+  const progPlural = t ? t('program', true) : 'Degree Programs';
+  const subjSingular = t ? t('subject') : 'Subject';
+  const subjPlural = t ? t('subject', true) : 'Subjects';
+  const structureTitle = t ? t('structure') : 'Academic Structure';
+  const levelLabel = t ? t('level') : 'Level';
+  const creditsLabel = t ? t('credits') : 'Credits';
 
   // Entities state
   const [departments, setDepartments] = useState([]);
@@ -68,10 +68,24 @@ export function OrgStructure({ onNavigate }) {
 
   const [submitting, setSubmitting] = useState(false);
 
-  const orgId = currentOrganization?._id || currentOrganization?.id || user?.organizationId || 'current';
+  const orgId = currentOrganization?._id || currentOrganization?.id || user?.organizationId || null;
 
-  // Fetch Structure Data
-  const loadData = async () => {
+  // Extract array helper
+  const extractItems = (res) => {
+    if (!res) return [];
+    const val = res.status === 'fulfilled' ? res.value : res;
+    if (Array.isArray(val)) return val;
+    if (Array.isArray(val?.items)) return val.items;
+    if (Array.isArray(val?.data?.items)) return val.data.items;
+    if (Array.isArray(val?.departments)) return val.departments;
+    if (Array.isArray(val?.programs)) return val.programs;
+    if (Array.isArray(val?.subjects)) return val.subjects;
+    if (Array.isArray(val?.data)) return val.data;
+    return [];
+  };
+
+  // Fetch Structure Data from Database
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const [deptRes, progRes, subjRes] = await Promise.allSettled([
@@ -80,31 +94,9 @@ export function OrgStructure({ onNavigate }) {
         subjectService.getSubjects({}, orgId),
       ]);
 
-      const extractItems = (res, fallback = []) => {
-        if (res.status !== 'fulfilled') return fallback;
-        const val = res.value;
-        return Array.isArray(val)
-          ? val
-          : val?.items || val?.data?.items || val?.departments || val?.programs || val?.subjects || val?.data || fallback;
-      };
-
-      const loadedDepts = extractItems(deptRes, [
-        { _id: 'd1', name: 'Aerospace & Flight Systems', code: 'AERO', description: 'Flight dynamics, propulsion, avionics and airframe integrity.', status: 'ACTIVE' },
-        { _id: 'd2', name: 'Computer Science & AI', code: 'CS', description: 'Algorithms, cybersecurity, distributed systems and machine learning.', status: 'ACTIVE' },
-        { _id: 'd3', name: 'Mechanical & Automation', code: 'MECH', description: 'Thermodynamics, robotics, and applied structural mechanics.', status: 'ACTIVE' },
-      ]);
-
-      const loadedProgs = extractItems(progRes, [
-        { _id: 'p1', name: 'B.S. Aeronautical Engineering', code: 'BS-AE', departmentId: 'd1', level: 'UNDERGRADUATE', duration: '4 Years', description: 'Commercial pilot licensing & aerospace structures curriculum.', status: 'ACTIVE' },
-        { _id: 'p2', name: 'M.S. Intelligent Avionics', code: 'MS-IA', departmentId: 'd1', level: 'GRADUATE', duration: '2 Years', description: 'Advanced autopilot instrumentation & radar telemetry.', status: 'ACTIVE' },
-        { _id: 'p3', name: 'B.S. Software Security', code: 'BS-SEC', departmentId: 'd2', level: 'UNDERGRADUATE', duration: '4 Years', description: 'Secure code analysis, cryptographic protocols, cloud penetration testing.', status: 'ACTIVE' },
-      ]);
-
-      const loadedSubjs = extractItems(subjRes, [
-        { _id: 's1', name: 'Aerodynamics & Wind Tunnel Testing', code: 'AE-301', programId: 'p1', credits: 4, description: 'Subsonic & supersonic compressible fluid flow.', status: 'ACTIVE' },
-        { _id: 's2', name: 'Avionics Navigation & Radar Systems', code: 'AE-405', programId: 'p1', credits: 3, description: 'VOR, ILS, inertial guidance and GPS transponder telemetry.', status: 'ACTIVE' },
-        { _id: 's3', name: 'Advanced Cryptography & PKI', code: 'SEC-402', programId: 'p3', credits: 4, description: 'Elliptic curve encryption, zero-knowledge proofs and key management.', status: 'ACTIVE' },
-      ]);
+      const loadedDepts = extractItems(deptRes);
+      const loadedProgs = extractItems(progRes);
+      const loadedSubjs = extractItems(subjRes);
 
       setDepartments(loadedDepts);
       setPrograms(loadedProgs);
@@ -114,15 +106,56 @@ export function OrgStructure({ onNavigate }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [orgId]);
 
   useEffect(() => {
     loadData();
-  }, [orgId]);
+  }, [loadData]);
+
+  // Open Department Modal
+  const openNewDepartmentModal = () => {
+    setEditingDept(null);
+    setDeptForm({ name: '', code: '', description: '', status: 'ACTIVE' });
+    setDeptModalOpen(true);
+  };
+
+  // Open Program Modal
+  const openNewProgramModal = () => {
+    setEditingProg(null);
+    setProgForm({
+      name: '',
+      code: '',
+      departmentId: departments[0]?._id || '',
+      level: 'UNDERGRADUATE',
+      duration: '4 Years',
+      description: '',
+      status: 'ACTIVE',
+    });
+    setProgModalOpen(true);
+  };
+
+  // Open Subject Modal
+  const openNewSubjectModal = () => {
+    setEditingSubj(null);
+    setSubjForm({
+      name: '',
+      code: '',
+      programId: programs[0]?._id || '',
+      credits: 3,
+      description: '',
+      status: 'ACTIVE',
+    });
+    setSubjModalOpen(true);
+  };
 
   // Department CRUD
   const handleSaveDepartment = async (e) => {
     e.preventDefault();
+    if (!deptForm.name.trim() || !deptForm.code.trim()) {
+      setToast({ type: 'error', text: 'Department name and code are required.' });
+      return;
+    }
+
     setSubmitting(true);
     try {
       if (editingDept) {
@@ -130,21 +163,14 @@ export function OrgStructure({ onNavigate }) {
         setToast({ type: 'success', text: `${deptSingular} "${deptForm.name}" updated successfully.` });
       } else {
         await departmentService.createDepartment(deptForm, orgId);
-        setToast({ type: 'success', text: `${deptSingular} "${deptForm.name}" registered successfully.` });
+        setToast({ type: 'success', text: `${deptSingular} "${deptForm.name}" created successfully.` });
       }
       setDeptModalOpen(false);
       setEditingDept(null);
-      loadData();
+      await loadData();
     } catch (err) {
-      console.warn('Dept save note:', err.message);
-      // Optimistic local update
-      if (editingDept) {
-        setDepartments(departments.map((d) => (d._id === editingDept._id ? { ...d, ...deptForm } : d)));
-      } else {
-        setDepartments([...departments, { ...deptForm, _id: `dept_${Date.now()}` }]);
-      }
-      setDeptModalOpen(false);
-      setToast({ type: 'success', text: `${deptSingular} ${deptForm.name} saved in active workspace.` });
+      const msg = err.response?.data?.message || err.message || 'Failed to save department.';
+      setToast({ type: 'error', text: msg });
     } finally {
       setSubmitting(false);
     }
@@ -155,36 +181,40 @@ export function OrgStructure({ onNavigate }) {
     try {
       await departmentService.deleteDepartment(id, orgId);
       setToast({ type: 'info', text: `${deptSingular} "${name}" deleted.` });
-      loadData();
-    } catch {
-      setDepartments(departments.filter((d) => d._id !== id));
-      setToast({ type: 'info', text: `${deptSingular} "${name}" removed from workspace.` });
+      await loadData();
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Failed to delete department.';
+      setToast({ type: 'error', text: msg });
     }
   };
 
   // Program CRUD
   const handleSaveProgram = async (e) => {
     e.preventDefault();
+    if (!progForm.name.trim() || !progForm.code.trim()) {
+      setToast({ type: 'error', text: 'Program title and code are required.' });
+      return;
+    }
+    if (!progForm.departmentId) {
+      setToast({ type: 'error', text: 'Please select a parent department for this program.' });
+      return;
+    }
+
     setSubmitting(true);
     try {
       if (editingProg) {
         await programService.updateProgram(editingProg._id, progForm, orgId);
-        setToast({ type: 'success', text: `${progSingular} "${progForm.name}" updated.` });
+        setToast({ type: 'success', text: `${progSingular} "${progForm.name}" updated successfully.` });
       } else {
         await programService.createProgram(progForm, orgId);
-        setToast({ type: 'success', text: `${progSingular} "${progForm.name}" created.` });
+        setToast({ type: 'success', text: `${progSingular} "${progForm.name}" created successfully.` });
       }
       setProgModalOpen(false);
       setEditingProg(null);
-      loadData();
-    } catch {
-      if (editingProg) {
-        setPrograms(programs.map((p) => (p._id === editingProg._id ? { ...p, ...progForm } : p)));
-      } else {
-        setPrograms([...programs, { ...progForm, _id: `prog_${Date.now()}` }]);
-      }
-      setProgModalOpen(false);
-      setToast({ type: 'success', text: `${progSingular} "${progForm.name}" saved.` });
+      await loadData();
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Failed to save program.';
+      setToast({ type: 'error', text: msg });
     } finally {
       setSubmitting(false);
     }
@@ -195,36 +225,40 @@ export function OrgStructure({ onNavigate }) {
     try {
       await programService.deleteProgram(id, orgId);
       setToast({ type: 'info', text: `${progSingular} "${name}" deleted.` });
-      loadData();
-    } catch {
-      setPrograms(programs.filter((p) => p._id !== id));
-      setToast({ type: 'info', text: `${progSingular} "${name}" removed.` });
+      await loadData();
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Failed to delete program.';
+      setToast({ type: 'error', text: msg });
     }
   };
 
   // Subject CRUD
   const handleSaveSubject = async (e) => {
     e.preventDefault();
+    if (!subjForm.name.trim() || !subjForm.code.trim()) {
+      setToast({ type: 'error', text: 'Subject name and code are required.' });
+      return;
+    }
+    if (!subjForm.programId) {
+      setToast({ type: 'error', text: 'Please select an associated degree program for this subject.' });
+      return;
+    }
+
     setSubmitting(true);
     try {
       if (editingSubj) {
         await subjectService.updateSubject(editingSubj._id, subjForm, orgId);
-        setToast({ type: 'success', text: `${subjSingular} "${subjForm.name}" updated.` });
+        setToast({ type: 'success', text: `${subjSingular} "${subjForm.name}" updated successfully.` });
       } else {
         await subjectService.createSubject(subjForm, orgId);
-        setToast({ type: 'success', text: `${subjSingular} "${subjForm.name}" created.` });
+        setToast({ type: 'success', text: `${subjSingular} "${subjForm.name}" created successfully.` });
       }
       setSubjModalOpen(false);
       setEditingSubj(null);
-      loadData();
-    } catch {
-      if (editingSubj) {
-        setSubjects(subjects.map((s) => (s._id === editingSubj._id ? { ...s, ...subjForm } : s)));
-      } else {
-        setSubjects([...subjects, { ...subjForm, _id: `subj_${Date.now()}` }]);
-      }
-      setSubjModalOpen(false);
-      setToast({ type: 'success', text: `${subjSingular} "${subjForm.name}" saved.` });
+      await loadData();
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Failed to save subject.';
+      setToast({ type: 'error', text: msg });
     } finally {
       setSubmitting(false);
     }
@@ -235,51 +269,53 @@ export function OrgStructure({ onNavigate }) {
     try {
       await subjectService.deleteSubject(id, orgId);
       setToast({ type: 'info', text: `${subjSingular} "${name}" deleted.` });
-      loadData();
-    } catch {
-      setSubjects(subjects.filter((s) => s._id !== id));
-      setToast({ type: 'info', text: `${subjSingular} "${name}" removed.` });
+      await loadData();
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Failed to delete subject.';
+      setToast({ type: 'error', text: msg });
     }
   };
 
   // Filtered lists
   const filteredDepartments = departments.filter(
     (d) =>
-      d.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      d.code?.toLowerCase().includes(searchQuery.toLowerCase())
+      (d.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (d.code || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const filteredPrograms = programs.filter(
     (p) =>
-      p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.code?.toLowerCase().includes(searchQuery.toLowerCase())
+      (p.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.code || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const filteredSubjects = subjects.filter(
     (s) =>
-      s.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.code?.toLowerCase().includes(searchQuery.toLowerCase())
+      (s.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (s.code || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-full overflow-hidden">
       {toast && <Toast type={toast.type} message={toast.text} onClose={() => setToast(null)} />}
 
+      {/* Page Header */}
       <PageHeader
-        title={`${structureTitle} & Curriculum Management`}
-        subtitle={`Configure ${deptPlural.toLowerCase()}, ${progPlural.toLowerCase()}, and ${subjPlural.toLowerCase()} for this organization.`}
-        icon={<GraduationCap size={22} className="text-primary-600 dark:text-primary-400" />}
+        title={`${structureTitle} & Curriculum`}
+        subtitle={`Manage ${deptPlural.toLowerCase()}, ${progPlural.toLowerCase()}, and ${subjPlural.toLowerCase()} synced with your organization database.`}
+        icon={<GraduationCap size={22} className="text-primary-600 dark:text-primary-400 shrink-0" />}
         breadcrumbs={[
           { label: 'Dashboard', onClick: () => onNavigate('org-dashboard') },
           { label: structureTitle },
         ]}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               size="sm"
               icon={<RefreshCw size={14} className={loading ? 'animate-spin' : ''} />}
               onClick={loadData}
+              disabled={loading}
             >
               Sync
             </Button>
@@ -288,11 +324,7 @@ export function OrgStructure({ onNavigate }) {
                 variant="primary"
                 size="sm"
                 icon={<Plus size={14} />}
-                onClick={() => {
-                  setEditingDept(null);
-                  setDeptForm({ name: '', code: '', description: '', status: 'ACTIVE' });
-                  setDeptModalOpen(true);
-                }}
+                onClick={openNewDepartmentModal}
               >
                 New {deptSingular}
               </Button>
@@ -302,19 +334,7 @@ export function OrgStructure({ onNavigate }) {
                 variant="primary"
                 size="sm"
                 icon={<Plus size={14} />}
-                onClick={() => {
-                  setEditingProg(null);
-                  setProgForm({
-                    name: '',
-                    code: '',
-                    departmentId: departments[0]?._id || '',
-                    level: 'UNDERGRADUATE',
-                    duration: '4 Years',
-                    description: '',
-                    status: 'ACTIVE',
-                  });
-                  setProgModalOpen(true);
-                }}
+                onClick={openNewProgramModal}
               >
                 New {progSingular}
               </Button>
@@ -324,18 +344,7 @@ export function OrgStructure({ onNavigate }) {
                 variant="primary"
                 size="sm"
                 icon={<Plus size={14} />}
-                onClick={() => {
-                  setEditingSubj(null);
-                  setSubjForm({
-                    name: '',
-                    code: '',
-                    programId: programs[0]?._id || '',
-                    credits: 3,
-                    description: '',
-                    status: 'ACTIVE',
-                  });
-                  setSubjModalOpen(true);
-                }}
+                onClick={openNewSubjectModal}
               >
                 New {subjSingular}
               </Button>
@@ -344,51 +353,72 @@ export function OrgStructure({ onNavigate }) {
         }
       />
 
-      {/* Summary Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="p-4 bg-gradient-to-br from-primary-500/5 to-primary-500/10 border-primary-200 dark:border-primary-900/50">
+      {/* Summary KPI Counters - Fully Responsive */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+        <Card
+          onClick={() => setActiveTab('departments')}
+          className={`p-4 sm:p-5 transition-all cursor-pointer border-2 min-w-0 ${
+            activeTab === 'departments'
+              ? 'border-primary-500 bg-primary-50/20 dark:bg-primary-950/20'
+              : 'border-accent-200 dark:border-accent-800 hover:border-primary-300'
+          }`}
+        >
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-primary-600 dark:text-primary-400">
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-primary-600 dark:text-primary-400 truncate">
                 {deptPlural}
               </p>
-              <h3 className="text-2xl font-bold text-accent-900 dark:text-white mt-1">
+              <h3 className="text-xl sm:text-2xl font-bold text-accent-900 dark:text-white mt-1">
                 {departments.length}
               </h3>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-primary-100 dark:bg-primary-900/60 text-primary-600 dark:text-primary-400 flex items-center justify-center">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-primary-100 dark:bg-primary-900/60 text-primary-600 dark:text-primary-400 flex items-center justify-center shrink-0 border border-primary-200 dark:border-primary-800 shadow-soft">
               <Building2 size={20} />
             </div>
           </div>
         </Card>
 
-        <Card className="p-4 bg-gradient-to-br from-secondary-500/5 to-secondary-500/10 border-secondary-200 dark:border-secondary-900/50">
+        <Card
+          onClick={() => setActiveTab('programs')}
+          className={`p-4 sm:p-5 transition-all cursor-pointer border-2 min-w-0 ${
+            activeTab === 'programs'
+              ? 'border-secondary-500 bg-secondary-50/20 dark:bg-secondary-950/20'
+              : 'border-accent-200 dark:border-accent-800 hover:border-secondary-300'
+          }`}
+        >
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-secondary-600 dark:text-secondary-400">
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-secondary-600 dark:text-secondary-400 truncate">
                 {progPlural}
               </p>
-              <h3 className="text-2xl font-bold text-accent-900 dark:text-white mt-1">
+              <h3 className="text-xl sm:text-2xl font-bold text-accent-900 dark:text-white mt-1">
                 {programs.length}
               </h3>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-secondary-100 dark:bg-secondary-900/60 text-secondary-600 dark:text-secondary-400 flex items-center justify-center">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-secondary-100 dark:bg-secondary-900/60 text-secondary-600 dark:text-secondary-400 flex items-center justify-center shrink-0 border border-secondary-200 dark:border-secondary-800 shadow-soft">
               <Award size={20} />
             </div>
           </div>
         </Card>
 
-        <Card className="p-4 bg-gradient-to-br from-success-500/5 to-success-500/10 border-success-200 dark:border-success-900/50">
+        <Card
+          onClick={() => setActiveTab('subjects')}
+          className={`p-4 sm:p-5 transition-all cursor-pointer border-2 min-w-0 ${
+            activeTab === 'subjects'
+              ? 'border-success-500 bg-success-50/20 dark:bg-success-950/20'
+              : 'border-accent-200 dark:border-accent-800 hover:border-success-300'
+          }`}
+        >
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-success-600 dark:text-success-400">
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-success-600 dark:text-success-400 truncate">
                 {subjPlural}
               </p>
-              <h3 className="text-2xl font-bold text-accent-900 dark:text-white mt-1">
+              <h3 className="text-xl sm:text-2xl font-bold text-accent-900 dark:text-white mt-1">
                 {subjects.length}
               </h3>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-success-100 dark:bg-success-900/60 text-success-600 dark:text-success-400 flex items-center justify-center">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-success-100 dark:bg-success-900/60 text-success-600 dark:text-success-400 flex items-center justify-center shrink-0 border border-success-200 dark:border-success-800 shadow-soft">
               <BookOpen size={20} />
             </div>
           </div>
@@ -396,17 +426,17 @@ export function OrgStructure({ onNavigate }) {
       </div>
 
       {/* Tabs & Search Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-accent-200 dark:border-accent-800 pb-3">
-        <div className="flex items-center gap-1.5 p-1 bg-accent-100 dark:bg-accent-900 rounded-xl">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-accent-200 dark:border-accent-800 pb-3">
+        <div className="flex items-center gap-1.5 p-1 bg-accent-100 dark:bg-accent-900 rounded-xl overflow-x-auto">
           {[
-            { id: 'departments', label: deptPlural, icon: <Building2 size={14} /> },
-            { id: 'programs', label: progPlural, icon: <Award size={14} /> },
-            { id: 'subjects', label: subjPlural, icon: <BookOpen size={14} /> },
+            { id: 'departments', label: deptPlural, icon: <Building2 size={14} />, count: departments.length },
+            { id: 'programs', label: progPlural, icon: <Award size={14} />, count: programs.length },
+            { id: 'subjects', label: subjPlural, icon: <BookOpen size={14} />, count: subjects.length },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+              className={`flex items-center gap-2 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0 ${
                 activeTab === tab.id
                   ? 'bg-white dark:bg-accent-800 text-primary-600 dark:text-primary-400 shadow-sm'
                   : 'text-accent-600 dark:text-accent-400 hover:text-accent-900 dark:hover:text-white'
@@ -414,314 +444,589 @@ export function OrgStructure({ onNavigate }) {
             >
               {tab.icon}
               <span>{tab.label}</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-accent-200 dark:bg-accent-700 text-accent-700 dark:text-accent-300 font-normal">
+                {tab.count}
+              </span>
             </button>
           ))}
         </div>
 
-        <div className="relative w-full sm:w-72">
-          <Search size={14} className="absolute left-3 top-2.5 text-accent-400" />
-          <input
-            type="text"
-            placeholder={`Filter ${activeTab}...`}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-8 pl-8 pr-3 text-xs rounded-xl bg-accent-50 dark:bg-accent-900 border border-accent-200 dark:border-accent-800 text-accent-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500"
-          />
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          <div className="relative w-full md:w-64">
+            <Search size={14} className="absolute left-3 top-2.5 text-accent-400" />
+            <input
+              type="text"
+              placeholder={`Search ${activeTab}...`}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-8 pl-8 pr-3 text-xs rounded-xl bg-accent-50 dark:bg-accent-900 border border-accent-200 dark:border-accent-800 text-accent-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500"
+            />
+          </div>
         </div>
       </div>
 
       {/* Tab 1: Departments */}
       {activeTab === 'departments' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredDepartments.map((dept) => {
-            const deptPrograms = programs.filter(
-              (p) => p.departmentId === dept._id || p.departmentId?._id === dept._id
-            );
-            return (
-              <Card key={dept._id} className="hover:shadow-md transition-shadow">
-                <CardBody className="p-4 space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-primary-50 dark:bg-primary-950/60 text-primary-600 dark:text-primary-400 font-mono font-bold text-xs flex items-center justify-center border border-primary-200 dark:border-primary-800">
-                        {dept.code}
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-xs text-accent-900 dark:text-white">{dept.name}</h4>
-                        <Badge variant={dept.status === 'ACTIVE' ? 'success' : 'secondary'} className="mt-0.5 text-[10px]">
-                          {dept.status}
-                        </Badge>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => {
-                          setEditingDept(dept);
-                          setDeptForm({
-                            name: dept.name,
-                            code: dept.code,
-                            description: dept.description || '',
-                            status: dept.status || 'ACTIVE',
-                          });
-                          setDeptModalOpen(true);
-                        }}
-                        className="p-1 text-accent-400 hover:text-accent-600 dark:hover:text-accent-200"
-                      >
-                        <Edit2 size={13} />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteDepartment(dept._id, dept.name)}
-                        className="p-1 text-accent-400 hover:text-danger-500"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  </div>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-accent-900 dark:text-white">
+              All {deptPlural} ({filteredDepartments.length})
+            </h3>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<Plus size={14} />}
+              onClick={openNewDepartmentModal}
+            >
+              Add {deptSingular}
+            </Button>
+          </div>
 
-                  <p className="text-xs text-accent-600 dark:text-accent-400 line-clamp-2">
-                    {dept.description || `Active ${deptSingular.toLowerCase()} registered in workspace.`}
-                  </p>
+          {filteredDepartments.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+              {filteredDepartments.map((dept) => {
+                const deptPrograms = programs.filter(
+                  (p) => p.departmentId === dept._id || p.departmentId?._id === dept._id
+                );
+                return (
+                  <Card key={dept._id} className="hover:shadow-md transition-shadow min-w-0 flex flex-col justify-between">
+                    <CardBody className="p-4 sm:p-5 space-y-3.5 flex flex-col justify-between h-full">
+                      <div className="space-y-2.5">
+                        <div className="flex items-start justify-between gap-2.5">
+                          <div className="flex items-start gap-3 min-w-0 flex-1">
+                            {/* Responsive Logo Avatar */}
+                            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-primary-100 dark:bg-primary-950 text-primary-600 dark:text-primary-400 flex items-center justify-center shrink-0 border border-primary-200 dark:border-primary-800 shadow-soft">
+                              <Building2 size={20} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-mono font-bold text-[10px] px-1.5 py-0.5 rounded bg-accent-100 dark:bg-accent-800 text-accent-700 dark:text-accent-300 border border-accent-200 dark:border-accent-700 shrink-0">
+                                  {dept.code}
+                                </span>
+                                <Badge variant={dept.status === 'ACTIVE' ? 'success' : 'secondary'} className="text-[10px] shrink-0">
+                                  {dept.status || 'ACTIVE'}
+                                </Badge>
+                              </div>
+                              <h4 className="font-bold text-sm text-accent-900 dark:text-white mt-1 break-words">
+                                {dept.name}
+                              </h4>
+                            </div>
+                          </div>
 
-                  <div className="pt-2 border-t border-accent-100 dark:border-accent-800 flex items-center justify-between text-[11px] text-accent-500">
-                    <span className="flex items-center gap-1">
-                      <Award size={12} /> {deptPrograms.length} {progPlural}
-                    </span>
-                    <button
-                      onClick={() => {
-                        setActiveTab('programs');
-                        setSearchQuery(dept.code || '');
-                      }}
-                      className="text-primary-600 dark:text-primary-400 font-semibold hover:underline flex items-center gap-0.5"
-                    >
-                      View {progPlural} <ChevronRight size={11} />
-                    </button>
-                  </div>
-                </CardBody>
-              </Card>
-            );
-          })}
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              onClick={() => {
+                                setEditingDept(dept);
+                                setDeptForm({
+                                  name: dept.name,
+                                  code: dept.code,
+                                  description: dept.description || '',
+                                  status: dept.status || 'ACTIVE',
+                                });
+                                setDeptModalOpen(true);
+                              }}
+                              className="p-1.5 text-accent-400 hover:text-accent-600 dark:hover:text-accent-200 cursor-pointer rounded-lg hover:bg-accent-100 dark:hover:bg-accent-800"
+                              title="Edit"
+                            >
+                              <Edit2 size={13} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteDepartment(dept._id, dept.name)}
+                              className="p-1.5 text-accent-400 hover:text-danger-600 dark:hover:text-danger-400 cursor-pointer rounded-lg hover:bg-danger-50 dark:hover:bg-danger-950/60"
+                              title="Delete"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </div>
+
+                        {dept.description && (
+                          <p className="text-xs text-accent-500 dark:text-accent-400 line-clamp-2 leading-relaxed">
+                            {dept.description}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="pt-2.5 border-t border-accent-100 dark:border-accent-800/80 flex items-center justify-between text-xs text-accent-500">
+                        <span className="font-medium">{deptPrograms.length} {deptPrograms.length === 1 ? progSingular : progPlural}</span>
+                        <button
+                          onClick={() => {
+                            setEditingProg(null);
+                            setProgForm({
+                              name: '',
+                              code: '',
+                              departmentId: dept._id,
+                              level: 'UNDERGRADUATE',
+                              duration: '4 Years',
+                              description: '',
+                              status: 'ACTIVE',
+                            });
+                            setProgModalOpen(true);
+                          }}
+                          className="text-primary-600 dark:text-primary-400 font-semibold hover:underline flex items-center gap-0.5 cursor-pointer text-xs"
+                        >
+                          + Add {progSingular}
+                        </button>
+                      </div>
+                    </CardBody>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
+            <Card className="p-8 sm:p-12 text-center">
+              <div className="w-12 h-12 rounded-full bg-primary-50 dark:bg-primary-950/60 text-primary-600 mx-auto flex items-center justify-center mb-3">
+                <Building2 size={24} />
+              </div>
+              <h4 className="text-sm font-bold text-accent-900 dark:text-white">No {deptPlural} Registered</h4>
+              <p className="text-xs text-accent-500 max-w-sm mx-auto mt-1 mb-4">
+                Get started by creating your first academic or organizational department.
+              </p>
+              <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={openNewDepartmentModal}>
+                Create First {deptSingular}
+              </Button>
+            </Card>
+          )}
         </div>
       )}
 
-      {/* Tab 2: Programs */}
+      {/* Tab 2: Degree Programs */}
       {activeTab === 'programs' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredPrograms.map((prog) => {
-            const progSubjects = subjects.filter(
-              (s) => s.programId === prog._id || s.programId?._id === prog._id
-            );
-            const parentDept = departments.find(
-              (d) => d._id === prog.departmentId || d._id === prog.departmentId?._id
-            );
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-accent-900 dark:text-white">
+              All {progPlural} ({filteredPrograms.length})
+            </h3>
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Plus size={14} />}
+              onClick={openNewProgramModal}
+            >
+              Add {progSingular}
+            </Button>
+          </div>
 
-            return (
-              <Card key={prog._id} className="hover:shadow-md transition-shadow">
-                <CardBody className="p-4 space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-secondary-50 dark:bg-secondary-950/60 text-secondary-600 dark:text-secondary-400 font-mono font-bold text-xs flex items-center justify-center border border-secondary-200 dark:border-secondary-800">
-                        {prog.code}
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-xs text-accent-900 dark:text-white">{prog.name}</h4>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <Badge variant="primary" className="text-[9px] px-1 py-0">
-                            {prog.level}
-                          </Badge>
-                          <span className="text-[10px] text-accent-400">• {prog.duration || 'Standard'}</span>
+          {filteredPrograms.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+              {filteredPrograms.map((prog) => {
+                const parentDept = departments.find(
+                  (d) => d._id === prog.departmentId || d._id === prog.departmentId?._id
+                );
+                const progSubjects = subjects.filter(
+                  (s) => s.programId === prog._id || s.programId?._id === prog._id
+                );
+
+                return (
+                  <Card key={prog._id} className="hover:shadow-md transition-shadow min-w-0 flex flex-col justify-between">
+                    <CardBody className="p-4 sm:p-5 space-y-3.5 flex flex-col justify-between h-full">
+                      <div className="space-y-2.5">
+                        <div className="flex items-start justify-between gap-2.5">
+                          <div className="flex items-start gap-3 min-w-0 flex-1">
+                            {/* Responsive Logo Avatar */}
+                            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-secondary-100 dark:bg-secondary-950 text-secondary-600 dark:text-secondary-400 flex items-center justify-center shrink-0 border border-secondary-200 dark:border-secondary-800 shadow-soft">
+                              <Award size={20} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-mono font-bold text-[10px] px-1.5 py-0.5 rounded bg-accent-100 dark:bg-accent-800 text-accent-700 dark:text-accent-300 border border-accent-200 dark:border-accent-700 shrink-0">
+                                  {prog.code}
+                                </span>
+                                <Badge variant={prog.status === 'ACTIVE' ? 'success' : 'secondary'} className="text-[10px] shrink-0">
+                                  {prog.status || 'ACTIVE'}
+                                </Badge>
+                              </div>
+                              <h4 className="font-bold text-sm text-accent-900 dark:text-white mt-1 break-words">
+                                {prog.name}
+                              </h4>
+                              <p className="text-[11px] text-accent-500 dark:text-accent-400 mt-0.5 truncate font-medium">
+                                {parentDept ? parentDept.name : 'Global / Unassigned'}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              onClick={() => {
+                                setEditingProg(prog);
+                                setProgForm({
+                                  name: prog.name,
+                                  code: prog.code,
+                                  departmentId: prog.departmentId?._id || prog.departmentId || '',
+                                  level: prog.level || 'UNDERGRADUATE',
+                                  duration: prog.duration || '4 Years',
+                                  description: prog.description || '',
+                                  status: prog.status || 'ACTIVE',
+                                });
+                                setProgModalOpen(true);
+                              }}
+                              className="p-1.5 text-accent-400 hover:text-accent-600 dark:hover:text-accent-200 cursor-pointer rounded-lg hover:bg-accent-100 dark:hover:bg-accent-800"
+                              title="Edit"
+                            >
+                              <Edit2 size={13} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteProgram(prog._id, prog.name)}
+                              className="p-1.5 text-accent-400 hover:text-danger-600 dark:hover:text-danger-400 cursor-pointer rounded-lg hover:bg-danger-50 dark:hover:bg-danger-950/60"
+                              title="Delete"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </div>
+
+                        {prog.description && (
+                          <p className="text-xs text-accent-500 dark:text-accent-400 line-clamp-2 leading-relaxed">
+                            {prog.description}
+                          </p>
+                        )}
+
+                        <div className="flex items-center gap-1.5 text-[10px] flex-wrap">
+                          <span className="px-2 py-0.5 rounded-md bg-accent-100 dark:bg-accent-800 text-accent-700 dark:text-accent-300 font-medium">
+                            {prog.level || 'UNDERGRADUATE'}
+                          </span>
+                          {prog.duration && (
+                            <span className="px-2 py-0.5 rounded-md bg-accent-100 dark:bg-accent-800 text-accent-600 dark:text-accent-400">
+                              {prog.duration}
+                            </span>
+                          )}
                         </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => {
-                          setEditingProg(prog);
-                          setProgForm({
-                            name: prog.name,
-                            code: prog.code,
-                            departmentId: prog.departmentId?._id || prog.departmentId || '',
-                            level: prog.level || 'UNDERGRADUATE',
-                            duration: prog.duration || '4 Years',
-                            description: prog.description || '',
-                            status: prog.status || 'ACTIVE',
-                          });
-                          setProgModalOpen(true);
-                        }}
-                        className="p-1 text-accent-400 hover:text-accent-600"
-                      >
-                        <Edit2 size={13} />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteProgram(prog._id, prog.name)}
-                        className="p-1 text-accent-400 hover:text-danger-500"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  </div>
 
-                  <p className="text-xs text-accent-600 dark:text-accent-400 line-clamp-2">
-                    {prog.description || `Registered ${progSingular.toLowerCase()} track.`}
-                  </p>
-
-                  <div className="pt-2 border-t border-accent-100 dark:border-accent-800 flex items-center justify-between text-[11px] text-accent-500">
-                    <span className="truncate max-w-[140px]">
-                      {parentDept ? parentDept.name : `Workspace ${deptSingular}`}
-                    </span>
-                    <span className="flex items-center gap-1 font-semibold text-accent-700 dark:text-accent-300">
-                      <BookOpen size={12} /> {progSubjects.length} {subjPlural}
-                    </span>
-                  </div>
-                </CardBody>
-              </Card>
-            );
-          })}
+                      <div className="pt-2.5 border-t border-accent-100 dark:border-accent-800/80 flex items-center justify-between text-xs text-accent-500">
+                        <span className="font-medium">{progSubjects.length} {subjPlural}</span>
+                        <button
+                          onClick={() => {
+                            setEditingSubj(null);
+                            setSubjForm({
+                              name: '',
+                              code: '',
+                              programId: prog._id,
+                              credits: 3,
+                              description: '',
+                              status: 'ACTIVE',
+                            });
+                            setSubjModalOpen(true);
+                          }}
+                          className="text-secondary-600 dark:text-secondary-400 font-semibold hover:underline flex items-center gap-0.5 cursor-pointer text-xs"
+                        >
+                          + Add {subjSingular}
+                        </button>
+                      </div>
+                    </CardBody>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
+            <Card className="p-8 sm:p-12 text-center">
+              <div className="w-12 h-12 rounded-full bg-secondary-50 dark:bg-secondary-950/60 text-secondary-600 mx-auto flex items-center justify-center mb-3">
+                <Award size={24} />
+              </div>
+              <h4 className="text-sm font-bold text-accent-900 dark:text-white">No {progPlural} Created</h4>
+              <p className="text-xs text-accent-500 max-w-sm mx-auto mt-1 mb-4">
+                {departments.length === 0
+                  ? `Create a ${deptSingular.toLowerCase()} first before adding degree programs.`
+                  : `Add degree programs and curricula under your departments.`}
+              </p>
+              <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={openNewProgramModal}>
+                Create First {progSingular}
+              </Button>
+            </Card>
+          )}
         </div>
       )}
 
-      {/* Tab 3: Course Subjects */}
+      {/* Tab 3: Subjects */}
       {activeTab === 'subjects' && (
-        <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-accent-100 dark:border-accent-800 bg-accent-50/50 dark:bg-accent-900/50 text-[11px] font-bold text-accent-500 uppercase tracking-wider">
-                  <th className="py-3 px-4">{subjSingular} Code & Name</th>
-                  <th className="py-3 px-4">Associated {progSingular}</th>
-                  <th className="py-3 px-4">{creditsLabel}</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-accent-100 dark:divide-accent-800 text-xs">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-accent-900 dark:text-white">
+              All {subjPlural} ({filteredSubjects.length})
+            </h3>
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Plus size={14} />}
+              onClick={openNewSubjectModal}
+            >
+              Add {subjSingular}
+            </Button>
+          </div>
+
+          {filteredSubjects.length > 0 ? (
+            <>
+              {/* Desktop/Tablet Table */}
+              <Card className="hidden sm:block overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-accent-50/80 dark:bg-accent-800/60 text-accent-600 dark:text-accent-400 font-semibold border-b border-accent-200 dark:border-accent-800">
+                      <tr>
+                        <th className="py-3 px-4">{subjSingular} Name & Code</th>
+                        <th className="py-3 px-4">Associated {progSingular}</th>
+                        <th className="py-3 px-4">{creditsLabel}</th>
+                        <th className="py-3 px-4">Status</th>
+                        <th className="py-3 px-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-accent-100 dark:divide-accent-800">
+                      {filteredSubjects.map((subj) => {
+                        const parentProg = programs.find(
+                          (p) => p._id === subj.programId || p._id === subj.programId?._id
+                        );
+
+                        return (
+                          <tr key={subj._id} className="hover:bg-accent-50/50 dark:hover:bg-accent-800/40 transition-colors">
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-8 h-8 rounded-lg bg-success-100 dark:bg-success-950 text-success-600 dark:text-success-400 flex items-center justify-center shrink-0 border border-success-200 dark:border-success-800 shadow-soft">
+                                  <BookOpen size={16} />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-mono font-bold text-[10px] px-1.5 py-0.5 rounded bg-accent-100 dark:bg-accent-800 text-accent-700 dark:text-accent-300 shrink-0 border border-accent-200 dark:border-accent-700">
+                                      {subj.code}
+                                    </span>
+                                    <p className="font-bold text-accent-900 dark:text-white truncate">{subj.name}</p>
+                                  </div>
+                                  {subj.description && (
+                                    <p className="text-[10px] text-accent-400 truncate max-w-xs mt-0.5">{subj.description}</p>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-accent-700 dark:text-accent-300 font-medium truncate max-w-xs">
+                              {parentProg ? parentProg.name : 'Global / Unassigned'}
+                            </td>
+                            <td className="py-3 px-4 font-semibold text-accent-900 dark:text-white">
+                              {subj.credits || 3}
+                            </td>
+                            <td className="py-3 px-4">
+                              <Badge variant={subj.status === 'ACTIVE' ? 'success' : 'secondary'} className="text-[10px]">
+                                {subj.status || 'ACTIVE'}
+                              </Badge>
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  onClick={() => {
+                                    setEditingSubj(subj);
+                                    setSubjForm({
+                                      name: subj.name,
+                                      code: subj.code,
+                                      programId: subj.programId?._id || subj.programId || '',
+                                      credits: subj.credits || 3,
+                                      description: subj.description || '',
+                                      status: subj.status || 'ACTIVE',
+                                    });
+                                    setSubjModalOpen(true);
+                                  }}
+                                  className="p-1.5 text-accent-400 hover:text-accent-600 dark:hover:text-accent-200 cursor-pointer rounded-lg hover:bg-accent-100 dark:hover:bg-accent-800"
+                                  title="Edit"
+                                >
+                                  <Edit2 size={13} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteSubject(subj._id, subj.name)}
+                                  className="p-1.5 text-accent-400 hover:text-danger-600 dark:hover:text-danger-400 cursor-pointer rounded-lg hover:bg-danger-50 dark:hover:bg-danger-950/60"
+                                  title="Delete"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+
+              {/* Mobile Subject Cards */}
+              <div className="sm:hidden space-y-3">
                 {filteredSubjects.map((subj) => {
                   const parentProg = programs.find(
                     (p) => p._id === subj.programId || p._id === subj.programId?._id
                   );
                   return (
-                    <tr key={subj._id} className="hover:bg-accent-50/50 dark:hover:bg-accent-800/40">
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2.5">
-                          <span className="font-mono font-bold text-[11px] px-1.5 py-0.5 rounded bg-accent-100 dark:bg-accent-800 text-accent-700 dark:text-accent-300">
-                            {subj.code}
-                          </span>
-                          <div>
-                            <p className="font-bold text-accent-900 dark:text-white">{subj.name}</p>
-                            <p className="text-[10px] text-accent-400 truncate max-w-xs">{subj.description}</p>
+                    <Card key={subj._id} className="p-4 space-y-3 min-w-0">
+                      <div className="flex items-start justify-between gap-2.5">
+                        <div className="flex items-start gap-3 min-w-0 flex-1">
+                          <div className="w-10 h-10 rounded-xl bg-success-100 dark:bg-success-950 text-success-600 dark:text-success-400 flex items-center justify-center shrink-0 border border-success-200 dark:border-success-800 shadow-soft">
+                            <BookOpen size={18} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-mono font-bold text-[10px] px-1.5 py-0.5 rounded bg-accent-100 dark:bg-accent-800 text-accent-700 dark:text-accent-300 border border-accent-200 dark:border-accent-700 shrink-0">
+                                {subj.code}
+                              </span>
+                              <Badge variant={subj.status === 'ACTIVE' ? 'success' : 'secondary'} className="text-[10px] shrink-0">
+                                {subj.status || 'ACTIVE'}
+                              </Badge>
+                            </div>
+                            <h4 className="font-bold text-sm text-accent-900 dark:text-white mt-1 break-words">{subj.name}</h4>
                           </div>
                         </div>
-                      </td>
-                      <td className="py-3 px-4 text-accent-700 dark:text-accent-300 font-medium">
-                        {parentProg ? parentProg.name : `All ${progPlural}`}
-                      </td>
-                      <td className="py-3 px-4 font-semibold text-accent-900 dark:text-white">
-                        {subj.credits || 3}
-                      </td>
-                      <td className="py-3 px-4">
-                        <Badge variant={subj.status === 'ACTIVE' ? 'success' : 'secondary'} className="text-[10px]">
-                          {subj.status || 'ACTIVE'}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => {
-                              setEditingSubj(subj);
-                              setSubjForm({
-                                name: subj.name,
-                                code: subj.code,
-                                programId: subj.programId?._id || subj.programId || '',
-                                credits: subj.credits || 3,
-                                description: subj.description || '',
-                                status: subj.status || 'ACTIVE',
-                              });
-                              setSubjModalOpen(true);
-                            }}
-                            className="p-1 text-accent-400 hover:text-accent-600"
-                          >
-                            <Edit2 size={13} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteSubject(subj._id, subj.name)}
-                            className="p-1 text-accent-400 hover:text-danger-500"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                      </div>
+
+                      <p className="text-xs text-accent-500 dark:text-accent-400">
+                        {parentProg ? parentProg.name : 'Global / Unassigned'} · <strong>{subj.credits || 3} Credits</strong>
+                      </p>
+
+                      <div className="pt-2 border-t border-accent-100 dark:border-accent-800/80 flex items-center justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          icon={<Edit2 size={13} />}
+                          onClick={() => {
+                            setEditingSubj(subj);
+                            setSubjForm({
+                              name: subj.name,
+                              code: subj.code,
+                              programId: subj.programId?._id || subj.programId || '',
+                              credits: subj.credits || 3,
+                              description: subj.description || '',
+                              status: subj.status || 'ACTIVE',
+                            });
+                            setSubjModalOpen(true);
+                          }}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-danger-600 dark:text-danger-400"
+                          icon={<Trash2 size={13} />}
+                          onClick={() => handleDeleteSubject(subj._id, subj.name)}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </Card>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+              </div>
+            </>
+          ) : (
+            <Card className="p-8 sm:p-12 text-center">
+              <div className="w-12 h-12 rounded-full bg-success-50 dark:bg-success-950/60 text-success-600 mx-auto flex items-center justify-center mb-3">
+                <BookOpen size={24} />
+              </div>
+              <h4 className="text-sm font-bold text-accent-900 dark:text-white">No {subjPlural} Registered</h4>
+              <p className="text-xs text-accent-500 max-w-sm mx-auto mt-1 mb-4">
+                {programs.length === 0
+                  ? `Create a degree program first before adding subjects.`
+                  : `Add syllabus courses and course modules under your degree programs.`}
+              </p>
+              <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={openNewSubjectModal}>
+                Create First {subjSingular}
+              </Button>
+            </Card>
+          )}
+        </div>
       )}
 
       {/* Department Create/Edit Modal */}
-      {deptModalOpen && (
-        <Modal
-          isOpen={deptModalOpen}
-          onClose={() => setDeptModalOpen(false)}
-          title={editingDept ? `Edit ${deptSingular}` : `Register New ${deptSingular}`}
-        >
-          <form onSubmit={handleSaveDepartment} className="space-y-4 text-xs">
-            <div>
-              <label className="block font-semibold text-accent-700 dark:text-accent-300 mb-1">
-                {deptSingular} Name *
-              </label>
-              <input
-                type="text"
-                required
-                value={deptForm.name}
-                onChange={(e) => setDeptForm({ ...deptForm, name: e.target.value })}
-                placeholder={`e.g. Flight Avionics / Engineering`}
-                className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white"
-              />
-            </div>
-            <div>
-              <label className="block font-semibold text-accent-700 dark:text-accent-300 mb-1">
-                Code / Identifier *
-              </label>
-              <input
-                type="text"
-                required
-                value={deptForm.code}
-                onChange={(e) => setDeptForm({ ...deptForm, code: e.target.value.toUpperCase() })}
-                placeholder="e.g. AERO, CS, DIV-01"
-                className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white"
-              />
-            </div>
-            <div>
-              <label className="block font-semibold text-accent-700 dark:text-accent-300 mb-1">
-                Description
-              </label>
-              <textarea
-                rows={3}
-                value={deptForm.description}
-                onChange={(e) => setDeptForm({ ...deptForm, description: e.target.value })}
-                placeholder={`Scope and syllabus curriculum managed by this ${deptSingular.toLowerCase()}...`}
-                className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white"
-              />
-            </div>
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-accent-100 dark:border-accent-800">
-              <Button type="button" variant="outline" size="sm" onClick={() => setDeptModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" variant="primary" size="sm" loading={submitting}>
-                Save {deptSingular}
-              </Button>
-            </div>
-          </form>
-        </Modal>
-      )}
+      <Modal
+        open={deptModalOpen}
+        onClose={() => setDeptModalOpen(false)}
+        title={editingDept ? `Edit ${deptSingular}` : `Register New ${deptSingular}`}
+        subtitle="Specify academic department details and unique code identifier."
+      >
+        <form onSubmit={handleSaveDepartment} className="space-y-4 text-xs">
+          <div>
+            <label className="block font-semibold text-accent-700 dark:text-accent-300 mb-1">
+              {deptSingular} Name *
+            </label>
+            <input
+              type="text"
+              required
+              value={deptForm.name}
+              onChange={(e) => setDeptForm({ ...deptForm, name: e.target.value })}
+              placeholder="e.g. Computer Science & AI, Mechanical Engineering"
+              className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          <div>
+            <label className="block font-semibold text-accent-700 dark:text-accent-300 mb-1">
+              Code / Identifier *
+            </label>
+            <input
+              type="text"
+              required
+              value={deptForm.code}
+              onChange={(e) => setDeptForm({ ...deptForm, code: e.target.value.toUpperCase() })}
+              placeholder="e.g. CS, MECH, AERO, DIV-01"
+              className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          <div>
+            <label className="block font-semibold text-accent-700 dark:text-accent-300 mb-1">
+              Description
+            </label>
+            <textarea
+              rows={3}
+              value={deptForm.description}
+              onChange={(e) => setDeptForm({ ...deptForm, description: e.target.value })}
+              placeholder={`Scope and curriculum managed by this ${deptSingular.toLowerCase()}...`}
+              className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          <div>
+            <label className="block font-semibold text-accent-700 dark:text-accent-300 mb-1">
+              Status
+            </label>
+            <select
+              value={deptForm.status}
+              onChange={(e) => setDeptForm({ ...deptForm, status: e.target.value })}
+              className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="ACTIVE">ACTIVE</option>
+              <option value="INACTIVE">INACTIVE</option>
+            </select>
+          </div>
+          <div className="flex items-center justify-end gap-2 pt-4 border-t border-accent-100 dark:border-accent-800">
+            <Button type="button" variant="outline" size="sm" onClick={() => setDeptModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" size="sm" loading={submitting}>
+              {editingDept ? 'Update Department' : 'Save Department'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Program Create/Edit Modal */}
-      {progModalOpen && (
-        <Modal
-          isOpen={progModalOpen}
-          onClose={() => setProgModalOpen(false)}
-          title={editingProg ? `Edit ${progSingular}` : `Create New ${progSingular}`}
-        >
+      <Modal
+        open={progModalOpen}
+        onClose={() => setProgModalOpen(false)}
+        title={editingProg ? `Edit ${progSingular}` : `Create New ${progSingular}`}
+        subtitle="Define degree program, academic level, and parent department association."
+      >
+        {departments.length === 0 ? (
+          <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl space-y-3">
+            <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 font-semibold">
+              <AlertCircle size={16} />
+              <span>No Department Found</span>
+            </div>
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+              Degree programs require a parent department. Please create at least one department first.
+            </p>
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Plus size={14} />}
+              onClick={() => {
+                setProgModalOpen(false);
+                openNewDepartmentModal();
+              }}
+            >
+              + Create Department First
+            </Button>
+          </div>
+        ) : (
           <form onSubmit={handleSaveProgram} className="space-y-4 text-xs">
             <div>
               <label className="block font-semibold text-accent-700 dark:text-accent-300 mb-1">
@@ -732,11 +1037,11 @@ export function OrgStructure({ onNavigate }) {
                 required
                 value={progForm.name}
                 onChange={(e) => setProgForm({ ...progForm, name: e.target.value })}
-                placeholder={`e.g. B.S. Flight Dynamics / Cybersecurity Track`}
-                className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white"
+                placeholder="e.g. B.S. Computer Science, M.S. Artificial Intelligence"
+                className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block font-semibold text-accent-700 dark:text-accent-300 mb-1">
                   Code *
@@ -746,20 +1051,21 @@ export function OrgStructure({ onNavigate }) {
                   required
                   value={progForm.code}
                   onChange={(e) => setProgForm({ ...progForm, code: e.target.value.toUpperCase() })}
-                  placeholder="e.g. BS-AE"
-                  className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white"
+                  placeholder="e.g. BS-CS, MS-AI"
+                  className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
                 />
               </div>
               <div>
                 <label className="block font-semibold text-accent-700 dark:text-accent-300 mb-1">
-                  Parent {deptSingular}
+                  Parent {deptSingular} *
                 </label>
                 <select
+                  required
                   value={progForm.departmentId}
                   onChange={(e) => setProgForm({ ...progForm, departmentId: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white"
+                  className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
                 >
-                  <option value="">None / Global</option>
+                  <option value="" disabled>Select Department</option>
                   {departments.map((d) => (
                     <option key={d._id} value={d._id}>
                       {d.name} ({d.code})
@@ -768,7 +1074,7 @@ export function OrgStructure({ onNavigate }) {
                 </select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block font-semibold text-accent-700 dark:text-accent-300 mb-1">
                   {levelLabel}
@@ -776,12 +1082,15 @@ export function OrgStructure({ onNavigate }) {
                 <select
                   value={progForm.level}
                   onChange={(e) => setProgForm({ ...progForm, level: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white"
+                  className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
                 >
                   <option value="UNDERGRADUATE">Undergraduate / Entry</option>
                   <option value="GRADUATE">Graduate / Intermediate</option>
                   <option value="POSTGRADUATE">Postgraduate / Advanced</option>
+                  <option value="DIPLOMA">Diploma</option>
                   <option value="CERTIFICATION">Professional Certification</option>
+                  <option value="CORPORATE">Corporate</option>
+                  <option value="OTHER">Other</option>
                 </select>
               </div>
               <div>
@@ -792,30 +1101,64 @@ export function OrgStructure({ onNavigate }) {
                   type="text"
                   value={progForm.duration}
                   onChange={(e) => setProgForm({ ...progForm, duration: e.target.value })}
-                  placeholder="e.g. 4 Years / 6 Months"
-                  className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white"
+                  placeholder="e.g. 4 Years, 2 Years, 6 Months"
+                  className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
                 />
               </div>
             </div>
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-accent-100 dark:border-accent-800">
+            <div>
+              <label className="block font-semibold text-accent-700 dark:text-accent-300 mb-1">
+                Description
+              </label>
+              <textarea
+                rows={2}
+                value={progForm.description}
+                onChange={(e) => setProgForm({ ...progForm, description: e.target.value })}
+                placeholder="Curriculum summary and program objectives..."
+                className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-4 border-t border-accent-100 dark:border-accent-800">
               <Button type="button" variant="outline" size="sm" onClick={() => setProgModalOpen(false)}>
                 Cancel
               </Button>
               <Button type="submit" variant="primary" size="sm" loading={submitting}>
-                Save {progSingular}
+                {editingProg ? 'Update Program' : 'Save Program'}
               </Button>
             </div>
           </form>
-        </Modal>
-      )}
+        )}
+      </Modal>
 
       {/* Subject Create/Edit Modal */}
-      {subjModalOpen && (
-        <Modal
-          isOpen={subjModalOpen}
-          onClose={() => setSubjModalOpen(false)}
-          title={editingSubj ? `Edit ${subjSingular}` : `Create New ${subjSingular}`}
-        >
+      <Modal
+        open={subjModalOpen}
+        onClose={() => setSubjModalOpen(false)}
+        title={editingSubj ? `Edit ${subjSingular}` : `Create New ${subjSingular}`}
+        subtitle="Add a subject course unit associated with a degree program."
+      >
+        {programs.length === 0 ? (
+          <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl space-y-3">
+            <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 font-semibold">
+              <AlertCircle size={16} />
+              <span>No Degree Program Found</span>
+            </div>
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+              Subjects must be linked to a degree program. Please create at least one degree program first.
+            </p>
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Plus size={14} />}
+              onClick={() => {
+                setSubjModalOpen(false);
+                openNewProgramModal();
+              }}
+            >
+              + Create Degree Program First
+            </Button>
+          </div>
+        ) : (
           <form onSubmit={handleSaveSubject} className="space-y-4 text-xs">
             <div>
               <label className="block font-semibold text-accent-700 dark:text-accent-300 mb-1">
@@ -826,11 +1169,11 @@ export function OrgStructure({ onNavigate }) {
                 required
                 value={subjForm.name}
                 onChange={(e) => setSubjForm({ ...subjForm, name: e.target.value })}
-                placeholder="e.g. Aerodynamics / Distributed Cloud"
-                className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white"
+                placeholder="e.g. Data Structures & Algorithms, Network Security"
+                className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block font-semibold text-accent-700 dark:text-accent-300 mb-1">
                   Code *
@@ -840,8 +1183,8 @@ export function OrgStructure({ onNavigate }) {
                   required
                   value={subjForm.code}
                   onChange={(e) => setSubjForm({ ...subjForm, code: e.target.value.toUpperCase() })}
-                  placeholder="e.g. AE-301"
-                  className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white"
+                  placeholder="e.g. CS-201, SEC-402"
+                  className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
                 />
               </div>
               <div>
@@ -850,24 +1193,25 @@ export function OrgStructure({ onNavigate }) {
                 </label>
                 <input
                   type="number"
-                  min="1"
+                  min="0"
                   max="12"
                   value={subjForm.credits}
-                  onChange={(e) => setSubjForm({ ...subjForm, credits: parseInt(e.target.value, 10) || 3 })}
-                  className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white"
+                  onChange={(e) => setSubjForm({ ...subjForm, credits: parseInt(e.target.value, 10) || 0 })}
+                  className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
                 />
               </div>
             </div>
             <div>
               <label className="block font-semibold text-accent-700 dark:text-accent-300 mb-1">
-                Associated {progSingular}
+                Associated {progSingular} *
               </label>
               <select
+                required
                 value={subjForm.programId}
                 onChange={(e) => setSubjForm({ ...subjForm, programId: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white"
+                className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
               >
-                <option value="">Global / Unassigned</option>
+                <option value="" disabled>Select Degree Program</option>
                 {programs.map((p) => (
                   <option key={p._id} value={p._id}>
                     {p.name} ({p.code})
@@ -875,17 +1219,29 @@ export function OrgStructure({ onNavigate }) {
                 ))}
               </select>
             </div>
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-accent-100 dark:border-accent-800">
+            <div>
+              <label className="block font-semibold text-accent-700 dark:text-accent-300 mb-1">
+                Description
+              </label>
+              <textarea
+                rows={2}
+                value={subjForm.description}
+                onChange={(e) => setSubjForm({ ...subjForm, description: e.target.value })}
+                placeholder="Course outline and syllabus summary..."
+                className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-4 border-t border-accent-100 dark:border-accent-800">
               <Button type="button" variant="outline" size="sm" onClick={() => setSubjModalOpen(false)}>
                 Cancel
               </Button>
               <Button type="submit" variant="primary" size="sm" loading={submitting}>
-                Save {subjSingular}
+                {editingSubj ? 'Update Subject' : 'Save Subject'}
               </Button>
             </div>
           </form>
-        </Modal>
-      )}
+        )}
+      </Modal>
     </div>
   );
 }

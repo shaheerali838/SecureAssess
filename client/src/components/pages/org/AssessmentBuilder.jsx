@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   FileText, Plus, Trash2, Save, Eye, Settings2,
   Shield, ListChecks, ChevronUp, ChevronDown, GripVertical, Check, AlertCircle,
@@ -11,19 +12,70 @@ import {
 import { questions as defaultQuestions } from '@/data';
 import assessmentService from '@/services/assessment.service';
 import questionBankService from '@/services/questionBank.service';
+import { useOrganization } from '@/contexts/OrganizationContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 const questionTypes = ['Multiple Choice', 'Multiple Select', 'True / False', 'Short Answer', 'Long Answer', 'Numerical', 'Scenario', 'Coding', 'Custom'];
 const securityLevels = ['Standard', 'Monitored', 'Secure'];
 const assessmentTypes = ['Quiz', 'Examination', 'MCQ Test', 'Knowledge Assessment', 'Skills Assessment', 'Aptitude Test', 'Scenario Assessment', 'Interview Assessment', 'Custom Assessment'];
 
-export function AssessmentBuilder({ onNavigate }) {
-  const [title, setTitle] = useState('University Admission Test');
-  const [assessmentType, setAssessmentType] = useState('Examination');
-  const [duration, setDuration] = useState(90);
-  const [passingScore, setPassingScore] = useState(60);
-  const [securityTier, setSecurityTier] = useState('Secure');
+const extractArray = (res) => {
+  if (!res) return [];
+  const val = res.status === 'fulfilled' ? res.value : res;
+  if (Array.isArray(val)) return val;
+  if (Array.isArray(val?.items)) return val.items;
+  if (Array.isArray(val?.data?.items)) return val.data.items;
+  if (Array.isArray(val?.questions)) return val.questions;
+  if (Array.isArray(val?.data)) return val.data;
+  return [];
+};
 
-  const [questions, setQuestions] = useState(defaultQuestions.slice(0, 4));
+const getQuestionPrompt = (q) => {
+  if (!q) return '';
+  if (typeof q.prompt === 'string') return q.prompt;
+  if (typeof q.title === 'string') return q.title;
+  if (typeof q.stem === 'string') return q.stem;
+  if (typeof q.text === 'string') return q.text;
+  if (typeof q.content === 'string') return q.content;
+  if (typeof q.content?.text === 'string') return q.content.text;
+  if (typeof q.snapshot?.prompt === 'string') return q.snapshot.prompt;
+  if (typeof q.snapshot?.title === 'string') return q.snapshot.title;
+  return '';
+};
+
+export function AssessmentBuilder({ onNavigate }) {
+  const location = useLocation();
+  const { currentOrganization } = useOrganization();
+  const { user } = useAuth();
+  const orgId = currentOrganization?._id || currentOrganization?.id || user?.organizationId || null;
+
+  const editingAssessmentId = location?.state?.assessmentId || location?.state?.id || null;
+  const initialAssessment = location?.state?.assessment || null;
+
+  const [title, setTitle] = useState(initialAssessment?.title || 'Custom Assessment');
+  const [assessmentType, setAssessmentType] = useState(initialAssessment?.type || 'Examination');
+  const [duration, setDuration] = useState(
+    initialAssessment?.duration?.value || (initialAssessment?.durationSeconds ? Math.round(initialAssessment.durationSeconds / 60) : 60)
+  );
+  const [passingScore, setPassingScore] = useState(initialAssessment?.passingScore || 60);
+  const [securityTier, setSecurityTier] = useState(
+    initialAssessment?.securitySettings?.proctoringEnabled ? 'Secure' : 'Standard'
+  );
+
+  const [questions, setQuestions] = useState([
+    {
+      id: Date.now(),
+      type: 'Multiple Choice',
+      content: 'Enter custom question prompt here...',
+      options: ['Option A', 'Option B', 'Option C', 'Option D'],
+      correctAnswer: 0,
+      explanation: '',
+      points: 1,
+      difficulty: 'Medium',
+      category: 'General',
+      tags: [],
+    },
+  ]);
   const [activeIdx, setActiveIdx] = useState(0);
   const [showPreview, setShowPreview] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -37,10 +89,66 @@ export function AssessmentBuilder({ onNavigate }) {
 
   const activeQuestion = questions[activeIdx] || questions[0];
 
+  // Load existing assessment details and its questions from database if editing
+  useEffect(() => {
+    async function loadAssessmentFromDB() {
+      if (!editingAssessmentId) return;
+
+      try {
+        const [assessRes, questionsRes] = await Promise.allSettled([
+          assessmentService.getAssessmentById(editingAssessmentId, orgId),
+          assessmentService.getAssessmentQuestions(editingAssessmentId, {}, orgId),
+        ]);
+
+        const aData = assessRes.status === 'fulfilled' ? (assessRes.value?.data || assessRes.value) : initialAssessment;
+        if (aData) {
+          if (aData.title) setTitle(aData.title);
+          if (aData.type) setAssessmentType(aData.type);
+          if (aData.duration?.value) setDuration(aData.duration.value);
+          else if (aData.durationSeconds) setDuration(Math.round(aData.durationSeconds / 60));
+          if (aData.passingScore) setPassingScore(aData.passingScore);
+          if (aData.securitySettings) {
+            setSecurityTier(aData.securitySettings.proctoringEnabled ? 'Secure' : 'Standard');
+          }
+        }
+
+        const loadedQuestions = extractArray(questionsRes);
+        if (loadedQuestions.length > 0) {
+          const mapped = loadedQuestions.map((q) => {
+            const prompt = getQuestionPrompt(q);
+            const opts = Array.isArray(q.options || q.snapshot?.options)
+              ? (q.options || q.snapshot.options).map((o) => (typeof o === 'string' ? o : o.text || ''))
+              : ['Option A', 'Option B', 'Option C', 'Option D'];
+
+            return {
+              id: q._id || q.id || Date.now() + Math.random(),
+              questionBankId: q.questionId || q.snapshot?._id || q._id,
+              type: q.type || q.snapshot?.type || 'Multiple Choice',
+              content: prompt,
+              options: opts,
+              correctAnswer: typeof q.correctAnswer === 'number' ? q.correctAnswer : (typeof q.snapshot?.correctAnswer === 'number' ? q.snapshot.correctAnswer : 0),
+              explanation: q.explanation || q.snapshot?.explanation || '',
+              points: Number(q.points || q.marks || q.snapshot?.points) || 1,
+              difficulty: q.difficulty || q.snapshot?.difficulty || 'Medium',
+              category: q.category || q.snapshot?.category || 'General',
+              tags: q.tags || q.snapshot?.tags || [],
+            };
+          });
+          setQuestions(mapped);
+          setActiveIdx(0);
+        }
+      } catch (err) {
+        console.warn('Load assessment from DB note:', err.message);
+      }
+    }
+
+    loadAssessmentFromDB();
+  }, [editingAssessmentId, orgId]);
+
   const fetchBankQuestions = async () => {
     setBankLoading(true);
     try {
-      const data = await questionBankService.getQuestions();
+      const data = await questionBankService.getQuestions({}, orgId);
       const items = Array.isArray(data) ? data : (data?.items || data?.questions || data?.data || []);
       setBankQuestions(items.length > 0 ? items : defaultQuestions);
     } catch (err) {
@@ -57,13 +165,16 @@ export function AssessmentBuilder({ onNavigate }) {
   };
 
   const handleImportQuestion = (bankQ) => {
+    const promptText = getQuestionPrompt(bankQ) || 'Question content';
     const newQ = {
       id: Date.now() + Math.random(),
       questionBankId: bankQ._id || bankQ.id,
       type: bankQ.type || 'Multiple Choice',
-      content: bankQ.content || bankQ.stem || bankQ.prompt || 'Question content',
-      options: Array.isArray(bankQ.options) ? bankQ.options.map(o => typeof o === 'string' ? o : (o.text || o.content || JSON.stringify(o))) : ['Option A', 'Option B', 'Option C', 'Option D'],
-      correctAnswer: bankQ.correctAnswer !== undefined ? bankQ.correctAnswer : 0,
+      content: promptText,
+      options: Array.isArray(bankQ.options)
+        ? bankQ.options.map(o => typeof o === 'string' ? o : (o.text || o.content || ''))
+        : ['Option A', 'Option B', 'Option C', 'Option D'],
+      correctAnswer: typeof bankQ.correctAnswer === 'number' ? bankQ.correctAnswer : 0,
       explanation: bankQ.explanation || '',
       points: Number(bankQ.points || bankQ.marks) || 1,
       difficulty: bankQ.difficulty || 'Medium',
@@ -72,7 +183,7 @@ export function AssessmentBuilder({ onNavigate }) {
     };
     setQuestions(prev => [...prev, newQ]);
     setActiveIdx(questions.length);
-    setToastMessage({ type: 'success', text: `Imported "${newQ.content.slice(0, 30)}..." to assessment` });
+    setToastMessage({ type: 'success', text: `Imported "${promptText.slice(0, 30)}..." to assessment` });
   };
 
   const addQuestion = () => {
@@ -120,22 +231,13 @@ export function AssessmentBuilder({ onNavigate }) {
 
     setIsSubmitting(true);
     try {
-      const mappedType = (() => {
-        const t = (assessmentType || '').toUpperCase();
-        if (t.includes('CODE') || t.includes('CODING')) return 'CODING';
-        if (t.includes('INTERVIEW') || t.includes('VIDEO')) return 'VIDEO_INTERVIEW';
-        if (t.includes('ESSAY') || t.includes('WRITING')) return 'ESSAY';
-        if (t.includes('HYBRID')) return 'HYBRID';
-        return 'MCQ';
-      })();
-
       const durationMins = Number(duration) || 60;
       const cleanCode = `ASM-${title.replace(/[^A-Za-z0-9]/g, '').slice(0, 6).toUpperCase() || 'EVAL'}-${Date.now().toString(36).toUpperCase()}`;
 
       const payload = {
         title: title.trim(),
         code: cleanCode,
-        type: mappedType,
+        type: 'EXAMINATION',
         duration: {
           value: durationMins,
           unit: 'MINUTES',
@@ -149,49 +251,88 @@ export function AssessmentBuilder({ onNavigate }) {
           copyPasteBlocked: securityTier === 'Secure',
           cameraRequired: securityTier === 'Secure',
         },
-        status: isPublish ? 'PUBLISHED' : 'DRAFT',
+        status: 'DRAFT',
       };
 
-      try {
-        const res = await assessmentService.createAssessment(payload);
-        const assessmentId = res?._id || res?.data?._id || res?.id;
+      let assessmentId = editingAssessmentId;
 
-        // Attach section and questions if assessment was created
-        if (assessmentId && questions.length > 0) {
-          try {
-            const sectionRes = await assessmentService.createAssessmentSection(assessmentId, {
-              title: 'General Section',
-              order: 1,
-            });
-            const sectionId = sectionRes?._id || sectionRes?.data?._id || sectionRes?.id;
+      if (editingAssessmentId) {
+        await assessmentService.updateAssessment(editingAssessmentId, payload, orgId);
+      } else {
+        const res = await assessmentService.createAssessment(payload, orgId);
+        const assessmentData = res?.data || res;
+        assessmentId = assessmentData?._id || assessmentData?.id;
+      }
 
-            if (sectionId) {
-              for (const q of questions) {
-                if (q.questionBankId) {
-                  await assessmentService.createAssessmentQuestion(assessmentId, {
-                    sectionId,
-                    questionId: q.questionBankId,
+      // Attach sections and all questions to database
+      if (assessmentId && questions.length > 0) {
+        try {
+          const sectionRes = await assessmentService.createAssessmentSection(assessmentId, {
+            title: 'General Section',
+            order: 1,
+          }, orgId);
+          const sectionData = sectionRes?.data || sectionRes;
+          const sectionId = sectionData?._id || sectionData?.id;
+
+          if (sectionId) {
+            for (const q of questions) {
+              let targetQuestionId = q.questionBankId;
+
+              // If it's a new question without bank ID, create it in Question Bank
+              if (!targetQuestionId) {
+                try {
+                  const prompt = getQuestionPrompt(q) || 'Question stem';
+                  const qPayload = {
+                    prompt,
+                    title: prompt.slice(0, 80),
+                    type: q.type || 'Multiple Choice',
+                    difficulty: (q.difficulty || 'Medium').toUpperCase(),
                     points: Number(q.points) || 1,
-                  }).catch(() => {});
+                    marks: Number(q.points) || 1,
+                    options: Array.isArray(q.options)
+                      ? q.options.map((opt, idx) => ({
+                          id: String.fromCharCode(65 + idx),
+                          text: typeof opt === 'string' ? opt : opt.text || '',
+                        }))
+                      : [],
+                    correctAnswer: q.correctAnswer,
+                    explanation: q.explanation || '',
+                  };
+                  const createdQRes = await questionBankService.createQuestion(qPayload, orgId);
+                  const createdQData = createdQRes?.data || createdQRes;
+                  targetQuestionId = createdQData?._id || createdQData?.id;
+                } catch (cErr) {
+                  console.warn('Auto create question note:', cErr.message);
                 }
               }
-            }
-          } catch (attachErr) {
-            console.warn('Questions attachment sub-step notice:', attachErr.message);
-          }
-        }
 
-        setToastMessage({
-          type: 'success',
-          text: isPublish ? 'Assessment published successfully!' : 'Assessment draft saved successfully!',
-        });
-      } catch (err) {
-        console.warn('API sync fallback triggered:', err.message);
-        setToastMessage({
-          type: 'success',
-          text: isPublish ? 'Assessment published to workspace!' : 'Assessment draft saved!',
-        });
+              if (targetQuestionId) {
+                await assessmentService.createAssessmentQuestion(assessmentId, {
+                  sectionId,
+                  questionId: targetQuestionId,
+                  points: Number(q.points) || 1,
+                }, orgId).catch(() => {});
+              }
+            }
+          }
+        } catch (attachErr) {
+          console.warn('Questions attachment sub-step notice:', attachErr.message);
+        }
       }
+
+      // If publish was requested, transition status to PUBLISHED
+      if (isPublish && assessmentId) {
+        try {
+          await assessmentService.publishAssessment(assessmentId, orgId);
+        } catch (pubErr) {
+          console.warn('Publish transition notice:', pubErr.message);
+        }
+      }
+
+      setToastMessage({
+        type: 'success',
+        text: isPublish ? 'Assessment published successfully!' : 'Assessment draft saved successfully!',
+      });
 
       setTimeout(() => {
         if (isPublish) {
@@ -201,7 +342,7 @@ export function AssessmentBuilder({ onNavigate }) {
     } catch (err) {
       setToastMessage({
         type: 'error',
-        text: 'Could not save assessment: ' + err.message,
+        text: 'Could not save assessment: ' + (err.response?.data?.message || err.message),
       });
     } finally {
       setIsSubmitting(false);
@@ -348,7 +489,7 @@ export function AssessmentBuilder({ onNavigate }) {
                           ? 'text-primary-900 dark:text-primary-200'
                           : 'text-accent-800 dark:text-accent-200'
                       }`}>
-                        {q.content || 'New question stem...'}
+                        {getQuestionPrompt(q) || 'New question stem...'}
                       </p>
                       <p className="text-[11px] text-accent-500 dark:text-accent-400">{q.type} · {q.points || 1} pt</p>
                     </div>
@@ -409,8 +550,8 @@ export function AssessmentBuilder({ onNavigate }) {
                 <Textarea
                   label="Question Prompt / Problem Description"
                   rows={4}
-                  value={activeQuestion.content}
-                  onChange={(e) => updateQuestion(activeIdx, { content: e.target.value })}
+                  value={getQuestionPrompt(activeQuestion)}
+                  onChange={(e) => updateQuestion(activeIdx, { content: e.target.value, prompt: e.target.value })}
                   placeholder="Enter question text or stem..."
                 />
 
@@ -424,7 +565,8 @@ export function AssessmentBuilder({ onNavigate }) {
                       <span className="text-[11px] text-accent-400">Click circle to mark correct key</span>
                     </div>
                     <div className="space-y-2.5">
-                      {activeQuestion.options.map((opt, oi) => {
+                      {(activeQuestion.options || []).map((opt, oi) => {
+                        const optText = typeof opt === 'string' ? opt : (opt?.text || '');
                         const isCorrect = Array.isArray(activeQuestion.correctAnswer)
                           ? activeQuestion.correctAnswer.includes(oi)
                           : activeQuestion.correctAnswer === oi;
@@ -444,16 +586,16 @@ export function AssessmentBuilder({ onNavigate }) {
                             </button>
                             <input
                               type="text"
-                              value={opt}
+                              value={optText}
                               placeholder={`Option ${String.fromCharCode(65 + oi)}`}
                               onChange={(e) => {
-                                const newOpts = [...activeQuestion.options];
+                                const newOpts = [...(activeQuestion.options || [])];
                                 newOpts[oi] = e.target.value;
                                 updateQuestion(activeIdx, { options: newOpts });
                               }}
                               className="flex-1 h-10 px-3.5 text-xs rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors"
                             />
-                            {activeQuestion.options.length > 2 && (
+                            {activeQuestion.options && activeQuestion.options.length > 2 && (
                               <button
                                 type="button"
                                 onClick={() => {
@@ -474,7 +616,7 @@ export function AssessmentBuilder({ onNavigate }) {
                           variant="ghost"
                           size="sm"
                           icon={<Plus size={14} />}
-                          onClick={() => updateQuestion(activeIdx, { options: [...activeQuestion.options, `Option ${String.fromCharCode(65 + activeQuestion.options.length)}`] })}
+                          onClick={() => updateQuestion(activeIdx, { options: [...(activeQuestion.options || []), `Option ${String.fromCharCode(65 + (activeQuestion.options?.length || 0))}`] })}
                           className="text-xs"
                         >
                           Add Option
@@ -488,19 +630,19 @@ export function AssessmentBuilder({ onNavigate }) {
                   label="Explanation & Feedback Rationale"
                   rows={2}
                   placeholder="Provide guidance or hints displayed after review..."
-                  value={activeQuestion.explanation}
+                  value={activeQuestion.explanation || ''}
                   onChange={(e) => updateQuestion(activeIdx, { explanation: e.target.value })}
                 />
 
                 <div className="pt-4 border-t border-accent-100 dark:border-accent-800 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <Input label="Points Awarded" type="number" value={activeQuestion.points} onChange={(e) => updateQuestion(activeIdx, { points: Number(e.target.value) })} />
+                  <Input label="Points Awarded" type="number" value={activeQuestion.points || 1} onChange={(e) => updateQuestion(activeIdx, { points: Number(e.target.value) })} />
                   <Select
                     label="Difficulty Level"
                     options={[{ value: 'Easy', label: 'Easy' }, { value: 'Medium', label: 'Medium' }, { value: 'Hard', label: 'Hard' }]}
-                    value={activeQuestion.difficulty}
+                    value={activeQuestion.difficulty || 'Medium'}
                     onChange={(e) => updateQuestion(activeIdx, { difficulty: e.target.value })}
                   />
-                  <Input label="Domain Category" placeholder="e.g. System Design" value={activeQuestion.category} onChange={(e) => updateQuestion(activeIdx, { category: e.target.value })} />
+                  <Input label="Domain Category" placeholder="e.g. System Design" value={activeQuestion.category || ''} onChange={(e) => updateQuestion(activeIdx, { category: e.target.value })} />
                 </div>
               </CardBody>
             </Card>
@@ -514,13 +656,14 @@ export function AssessmentBuilder({ onNavigate }) {
                 <div className="bg-accent-50/70 dark:bg-accent-950/60 border border-accent-200 dark:border-accent-800 rounded-2xl p-6 space-y-5">
                   <div className="flex items-center justify-between">
                     <Badge variant="primary">Question {activeIdx + 1} of {questions.length}</Badge>
-                    <Badge variant="neutral">{activeQuestion.points} Points</Badge>
+                    <Badge variant="neutral">{activeQuestion.points || 1} Points</Badge>
                   </div>
-                  <p className="text-base font-semibold text-accent-900 dark:text-white leading-relaxed">{activeQuestion.content}</p>
+                  <p className="text-base font-semibold text-accent-900 dark:text-white leading-relaxed">{getQuestionPrompt(activeQuestion)}</p>
 
                   {(activeQuestion.type === 'Multiple Choice' || activeQuestion.type === 'True / False') && (
                     <div className="space-y-2.5">
-                      {activeQuestion.options.map((opt, oi) => {
+                      {(activeQuestion.options || []).map((opt, oi) => {
+                        const optText = typeof opt === 'string' ? opt : (opt?.text || '');
                         const isCorrect = activeQuestion.correctAnswer === oi;
                         return (
                           <div
@@ -536,7 +679,7 @@ export function AssessmentBuilder({ onNavigate }) {
                             }`}>
                               {isCorrect && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
                             </div>
-                            <span className="text-xs font-semibold">{opt}</span>
+                            <span className="text-xs font-semibold">{optText}</span>
                           </div>
                         );
                       })}
@@ -662,18 +805,19 @@ export function AssessmentBuilder({ onNavigate }) {
             {bankLoading ? (
               <div className="p-8 text-center text-xs text-accent-500">Loading Question Bank items...</div>
             ) : bankQuestions.filter(q => {
-              const str = (q.content || q.stem || q.prompt || '').toLowerCase();
+              const str = getQuestionPrompt(q).toLowerCase();
               return str.includes(bankSearch.toLowerCase());
             }).length === 0 ? (
               <div className="p-6 text-center text-xs text-accent-500">No matching questions found in bank.</div>
             ) : (
               bankQuestions
                 .filter(q => {
-                  const str = (q.content || q.stem || q.prompt || '').toLowerCase();
+                  const str = getQuestionPrompt(q).toLowerCase();
                   return str.includes(bankSearch.toLowerCase());
                 })
                 .map((bq, idx) => {
                   const isAlreadyAdded = questions.some(q => q.questionBankId === (bq._id || bq.id));
+                  const prompt = getQuestionPrompt(bq) || 'Untitled Question';
                   return (
                     <div
                       key={bq._id || bq.id || idx}
@@ -686,7 +830,7 @@ export function AssessmentBuilder({ onNavigate }) {
                           {bq.difficulty && <Badge variant={bq.difficulty === 'Hard' ? 'danger' : bq.difficulty === 'Medium' ? 'warning' : 'success'}>{bq.difficulty}</Badge>}
                         </div>
                         <p className="text-xs font-semibold text-accent-900 dark:text-white truncate">
-                          {bq.content || bq.stem || bq.prompt}
+                          {prompt}
                         </p>
                       </div>
                       <Button

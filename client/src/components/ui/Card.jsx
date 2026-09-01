@@ -69,13 +69,24 @@ const colorClasses = {
   },
 };
 
-export function MetricCard({ label, value, icon, trend, color = 'primary' }) {
+export function MetricCard({ label, value, icon, trend, color = 'primary', onClick, className = '' }) {
   const c = colorClasses[color] || colorClasses.primary;
   return (
-    <Card className="p-5">
+    <Card
+      onClick={onClick}
+      className={`p-5 transition-all duration-200 ${
+        onClick
+          ? 'cursor-pointer hover:border-primary-400/80 dark:hover:border-primary-500/80 hover:shadow-md active:scale-[0.99] group'
+          : ''
+      } ${className}`}
+    >
       <div className="flex items-center justify-between mb-3">
         {icon && (
-          <div className={`w-10 h-10 rounded-xl ${c.bg} ${c.text} flex items-center justify-center ring-4 ${c.ring} shadow-soft`}>
+          <div
+            className={`w-10 h-10 rounded-xl ${c.bg} ${c.text} flex items-center justify-center ring-4 ${c.ring} shadow-soft ${
+              onClick ? 'group-hover:scale-105 transition-transform' : ''
+            }`}
+          >
             {icon}
           </div>
         )}
@@ -93,7 +104,14 @@ export function MetricCard({ label, value, icon, trend, color = 'primary' }) {
       </div>
       <div>
         <p className="text-2xl font-bold font-display text-accent-900 dark:text-white tracking-tight">{value}</p>
-        <p className="text-xs text-accent-500 dark:text-accent-400 mt-1 font-medium">{label}</p>
+        <div className="flex items-center justify-between mt-1">
+          <p className="text-xs text-accent-500 dark:text-accent-400 font-medium">{label}</p>
+          {onClick && (
+            <span className="text-[11px] font-semibold text-primary-600 dark:text-primary-400 opacity-0 group-hover:opacity-100 transition-opacity">
+              View →
+            </span>
+          )}
+        </div>
       </div>
     </Card>
   );

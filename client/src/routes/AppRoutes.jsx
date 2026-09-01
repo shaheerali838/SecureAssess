@@ -71,7 +71,7 @@ const NavWrapper = ({ Component, activeKey, layer = 'organization' }) => {
   const { logout } = useAuth();
   const { currentOrganization } = useOrganization();
 
-  const handleNavigate = (targetKey) => {
+  const handleNavigate = (targetKey, state = null) => {
     const keyMap = {
       landing: '/',
       'request-demo': '/request-demo',
@@ -121,16 +121,18 @@ const NavWrapper = ({ Component, activeKey, layer = 'organization' }) => {
       'participant-evaluation': '/candidate/evaluation',
     };
 
+    const navOptions = state ? { state } : undefined;
+
     if (keyMap[targetKey]) {
-      navigate(keyMap[targetKey]);
+      navigate(keyMap[targetKey], navOptions);
     } else if (typeof targetKey === 'string' && targetKey.startsWith('/')) {
-      navigate(targetKey);
+      navigate(targetKey, navOptions);
     } else if (typeof targetKey === 'string' && targetKey.startsWith('platform-')) {
       const sub = targetKey.replace('platform-', '');
-      navigate(`/platform/${sub}`);
+      navigate(`/platform/${sub}`, navOptions);
     } else if (typeof targetKey === 'string' && targetKey.startsWith('org-')) {
       const sub = targetKey.replace('org-', '');
-      navigate(`/organization/${sub}`);
+      navigate(`/organization/${sub}`, navOptions);
     } else {
       console.warn(`Unmapped navigation target: ${targetKey}`);
     }

@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { X, CheckCircle, AlertCircle, Info, Check } from 'lucide-react';
 import { Card, CardHeader, CardBody } from './Card';
 
-export function Modal({ open, onClose, title, subtitle, children, footer, size = 'md' }) {
-  if (!open) return null;
+export function Modal({ open, isOpen, onClose, title, subtitle, children, footer, size = 'md' }) {
+  const isModalOpen = open !== undefined ? open : (isOpen !== undefined ? isOpen : false);
+  if (!isModalOpen) return null;
   const sizes = {
     sm: 'max-w-md',
     md: 'max-w-lg',
