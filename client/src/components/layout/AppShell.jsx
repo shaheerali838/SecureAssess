@@ -20,7 +20,7 @@ export function AppShell({
 }) {
   const { user, logout, isPlatformAdmin, isPlatformStaff } = useAuth();
   const { theme, toggleTheme, isDark } = useTheme();
-  const { currentOrganization, organizations, switchOrganization, t } = useOrganization();
+  const { currentOrganization, organizations, switchOrganization, t, userRole, currentMembership } = useOrganization();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
@@ -84,14 +84,57 @@ export function AppShell({
     { label: 'Workspace Settings', icon: <Settings size={18} />, id: 'org-settings' },
   ];
 
-  const currentNav = isPlatform ? platformNav : orgNav;
+  const memberRole = String(
+    userRole ||
+    currentMembership?.roleId?.name ||
+    currentMembership?.roleName ||
+    user?.role ||
+    user?.platformRole ||
+    'ORGANIZATION_ADMIN'
+  ).toUpperCase();
+
+  // Precise least-privilege role matrix filtering
+  const filteredOrgNav = orgNav.filter((item) => {
+    // If platform owner or organization owner, all items allowed
+    if (isPlatformUser || memberRole.includes('OWNER')) {
+      return true;
+    }
+
+    if (memberRole === 'PROCTOR') {
+      return ['org-dashboard', 'org-integrity', 'org-sessions', 'org-interviews', 'org-notifications'].includes(item.id);
+    }
+
+    if (memberRole === 'EXAMINER') {
+      return [
+        'org-dashboard',
+        'org-assessments',
+        'org-assessment-builder',
+        'org-question-bank',
+        'org-participants',
+        'org-rubrics',
+        'org-interviews',
+        'org-evaluations',
+        'org-reports',
+        'org-certificates',
+        'org-notifications',
+      ].includes(item.id);
+    }
+
+    if (memberRole === 'ORGANIZATION_ADMIN' || memberRole === 'ADMIN') {
+      return item.id !== 'org-billing';
+    }
+
+    return true;
+  });
+
+  const currentNav = isPlatform ? platformNav : filteredOrgNav;
 
   const displayOrgName = currentOrganization?.name || user?.organizationName || 'Alpha Polytechnic Institute';
   const displayUserName = user?.firstName
     ? `${user.firstName} ${user.lastName || ''}`.trim()
     : user?.name || (isPlatform ? 'Shaheer Ali (Platform Owner)' : 'Dr. Alan Turing');
   const displayUserEmail = user?.email || (isPlatform ? 'owner@secureassess.io' : 'admin@alpha.edu');
-  const displayUserRole = user?.role || user?.platformRole || (isPlatform ? 'PLATFORM_OWNER' : 'ORG_ADMIN');
+  const displayUserRole = memberRole;
 
   const handleToggleClick = (e) => {
     e.preventDefault();
