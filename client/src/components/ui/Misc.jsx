@@ -348,4 +348,55 @@ export function SkeletonProfile() {
   );
 }
 
+export class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('[ErrorBoundary] Unhandled UI exception caught:', error, errorInfo);
+  }
+
+  handleReload = () => {
+    this.setState({ hasError: false, error: null });
+    window.location.reload();
+  };
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-[400px] flex items-center justify-center p-6 bg-accent-50 dark:bg-accent-950">
+          <div className="max-w-md w-full p-8 rounded-2xl bg-white dark:bg-accent-900 border border-accent-200 dark:border-accent-800 shadow-strong text-center">
+            <div className="w-12 h-12 rounded-2xl bg-danger-50 dark:bg-danger-950/60 text-danger-600 dark:text-danger-400 flex items-center justify-center mx-auto mb-4 shadow-soft">
+              <AlertCircle size={24} />
+            </div>
+            <h2 className="text-base font-bold text-accent-900 dark:text-white mb-2">
+              View Encountered an Error
+            </h2>
+            <p className="text-xs text-accent-500 dark:text-accent-400 mb-6 leading-relaxed">
+              {this.state.error?.message || 'An unexpected rendering error occurred. Click reload to refresh this workspace view.'}
+            </p>
+            <div className="flex gap-2 justify-center">
+              <button
+                type="button"
+                onClick={this.handleReload}
+                className="px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-xs font-bold transition-all cursor-pointer shadow-soft"
+              >
+                Reload Workspace
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 export default Avatar;

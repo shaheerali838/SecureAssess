@@ -9,7 +9,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
-import { Badge, Avatar } from '@/components/ui';
+import { Badge, Avatar, ErrorBoundary } from '@/components/ui';
 import NotificationBell from '@/modules/notifications/components/NotificationBell';
 
 export function AppShell({
@@ -366,7 +366,9 @@ export function AppShell({
 
         {/* Page Content Viewport */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1400px] w-full mx-auto animate-fade-in">
-          {children}
+          <ErrorBoundary>
+            {children}
+          </ErrorBoundary>
         </main>
       </div>
     </div>

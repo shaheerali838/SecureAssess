@@ -5,7 +5,7 @@ export { Input, Select, Textarea } from './Input';
 export {
   Modal, Tabs, ProgressRing, ProgressBar, Avatar, Toast, EmptyState,
   Skeleton, SkeletonTable, SkeletonCards, SkeletonMetrics, SkeletonList,
-  SkeletonDashboard, SkeletonProfile
+  SkeletonDashboard, SkeletonProfile, ErrorBoundary
 } from './Misc';
 export { Breadcrumbs, PageHeader, SearchBar } from './Layout';
 export { BarChart, LineChart, DonutChart, StackedBar } from './Charts';
