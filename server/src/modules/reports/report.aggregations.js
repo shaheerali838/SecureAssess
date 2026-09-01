@@ -390,8 +390,22 @@ export class ReportAggregations {
   static async getOrganizationStatistics(organizationId, filters = {}) {
     const orgId = toObjectId(organizationId);
 
-    const [assessmentsCount, candidatesCount, attemptStats, resultStats, proctoringCount, pendingEvalCount] = await Promise.all([
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+
+    const [
+      assessmentsCount,
+      publishedAssessmentsCount,
+      candidatesCount,
+      attemptStats,
+      resultStats,
+      proctoringSessions,
+      pendingEvalCount,
+      weeklyAttempts,
+    ] = await Promise.all([
       Assessment.countDocuments({ organizationId: orgId }),
+      Assessment.countDocuments({ organizationId: orgId, status: "PUBLISHED" }),
       Candidate.countDocuments({ organizationId: orgId, status: "ACTIVE" }),
       Attempt.aggregate([
         { $match: { organizationId: orgId } },
@@ -400,6 +414,7 @@ export class ReportAggregations {
             _id: null,
             totalAttempts: { $sum: 1 },
             completedAttempts: { $sum: { $cond: [{ $in: ["$status", ["SUBMITTED", "EVALUATED"]] }, 1, 0] } },
+            inProgressAttempts: { $sum: { $cond: [{ $eq: ["$status", "IN_PROGRESS"] }, 1, 0] } },
           },
         },
       ]),
@@ -414,24 +429,76 @@ export class ReportAggregations {
           },
         },
       ]),
-      ProctoringSession.countDocuments({ organizationId: orgId }),
+      ProctoringSession.aggregate([
+        { $match: { organizationId: orgId } },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            lowRisk: { $sum: { $cond: [{ $eq: ["$riskLevel", "LOW"] }, 1, 0] } },
+            mediumRisk: { $sum: { $cond: [{ $eq: ["$riskLevel", "MEDIUM"] }, 1, 0] } },
+            highRisk: { $sum: { $cond: [{ $in: ["$riskLevel", ["HIGH", "CRITICAL"]] }, 1, 0] } },
+            violations: { $sum: "$violationCount" },
+          },
+        },
+      ]),
       Evaluation.countDocuments({ organizationId: orgId, status: "PENDING" }),
+      Attempt.aggregate([
+        {
+          $match: {
+            organizationId: orgId,
+            startedAt: { $gte: sevenDaysAgo },
+          },
+        },
+        {
+          $group: {
+            _id: { $dateToString: { format: "%Y-%m-%d", date: "$startedAt" } },
+            count: { $sum: 1 },
+          },
+        },
+      ]),
     ]);
 
-    const att = attemptStats[0] || { totalAttempts: 0, completedAttempts: 0 };
+    const att = attemptStats[0] || { totalAttempts: 0, completedAttempts: 0, inProgressAttempts: 0 };
     const res = resultStats[0] || { totalResults: 0, avgScore: 0, passedCount: 0 };
+    const proc = proctoringSessions[0] || { total: 0, lowRisk: 0, mediumRisk: 0, highRisk: 0, violations: 0 };
     const passRate = res.totalResults > 0 ? (res.passedCount / res.totalResults) * 100 : 0;
+    const cleanRate = proc.total > 0 ? (proc.lowRisk / proc.total) * 100 : 100;
+
+    // Generate full 7 day sequence
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const weeklyVolume = [];
+    const attemptMap = new Map((weeklyAttempts || []).map((w) => [w._id, w.count]));
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().split("T")[0];
+      weeklyVolume.push({
+        label: dayNames[d.getDay()],
+        date: key,
+        value: attemptMap.get(key) || 0,
+      });
+    }
 
     return {
       totalAssessments: assessmentsCount,
+      activeAssessments: publishedAssessmentsCount || assessmentsCount,
       totalCandidates: candidatesCount,
       candidates: candidatesCount,
       attempts: att.totalAttempts,
+      totalAttempts: att.totalAttempts,
       completedAttempts: att.completedAttempts,
+      inProgressAttempts: att.inProgressAttempts,
       averageScore: safeFixed(res.avgScore),
       passRate: safeFixed(passRate),
-      proctoredExams: proctoringCount,
+      proctoredExams: proc.total,
+      flaggedSessions: proc.highRisk,
+      cleanTelemetryRate: safeFixed(cleanRate),
+      verifiedSubmissionsRate: att.totalAttempts > 0 ? safeFixed((att.completedAttempts / att.totalAttempts) * 100) : 100,
+      webcamComplianceRate: proc.total > 0 ? safeFixed(((proc.total - (proc.highRisk || 0)) / proc.total) * 100) : 100,
       pendingEvaluations: pendingEvalCount,
+      weeklyVolume,
     };
   }
 

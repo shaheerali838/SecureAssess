@@ -40,6 +40,7 @@ import notificationsRouter from "../notifications/index.js";
 import subscriptionsRouter from "../subscriptions/index.js";
 import billingRoutes from "../billing/index.js";
 import auditLogRoutes from "../auditLogs/auditLog.routes.js";
+import rubricsRouter from "../rubrics/index.js";
 import { requireAuth } from "../../middleware/auth.middleware.js";
 import {
   requirePlatformPermission,
@@ -210,7 +211,8 @@ router.use("/:organizationId/billing", billingRoutes);
 // --- Audit & Security Governance Sub-routes ---
 router.use("/:organizationId/audit-logs", auditLogRoutes);
 
-// --- Evaluation & Result Sub-routes ---
+// --- Evaluation, Rubric & Result Sub-routes ---
+router.use("/:organizationId/rubrics", rubricsRouter);
 router.use("/:organizationId/evaluations", evaluationsRouter);
 router.use("/:organizationId/results", resultsRouter);
 

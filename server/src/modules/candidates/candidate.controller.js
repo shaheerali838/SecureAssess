@@ -1,8 +1,41 @@
+import mongoose from "mongoose";
 import { CandidateService } from "./candidate.service.js";
 import { CandidateValidator } from "./candidate.validation.js";
+import Organization from "../organizations/organization.model.js";
+import UserMembership from "../users/userMembership.model.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { ApiError } from "../../utils/ApiError.js";
+
+const getOrgId = async (req) => {
+  const rawOrgId =
+    req.params.organizationId ||
+    req.headers["x-organization-id"] ||
+    req.headers["x-tenant-id"] ||
+    req.query?.organizationId ||
+    req.organizationId ||
+    req.tenantId ||
+    req.user?.activeOrganizationId ||
+    req.user?.organizationId;
+
+  if (rawOrgId && mongoose.Types.ObjectId.isValid(rawOrgId)) {
+    return rawOrgId;
+  }
+
+  const uId = req.user?._id || req.user?.id;
+  if (uId) {
+    const membership = await UserMembership.findOne({
+      userId: uId,
+      status: "ACTIVE",
+    }).lean();
+    if (membership?.organizationId) {
+      return membership.organizationId;
+    }
+  }
+
+  const firstOrg = await Organization.findOne({ status: { $ne: "DELETED" } }).select("_id").lean();
+  return firstOrg?._id || null;
+};
 
 // ==========================================
 // ORGANIZATION CANDIDATE MANAGEMENT HANDLERS
@@ -14,20 +47,24 @@ export const createCandidate = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Validation failed", errors);
   }
 
-  const organizationId = req.params.organizationId || req.organizationId;
+  const organizationId = await getOrgId(req);
+  if (!organizationId) {
+    throw new ApiError(400, "Organization context required");
+  }
+
   const actorUserId = req.user?.id || req.user?._id;
   const candidate = await CandidateService.createCandidate(organizationId, req.body, actorUserId);
   return res.status(201).json(new ApiResponse(201, candidate, "Candidate profile created successfully"));
 });
 
 export const getCandidates = asyncHandler(async (req, res) => {
-  const organizationId = req.params.organizationId || req.organizationId;
+  const organizationId = await getOrgId(req);
   const result = await CandidateService.getCandidates(organizationId, req.query);
   return res.status(200).json(new ApiResponse(200, result, "Candidates retrieved successfully"));
 });
 
 export const getCandidate = asyncHandler(async (req, res) => {
-  const organizationId = req.params.organizationId || req.organizationId;
+  const organizationId = await getOrgId(req);
   const { candidateId } = req.params;
   const candidate = await CandidateService.getCandidate(organizationId, candidateId);
   return res.status(200).json(new ApiResponse(200, candidate, "Candidate retrieved successfully"));
@@ -39,7 +76,7 @@ export const updateCandidate = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Validation failed", errors);
   }
 
-  const organizationId = req.params.organizationId || req.organizationId;
+  const organizationId = await getOrgId(req);
   const { candidateId } = req.params;
   const actorUserId = req.user?.id || req.user?._id;
   const candidate = await CandidateService.updateCandidate(organizationId, candidateId, req.body, actorUserId);

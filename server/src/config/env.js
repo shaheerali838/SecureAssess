@@ -22,9 +22,11 @@ export const ENV = Object.freeze({
     process.env.MONGO_URI ||
     "mongodb://127.0.0.1:27017/secureassess",
   MONGODB_DB_NAME: process.env.MONGODB_DB_NAME || "secureassess",
-  JWT_SECRET: process.env.JWT_SECRET || "default_jwt_secret_change_in_production",
+  JWT_SECRET:
+    process.env.JWT_SECRET || "default_jwt_secret_change_in_production",
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || "1d",
-  REFRESH_TOKEN_SECRET: process.env.REFRESH_TOKEN_SECRET || "default_refresh_secret",
+  REFRESH_TOKEN_SECRET:
+    process.env.REFRESH_TOKEN_SECRET || "default_refresh_secret",
   REFRESH_TOKEN_EXPIRES_IN: process.env.REFRESH_TOKEN_EXPIRES_IN || "7d",
   CORS_ORIGIN: process.env.CORS_ORIGIN || "*",
 
@@ -35,11 +37,11 @@ export const ENV = Object.freeze({
   CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET || "",
 
   // Email Service
-  SMTP_HOST: process.env.SMTP_HOST || "smtp.mailtrap.io",
+  SMTP_HOST: process.env.SMTP_HOST || "smtp.gmail.com",
   SMTP_PORT: parseInt(process.env.SMTP_PORT || "587", 10),
-  SMTP_USER: process.env.SMTP_USER || "",
+  SMTP_USER: process.env.SMTP_USER || "shaheer838838@gmail.com",
   SMTP_PASS: process.env.SMTP_PASS || process.env.SMTP_PASSWORD || "",
-  EMAIL_FROM: process.env.EMAIL_FROM || "noreply@secureassess.com",
+  EMAIL_FROM: process.env.EMAIL_FROM || "[EMAIL_ADDRESS]",
 
   // Initial Platform Owner Admin Configuration
   ADMIN_FIRST_NAME: process.env.ADMIN_FIRST_NAME || "Platform",

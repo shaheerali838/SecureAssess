@@ -95,6 +95,18 @@ const questionSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    departmentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Department",
+      default: null,
+      index: true,
+    },
+    programId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Program",
+      default: null,
+      index: true,
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

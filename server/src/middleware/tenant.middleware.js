@@ -36,6 +36,8 @@ export const requireTenantContext = async (req, res, next) => {
       req.headers["x-organization-id"] ||
       req.headers["x-tenant-id"] ||
       req.query?.organizationId ||
+      req.user?.activeOrganizationId ||
+      req.user?.organizationId ||
       null;
 
     const isPlatformStaff =
