@@ -127,14 +127,57 @@ export const OrganizationProvider = ({ children }) => {
 
   const userRole =
     currentMembership?.roleId?.name ||
+    currentMembership?.role?.name ||
+    (typeof currentMembership?.roleId === 'string' ? currentMembership.roleId : null) ||
     currentMembership?.roleName ||
-    (isPlatformStaff ? user?.platformRole : 'ORGANIZATION_ADMIN');
-  const permissions = currentMembership?.roleId?.permissions || [];
+    user?.memberships?.[0]?.roleId?.name ||
+    user?.memberships?.[0]?.role?.name ||
+    user?.memberships?.[0]?.roleName ||
+    user?.role ||
+    (isPlatformStaff ? user?.platformRole : null);
+
+  const normalizedUserRole = (userRole || '').toUpperCase();
+
+  const isPlatformAdminUser =
+    isPlatformStaff ||
+    user?.platformRole === 'PLATFORM_OWNER' ||
+    user?.platformRole === 'PLATFORM_ADMIN';
+
+  const isOrgAdminUser =
+    normalizedUserRole === 'ORGANIZATION_OWNER' ||
+    normalizedUserRole === 'ORGANIZATION_ADMIN' ||
+    normalizedUserRole === 'OWNER' ||
+    normalizedUserRole === 'ADMIN';
+
+  const permissions =
+    currentMembership?.roleId?.permissions ||
+    currentMembership?.role?.permissions ||
+    user?.permissions ||
+    [];
 
   const hasPermission = (permissionKey) => {
-    if (isPlatformStaff) return true;
+    if (isPlatformAdminUser || isOrgAdminUser) return true;
+    if (!permissions || permissions.length === 0) {
+      if (normalizedUserRole === 'EXAMINER') {
+        const examinerDefaults = [
+          'assessments.view',
+          'assessments.create',
+          'question_banks.view',
+          'candidates.view',
+          'evaluations.view',
+          'interviews.view',
+          'reports.view',
+        ];
+        return examinerDefaults.includes(permissionKey);
+      }
+      if (normalizedUserRole === 'PROCTOR') {
+        const proctorDefaults = ['proctoring.view', 'interviews.view'];
+        return proctorDefaults.includes(permissionKey);
+      }
+      return true;
+    }
     return permissions.some((p) =>
-      typeof p === 'string' ? p === permissionKey : p.key === permissionKey
+      typeof p === 'string' ? p === permissionKey : p.key === permissionKey || p.name === permissionKey
     );
   };
 

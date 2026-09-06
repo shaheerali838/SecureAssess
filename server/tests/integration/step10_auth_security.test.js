@@ -91,6 +91,7 @@ const runStep10Tests = async () => {
       code: "ATO101",
       type: "UNIVERSITY",
       status: "ACTIVE",
+      createdBy: activeUser._id,
     });
 
     await UserMembership.deleteMany({ userId: activeUser._id });

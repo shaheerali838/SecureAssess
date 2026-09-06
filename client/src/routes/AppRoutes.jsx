@@ -42,6 +42,7 @@ import { Interviews } from '@/components/pages/org/Interviews';
 import { Evaluations } from '@/components/pages/org/Evaluations';
 
 // Candidate Examination Views
+import { CandidateDashboard } from '@/components/pages/participant/CandidateDashboard';
 import { SystemCheck } from '@/components/pages/participant/SystemCheck';
 import { Consent } from '@/components/pages/participant/Consent';
 import { AssessmentExperience } from '@/components/pages/participant/AssessmentExperience';
@@ -68,30 +69,76 @@ const NavWrapper = ({ Component, activeKey, layer = 'organization' }) => {
       'request-demo': '/request-demo',
       'platform-dashboard': '/platform/dashboard',
       'platform-organizations': '/platform/organizations',
+      'platform-configuration': '/platform/dashboard',
+      'platform-features': '/platform/dashboard',
+      'platform-health': '/platform/dashboard',
+      'platform-security': '/platform/dashboard',
+      'platform-audit-logs': '/platform/dashboard',
+      'platform-access-logs': '/platform/dashboard',
+      'platform-system-events': '/platform/dashboard',
+      'platform-roles': '/platform/dashboard',
+      'platform-permissions': '/platform/dashboard',
+      'platform-access': '/platform/dashboard',
+      'platform-monitoring': '/platform/dashboard',
+      'platform-services': '/platform/dashboard',
+      'platform-activity': '/platform/dashboard',
+      'platform-plans': '/platform/dashboard',
+      'platform-subscriptions': '/platform/dashboard',
+      'platform-billing': '/platform/dashboard',
+      'platform-settings': '/platform/dashboard',
       'platform-onboarding': '/platform/onboarding',
       'org-dashboard': '/organization/dashboard',
       'org-assessments': '/organization/assessments',
+      'org-assessments-drafts': '/organization/assessments',
       'org-assessment-builder': '/organization/builder',
       'org-question-bank': '/organization/question-bank',
+      'org-templates': '/organization/assessments',
       'org-participants': '/organization/participants',
+      'org-participants-groups': '/organization/participants',
+      'org-participants-invitations': '/organization/participants',
       'org-participant-profile': '/organization/participants/profile',
+      'org-users': '/organization/users',
+      'org-users-admins': '/organization/users?role=admin',
+      'org-users-examiners': '/organization/users?role=examiner',
+      'org-users-proctors': '/organization/users?role=proctor',
       'org-sessions': '/organization/sessions',
+      'org-sessions-history': '/organization/sessions',
       'org-session-review': '/organization/sessions/review',
+      'org-proctor-assigned': '/organization/sessions',
+      'org-proctor-sessions': '/organization/sessions',
+      'org-proctor-reports': '/organization/reports',
+      'org-incidents-active': '/organization/integrity/evidence',
+      'org-incidents-report': '/organization/integrity/evidence',
+      'org-incidents-history': '/organization/integrity/evidence',
       'org-integrity': '/organization/integrity',
       'org-integrity-evidence': '/organization/integrity/evidence',
       'org-reports': '/organization/reports',
+      'org-reports-assessments': '/organization/reports',
+      'org-reports-interviews': '/organization/reports',
+      'org-reports-candidates': '/organization/reports',
+      'org-reports-all': '/organization/reports',
+      'org-analytics': '/organization/reports',
+      'org-audit-logs': '/organization/sessions',
+      'org-activity-logs': '/organization/sessions',
       'org-billing': '/organization/billing',
       'org-settings': '/organization/settings',
-      'org-users': '/organization/users',
       'org-interviews': '/organization/interviews',
+      'org-interviews-schedule': '/organization/interviews',
+      'org-interviews-templates': '/organization/interviews',
+      'org-interview-room': '/organization/interviews/room',
       'org-evaluations': '/organization/evaluations',
+      'candidate-dashboard': '/candidate/dashboard',
+      'candidate-assessments-upcoming': '/candidate/dashboard',
+      'candidate-assessments-completed': '/candidate/dashboard',
+      'candidate-interviews-upcoming': '/candidate/dashboard',
+      'candidate-interviews-completed': '/candidate/dashboard',
       'participant-system-check': '/candidate/system-check',
       'participant-consent': '/candidate/consent',
       'participant-assessment': '/candidate/assessment',
       'participant-interview': '/candidate/interview',
       'participant-evaluation': '/candidate/evaluation',
+      interviews: '/organization/interviews',
     };
-
     if (keyMap[targetKey]) {
       navigate(keyMap[targetKey]);
     } else {
@@ -127,8 +174,76 @@ export const AppRoutes = () => {
       landing: '/',
       'request-demo': '/request-demo',
       'platform-dashboard': '/platform/dashboard',
+      'platform-organizations': '/platform/organizations',
+      'platform-configuration': '/platform/dashboard',
+      'platform-features': '/platform/dashboard',
+      'platform-health': '/platform/dashboard',
+      'platform-security': '/platform/dashboard',
+      'platform-audit-logs': '/platform/dashboard',
+      'platform-access-logs': '/platform/dashboard',
+      'platform-system-events': '/platform/dashboard',
+      'platform-roles': '/platform/dashboard',
+      'platform-permissions': '/platform/dashboard',
+      'platform-access': '/platform/dashboard',
+      'platform-monitoring': '/platform/dashboard',
+      'platform-services': '/platform/dashboard',
+      'platform-activity': '/platform/dashboard',
+      'platform-plans': '/platform/dashboard',
+      'platform-subscriptions': '/platform/dashboard',
+      'platform-billing': '/platform/dashboard',
+      'platform-settings': '/platform/dashboard',
+      'platform-onboarding': '/platform/onboarding',
       'org-dashboard': '/organization/dashboard',
+      'org-assessments': '/organization/assessments',
+      'org-assessments-drafts': '/organization/assessments',
+      'org-assessment-builder': '/organization/builder',
+      'org-question-bank': '/organization/question-bank',
+      'org-templates': '/organization/assessments',
+      'org-participants': '/organization/participants',
+      'org-participants-groups': '/organization/participants',
+      'org-participants-invitations': '/organization/participants',
+      'org-participant-profile': '/organization/participants/profile',
+      'org-users': '/organization/users',
+      'org-users-admins': '/organization/users?role=admin',
+      'org-users-examiners': '/organization/users?role=examiner',
+      'org-users-proctors': '/organization/users?role=proctor',
+      'org-sessions': '/organization/sessions',
+      'org-sessions-history': '/organization/sessions',
+      'org-session-review': '/organization/sessions/review',
+      'org-proctor-assigned': '/organization/sessions',
+      'org-proctor-sessions': '/organization/sessions',
+      'org-proctor-reports': '/organization/reports',
+      'org-incidents-active': '/organization/integrity/evidence',
+      'org-incidents-report': '/organization/integrity/evidence',
+      'org-incidents-history': '/organization/integrity/evidence',
+      'org-integrity': '/organization/integrity',
+      'org-integrity-evidence': '/organization/integrity/evidence',
+      'org-reports': '/organization/reports',
+      'org-reports-assessments': '/organization/reports',
+      'org-reports-interviews': '/organization/reports',
+      'org-reports-candidates': '/organization/reports',
+      'org-reports-all': '/organization/reports',
+      'org-analytics': '/organization/reports',
+      'org-audit-logs': '/organization/sessions',
+      'org-activity-logs': '/organization/sessions',
+      'org-billing': '/organization/billing',
+      'org-settings': '/organization/settings',
+      'org-interviews': '/organization/interviews',
+      'org-interviews-schedule': '/organization/interviews',
+      'org-interviews-templates': '/organization/interviews',
+      'org-interview-room': '/organization/interviews/room',
+      'org-evaluations': '/organization/evaluations',
+      'candidate-dashboard': '/candidate/dashboard',
+      'candidate-assessments-upcoming': '/candidate/dashboard',
+      'candidate-assessments-completed': '/candidate/dashboard',
+      'candidate-interviews-upcoming': '/candidate/dashboard',
+      'candidate-interviews-completed': '/candidate/dashboard',
       'participant-system-check': '/candidate/system-check',
+      'participant-consent': '/candidate/consent',
+      'participant-assessment': '/candidate/assessment',
+      'participant-interview': '/candidate/interview',
+      'participant-evaluation': '/candidate/evaluation',
+      interviews: '/organization/interviews',
     };
     if (keyMap[targetKey]) {
       navigate(keyMap[targetKey]);
@@ -229,6 +344,10 @@ export const AppRoutes = () => {
               element={<NavWrapper Component={Interviews} activeKey="org-interviews" layer="organization" />}
             />
             <Route
+              path="interviews/room"
+              element={<LiveInterview onNavigate={handleDirectNavigate} />}
+            />
+            <Route
               path="evaluations"
               element={<NavWrapper Component={Evaluations} activeKey="org-evaluations" layer="organization" />}
             />
@@ -237,14 +356,27 @@ export const AppRoutes = () => {
       </Route>
 
       {/* 3. Candidate / Participant Examination Portal */}
-      <Route path="/candidate">
-        <Route index element={<Navigate to="/candidate/system-check" replace />} />
-        <Route path="system-check" element={<SystemCheck onNavigate={handleDirectNavigate} />} />
-        <Route path="consent" element={<Consent onNavigate={handleDirectNavigate} />} />
-        <Route path="assessment" element={<AssessmentExperience onNavigate={handleDirectNavigate} />} />
-        <Route path="interview" element={<LiveInterview onNavigate={handleDirectNavigate} />} />
-        <Route path="evaluation" element={<Evaluation onNavigate={handleDirectNavigate} />} />
+      <Route element={<ProtectedRoute />}>
+        <Route element={<CandidateRoute />}>
+          <Route path="/candidate">
+            <Route index element={<Navigate to="/candidate/dashboard" replace />} />
+            <Route
+              path="dashboard"
+              element={<NavWrapper Component={CandidateDashboard} activeKey="candidate-dashboard" layer="candidate" />}
+            />
+            <Route path="system-check" element={<SystemCheck onNavigate={handleDirectNavigate} />} />
+            <Route path="consent" element={<Consent onNavigate={handleDirectNavigate} />} />
+            <Route path="assessment" element={<AssessmentExperience onNavigate={handleDirectNavigate} />} />
+            <Route path="interview" element={<LiveInterview onNavigate={handleDirectNavigate} />} />
+            <Route path="evaluation" element={<Evaluation onNavigate={handleDirectNavigate} />} />
+          </Route>
+        </Route>
       </Route>
+
+      {/* 4. Direct 1-Time Guest & Live Interview Entry Rooms */}
+      <Route path="/interview/entry/:token" element={<LiveInterview onNavigate={handleDirectNavigate} />} />
+      <Route path="/interview/entry" element={<LiveInterview onNavigate={handleDirectNavigate} />} />
+      <Route path="/interview/room" element={<LiveInterview onNavigate={handleDirectNavigate} />} />
 
       {/* Errors */}
       <Route path="/forbidden" element={<Forbidden />} />

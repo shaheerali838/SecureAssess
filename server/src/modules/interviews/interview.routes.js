@@ -7,10 +7,12 @@ import {
   joinInterview,
   endInterview,
   cancelInterview,
+  updateInterview,
   addParticipant,
   removeParticipant,
   addNote,
   getNotes,
+  getPublicEntryInterview,
 } from "./interview.controller.js";
 import {
   createInterviewSchema,
@@ -24,6 +26,11 @@ import { requireOrganizationOrPlatformPermission } from "../../middleware/permis
 import { INTERVIEW_PERMISSIONS } from "./interview.permissions.js";
 
 const router = express.Router({ mergeParams: true });
+
+// --- Public 1-Time Guest Entry Routes ---
+router.get("/entry/:tokenOrId", getPublicEntryInterview);
+router.get("/public/entry/:tokenOrId", getPublicEntryInterview);
+router.get("/interviews/entry/:tokenOrId", getPublicEntryInterview);
 
 // --- Candidate Self-Service Routes ---
 router.get(
@@ -167,6 +174,32 @@ router.post(
     INTERVIEW_PERMISSIONS.END
   ),
   endInterview
+);
+
+// PATCH /:interviewId - Update scheduled interview
+router.patch(
+  ["/:interviewId", "/interviews/:interviewId"],
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    INTERVIEW_PERMISSIONS.UPDATE,
+    INTERVIEW_PERMISSIONS.UPDATE
+  ),
+  validateRequest(updateInterviewSchema),
+  updateInterview
+);
+
+// PUT /:interviewId - Alias
+router.put(
+  ["/:interviewId", "/interviews/:interviewId"],
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    INTERVIEW_PERMISSIONS.UPDATE,
+    INTERVIEW_PERMISSIONS.UPDATE
+  ),
+  validateRequest(updateInterviewSchema),
+  updateInterview
 );
 
 // POST /:interviewId/cancel - Cancel interview

@@ -5,8 +5,8 @@ import { useOrganization } from '../contexts/OrganizationContext';
 import { ORGANIZATION_ROLES } from '../constants/roles';
 
 export const OrganizationRoute = () => {
-  const { isPlatformStaff } = useAuth();
-  const { userRole, isLoading } = useOrganization();
+  const { user, isPlatformStaff } = useAuth();
+  const { userRole, currentMembership, isLoading } = useOrganization();
 
   if (isLoading) {
     return (
@@ -16,9 +16,27 @@ export const OrganizationRoute = () => {
     );
   }
 
+  const effectiveRole =
+    userRole ||
+    currentMembership?.roleId?.name ||
+    currentMembership?.role?.name ||
+    currentMembership?.roleName ||
+    user?.memberships?.[0]?.roleId?.name ||
+    user?.memberships?.[0]?.role?.name ||
+    user?.memberships?.[0]?.roleName;
+
   // Candidates should be directed to the candidate portal instead
-  if (!isPlatformStaff && userRole === ORGANIZATION_ROLES.CANDIDATE) {
-    return <Navigate to="/candidate/system-check" replace />;
+  if (
+    !isPlatformStaff &&
+    (effectiveRole === ORGANIZATION_ROLES.CANDIDATE ||
+      effectiveRole === 'CANDIDATE' ||
+      user?.memberships?.some(
+        (m) =>
+          (m.roleId?.name || m.role?.name || m.roleName) === ORGANIZATION_ROLES.CANDIDATE ||
+          (m.roleId?.name || m.role?.name || m.roleName) === 'CANDIDATE'
+      ))
+  ) {
+    return <Navigate to="/candidate/dashboard" replace />;
   }
 
   return <Outlet />;

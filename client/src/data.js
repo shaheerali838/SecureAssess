@@ -132,10 +132,10 @@ export const platformUsers = [
   { id: 'u1', name: 'Dr. Imran Saleem', email: 'imran.saleem@vu.edu', role: 'Organization Admin', status: 'Active', lastActive: '2026-08-26 09:15', avatarColor: '#1d4ed8' },
   { id: 'u2', name: 'Prof. Aisha Khan', email: 'aisha.khan@vu.edu', role: 'Examiner', status: 'Active', lastActive: '2026-08-26 08:42', avatarColor: '#0d9488' },
   { id: 'u3', name: 'Captain Lara Hassan', email: 'lara.h@skywings.aero', role: 'Organization Admin', status: 'Active', lastActive: '2026-08-25 16:30', avatarColor: '#7c3aed' },
-  { id: 'u4', name: 'Hassan Raza', email: 'hassan@techcorp.pk', role: 'Recruiter', status: 'Active', lastActive: '2026-08-26 10:05', avatarColor: '#b45309' },
+  { id: 'u4', name: 'Hassan Raza', email: 'hassan@techcorp.pk', role: 'Examiner', status: 'Active', lastActive: '2026-08-26 10:05', avatarColor: '#b45309' },
   { id: 'u5', name: 'Dr. Farah Siddiqui', email: 'farah.s@nhi.org.pk', role: 'Organization Admin', status: 'Active', lastActive: '2026-08-25 14:20', avatarColor: '#0f766e' },
-  { id: 'u6', name: 'Omar Sheikh', email: 'omar.s@fcb.gov.pk', role: 'Organization Admin', status: 'Invited', lastActive: '—', avatarColor: '#1e3a8a' },
-  { id: 'u7', name: 'Nadia Baig', email: 'nadia@gli.edu', role: 'Organization Admin', status: 'Invited', lastActive: '—', avatarColor: '#2563eb' },
+  { id: 'u6', name: 'Omar Sheikh', email: 'omar.s@fcb.gov.pk', role: 'Proctor', status: 'Invited', lastActive: '—', avatarColor: '#1e3a8a' },
+  { id: 'u7', name: 'Nadia Baig', email: 'nadia@gli.edu', role: 'Proctor', status: 'Invited', lastActive: '—', avatarColor: '#2563eb' },
 ];
 
 export const plans = [
@@ -235,3 +235,36 @@ export const orgNav = [
   { label: 'Billing', key: 'org-billing', icon: 'CreditCard' },
   { label: 'Settings', key: 'org-settings', icon: 'Settings' },
 ];
+
+export const departments = [
+  { id: 'dept-cs', name: 'Computer Science & Software Engineering', code: 'CSSE', studentCount: 420 },
+  { id: 'dept-av', name: 'Aviation & Aerospace Engineering', code: 'AERO', studentCount: 180 },
+  { id: 'dept-med', name: 'Clinical Medicine & Health Sciences', code: 'MED', studentCount: 310 },
+  { id: 'dept-baf', name: 'Business Administration & Finance', code: 'BAF', studentCount: 260 },
+  { id: 'dept-ee', name: 'Electrical & Computer Engineering', code: 'ECE', studentCount: 195 },
+];
+
+export const programs = [
+  { id: 'prog-bscs', name: 'Bachelor of Science in Computer Science', code: 'BSCS', departmentId: 'dept-cs', studentCount: 280 },
+  { id: 'prog-bsse', name: 'Bachelor of Science in Software Engineering', code: 'BSSE', departmentId: 'dept-cs', studentCount: 140 },
+  { id: 'prog-cpl', name: 'Commercial Pilot License & Flight Tech', code: 'CPL', departmentId: 'dept-av', studentCount: 180 },
+  { id: 'prog-mbbs', name: 'Bachelor of Medicine & Surgery', code: 'MBBS', departmentId: 'dept-med', studentCount: 310 },
+  { id: 'prog-bba', name: 'Bachelor of Business Administration', code: 'BBA', departmentId: 'dept-baf', studentCount: 260 },
+];
+
+export const subjects = [
+  { id: 'subj-dsa', name: 'Data Structures & Algorithms', code: 'CS-201', programCode: 'BSCS', credits: 4 },
+  { id: 'subj-web', name: 'Full-Stack Web Architecture', code: 'CS-305', programCode: 'BSSE', credits: 3 },
+  { id: 'subj-aero', name: 'Flight Dynamics & Aerodynamics', code: 'AV-101', programCode: 'CPL', credits: 4 },
+  { id: 'subj-pharm', name: 'Clinical Pharmacology & Therapeutics', code: 'MED-402', programCode: 'MBBS', credits: 5 },
+  { id: 'subj-fin', name: 'Financial Risk & Corporate Valuation', code: 'FIN-301', programCode: 'BBA', credits: 3 },
+  { id: 'subj-ai', name: 'Applied Artificial Intelligence & ML', code: 'CS-401', programCode: 'BSCS', credits: 4 },
+];
+
+export const candidateGroups = [
+  { id: 'grp-2026-cs', name: 'Fall 2026 - CS Senior Cohort', code: 'CS-2026-SR', count: 64 },
+  { id: 'grp-2026-av', name: 'Aviation Cadet Flight Squadron 12', code: 'CADET-12', count: 32 },
+  { id: 'grp-2026-med', name: 'Medical Interns - Clinical Rotation', code: 'MED-ROT-B', count: 48 },
+  { id: 'grp-fasttrack', name: 'Engineering FastTrack Bootcamp', code: 'FASTTRACK-01', count: 25 },
+];
+

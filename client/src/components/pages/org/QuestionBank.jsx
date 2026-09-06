@@ -232,9 +232,12 @@ export function QuestionBank({ onNavigate }) {
                       {options.length > 0 && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mb-3">
                           {options.map((opt, oi) => {
-                            const isCorrect = Array.isArray(correctAnswer)
-                              ? correctAnswer.includes(oi)
-                              : correctAnswer === oi;
+                            const isCorrect = typeof opt === 'object' && opt?.isCorrect !== undefined
+                              ? opt.isCorrect
+                              : (Array.isArray(correctAnswer)
+                                ? correctAnswer.includes(oi)
+                                : correctAnswer === oi);
+                            const optText = typeof opt === 'object' ? (opt?.text ?? opt?.label ?? opt?.value ?? '') : opt;
                             return (
                               <div
                                 key={oi}
@@ -253,7 +256,7 @@ export function QuestionBank({ onNavigate }) {
                                 >
                                   {isCorrect && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
                                 </span>
-                                <span className="truncate">{opt}</span>
+                                <span className="truncate">{optText}</span>
                               </div>
                             );
                           })}

@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   FileText, Plus, Filter, Download,
-  Clock, Users, Star, Pencil, Copy, Trash2, Eye, RefreshCw
+  Clock, Users, Star, Pencil, Copy, Trash2, Eye, RefreshCw, UserPlus
 } from 'lucide-react';
 import {
   Card, Badge, StatusBadge, SecurityBadge, Button, SearchBar,
-  PageHeader, Select, EmptyState, SkeletonCards,
+  PageHeader, Select, EmptyState, SkeletonCards, Toast,
 } from '@/components/ui';
 import { assessments as fallbackAssessments } from '@/data';
 import assessmentService from '@/services/assessment.service';
+import { AssignAssessmentModal } from './AssignAssessmentModal';
 
 export function AssessmentLibrary({ onNavigate }) {
   const [assessmentsList, setAssessmentsList] = useState([]);
@@ -16,6 +17,9 @@ export function AssessmentLibrary({ onNavigate }) {
   const [search, setSearch] = useState('');
   const [formatFilter, setFormatFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [selectedForAssign, setSelectedForAssign] = useState(null);
+  const [toastMessage, setToastMessage] = useState(null);
 
   const fetchAssessments = useCallback(async () => {
     setLoading(true);
@@ -50,13 +54,21 @@ export function AssessmentLibrary({ onNavigate }) {
 
   return (
     <div className="space-y-6">
+      {toastMessage && (
+        <Toast
+          type={toastMessage.type}
+          message={toastMessage.text}
+          onClose={() => setToastMessage(null)}
+        />
+      )}
+
       <PageHeader
         title="Assessment Library"
         subtitle="Author, configure, schedule, and monitor exams across your organization."
         icon={<FileText size={22} className="text-primary-600 dark:text-primary-400" />}
         breadcrumbs={[{ label: 'Dashboard', onClick: () => onNavigate('org-dashboard') }, { label: 'Assessments' }]}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
             <Button
               variant="outline"
               size="sm"
@@ -67,6 +79,17 @@ export function AssessmentLibrary({ onNavigate }) {
             </Button>
             <Button variant="outline" size="sm" icon={<Download size={15} />}>
               Export Matrix
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<UserPlus size={15} />}
+              onClick={() => {
+                setSelectedForAssign(null);
+                setAssignModalOpen(true);
+              }}
+            >
+              Assign Assessment
             </Button>
             <Button
               variant="primary"
@@ -191,6 +214,19 @@ export function AssessmentLibrary({ onNavigate }) {
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
+                      className="flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-950/60 rounded-lg transition-colors cursor-pointer mr-0.5"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedForAssign(a);
+                        setAssignModalOpen(true);
+                      }}
+                      title="Assign Assessment"
+                    >
+                      <UserPlus size={12} />
+                      <span>Assign</span>
+                    </button>
+                    <button
+                      type="button"
                       className="p-1.5 text-accent-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-950/60 rounded-lg transition-colors cursor-pointer"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -217,6 +253,26 @@ export function AssessmentLibrary({ onNavigate }) {
           })}
         </div>
       )}
+
+      {/* Assign Assessment Modal */}
+      <AssignAssessmentModal
+        isOpen={assignModalOpen}
+        onClose={() => {
+          setAssignModalOpen(false);
+          setSelectedForAssign(null);
+        }}
+        assessments={assessmentsList}
+        selectedAssessment={selectedForAssign}
+        onAssigned={({ assignedCount, mode }) => {
+          setToastMessage({
+            type: 'success',
+            text: mode === 'open_entry'
+              ? 'Assessment link configured for open candidate enrollment!'
+              : `Assessment assigned successfully to ${assignedCount} candidate(s)!`
+          });
+          fetchAssessments();
+        }}
+      />
     </div>
   );
 }

@@ -28,7 +28,7 @@ const userSchema = new mongoose.Schema(
     },
     platformRole: {
       type: String,
-      enum: [...PLATFORM_ROLE_LIST, null],
+      enum: [...PLATFORM_ROLE_LIST, "PLATFORM_OWNER", null],
       default: null,
       index: true,
     },
@@ -102,5 +102,13 @@ const userSchema = new mongoose.Schema(
 userSchema.index({ status: 1, createdAt: -1 });
 userSchema.index({ platformRole: 1, status: 1 });
 
+// Auto-normalize legacy PLATFORM_OWNER to canonical PLATFORM_ADMIN
+userSchema.pre("save", function () {
+  if (this.platformRole === "PLATFORM_OWNER") {
+    this.platformRole = "PLATFORM_ADMIN";
+  }
+});
+
 const User = mongoose.models.User || mongoose.model("User", userSchema);
 export default User;
+

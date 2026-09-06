@@ -318,9 +318,12 @@ export function AssessmentBuilder({ onNavigate }) {
                     </label>
                     <div className="space-y-2.5">
                       {activeQuestion.options.map((opt, oi) => {
-                        const isCorrect = Array.isArray(activeQuestion.correctAnswer)
-                          ? activeQuestion.correctAnswer.includes(oi)
-                          : activeQuestion.correctAnswer === oi;
+                        const optText = typeof opt === 'object' ? (opt?.text ?? opt?.label ?? opt?.value ?? '') : opt;
+                        const isCorrect = typeof opt === 'object' && opt?.isCorrect !== undefined
+                          ? opt.isCorrect
+                          : (Array.isArray(activeQuestion.correctAnswer)
+                            ? activeQuestion.correctAnswer.includes(oi)
+                            : activeQuestion.correctAnswer === oi);
                         return (
                           <div key={oi} className="flex items-center gap-2.5">
                             <button
@@ -337,10 +340,14 @@ export function AssessmentBuilder({ onNavigate }) {
                             </button>
                             <input
                               type="text"
-                              value={opt}
+                              value={optText}
                               onChange={(e) => {
                                 const newOpts = [...activeQuestion.options];
-                                newOpts[oi] = e.target.value;
+                                if (typeof opt === 'object') {
+                                  newOpts[oi] = { ...opt, text: e.target.value };
+                                } else {
+                                  newOpts[oi] = e.target.value;
+                                }
                                 updateQuestion(activeIdx, { options: newOpts });
                               }}
                               className="flex-1 h-10 px-3.5 text-xs rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors"
@@ -411,7 +418,10 @@ export function AssessmentBuilder({ onNavigate }) {
                   {(activeQuestion.type === 'Multiple Choice' || activeQuestion.type === 'True / False') && (
                     <div className="space-y-2.5">
                       {activeQuestion.options.map((opt, oi) => {
-                        const isCorrect = activeQuestion.correctAnswer === oi;
+                        const optText = typeof opt === 'object' ? (opt?.text ?? opt?.label ?? opt?.value ?? '') : opt;
+                        const isCorrect = typeof opt === 'object' && opt?.isCorrect !== undefined
+                          ? opt.isCorrect
+                          : (activeQuestion.correctAnswer === oi);
                         return (
                           <div
                             key={oi}
@@ -426,7 +436,7 @@ export function AssessmentBuilder({ onNavigate }) {
                             }`}>
                               {isCorrect && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
                             </div>
-                            <span className="text-xs font-semibold">{opt}</span>
+                            <span className="text-xs font-semibold">{optText}</span>
                           </div>
                         );
                       })}

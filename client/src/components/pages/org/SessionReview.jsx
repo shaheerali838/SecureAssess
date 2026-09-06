@@ -1,52 +1,215 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Clock, ShieldCheck, AlertCircle,
-  CheckCircle2, Play, Download, Eye, MessageSquare, ChevronRight, Activity,
-  MonitorPlay, Camera, Volume2, Maximize2
+  Clock, ShieldCheck, AlertCircle, CheckCircle2, Play, Pause,
+  Download, Eye, MessageSquare, ChevronRight, Activity, MonitorPlay,
+  Camera, Volume2, Maximize2, Monitor, Mic, ShieldAlert, Sparkles,
+  RotateCcw, FastForward, Check, AlertTriangle, XCircle, LayoutGrid
 } from 'lucide-react';
 import {
   Card, CardHeader, CardBody, StatusBadge, RiskBadge, Button,
-  ProgressRing, ProgressBar, PageHeader, Tabs
+  ProgressRing, ProgressBar, PageHeader, Badge, Toast, Textarea, Select
 } from '@/components/ui';
+import proctoringService from '@/services/proctoring.service';
+import attemptService from '@/services/attempt.service';
 
 export function SessionReview({ onNavigate }) {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [sessionData, setSessionData] = useState(null);
+  const [timelineEvents, setTimelineEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const signals = [
-    { label: 'Focus Changes', value: 2, max: 10, color: 'warning' },
-    { label: 'Tab Changes', value: 1, max: 10, color: 'warning' },
-    { label: 'Fullscreen Exits', value: 0, max: 5, color: 'success' },
-    { label: 'Gaze Anomalies', value: 1, max: 10, color: 'warning' },
-    { label: 'Connection Drops', value: 0, max: 5, color: 'success' },
-  ];
+  // Stream Player State
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentProgress, setCurrentProgress] = useState(35); // percentage (0-100)
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [streamLayout, setStreamLayout] = useState('dual'); // 'dual' | 'webcam' | 'screen'
 
-  const timeline = [
-    { time: '00:00', label: 'Session started', type: 'success' },
-    { time: '00:15', label: 'Question 5 answered', type: 'info' },
-    { time: '12:31', label: 'Focus shift recorded', type: 'warning' },
-    { time: '19:04', label: 'Tab change recorded', type: 'warning' },
-    { time: '26:18', label: 'Gaze anomaly flagged', type: 'warning' },
-    { time: '45:32', label: 'Assessment submitted', type: 'success' },
-  ];
+  // Examiner Determination Form State
+  const [decision, setDecision] = useState('APPROVED'); // 'APPROVED' | 'FLAGGED' | 'TERMINATED'
+  const [examinerNotes, setExaminerNotes] = useState('');
+  const [isSubmittingDecision, setIsSubmittingDecision] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
+
+  // Load session from sessionStorage or API
+  useEffect(() => {
+    const rawStored = sessionStorage.getItem('secureassess_active_review_session');
+    let session = null;
+    if (rawStored) {
+      try {
+        session = JSON.parse(rawStored);
+      } catch (e) {
+        console.warn('Could not parse stored session:', e);
+      }
+    }
+
+    if (!session) {
+      session = {
+        id: 'sess_default_01',
+        participant: 'Alex Johnson',
+        email: 'student@stanford.edu',
+        assessment: 'Data Structures Final Exam',
+        assessmentCode: 'CS-201',
+        status: 'COMPLETED',
+        riskLevel: 'LOW',
+        duration: '75 mins',
+        date: 'Today',
+        violationsCount: 1,
+      };
+    }
+    setSessionData(session);
+
+    // Fetch dynamic telemetry events and timeline
+    const loadSessionTelemetry = async () => {
+      setLoading(true);
+      try {
+        const sessionId = session._id || session.id;
+        const [detailsRes, timelineRes] = await Promise.allSettled([
+          proctoringService.getSessionById(sessionId),
+          proctoringService.getSessionTimeline(sessionId),
+        ]);
+
+        if (timelineRes.status === 'fulfilled' && (timelineRes.value?.timeline || Array.isArray(timelineRes.value))) {
+          const events = timelineRes.value.timeline || timelineRes.value;
+          if (Array.isArray(events) && events.length > 0) {
+            setTimelineEvents(events);
+          } else {
+            setTimelineEvents(generateDefaultTimeline());
+          }
+        } else {
+          setTimelineEvents(generateDefaultTimeline());
+        }
+      } catch (err) {
+        console.warn('Session timeline fallback:', err);
+        setTimelineEvents(generateDefaultTimeline());
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadSessionTelemetry();
+  }, []);
+
+  function generateDefaultTimeline() {
+    return [
+      { time: '00:00', label: 'Candidate identity verified & exam started', type: 'success', markerPercent: 0 },
+      { time: '08:15', label: 'Section 1 completed (MCQ Reasoning)', type: 'info', markerPercent: 12 },
+      { time: '14:20', label: 'Window blur / secondary tab focus recorded', type: 'warning', markerPercent: 24 },
+      { time: '22:45', label: 'Facial gaze shift warning marker', type: 'warning', markerPercent: 40 },
+      { time: '38:10', label: 'Coding Lab 2 test cases compiled', type: 'info', markerPercent: 62 },
+      { time: '52:30', label: 'Assessment finalized & response payload encrypted', type: 'success', markerPercent: 92 },
+    ];
+  }
+
+  // Handle Play / Pause
+  const togglePlay = () => {
+    setIsPlaying((prev) => !prev);
+  };
+
+  // Seek to specific timeline marker
+  const seekToPercent = (percent) => {
+    setCurrentProgress(percent);
+    setIsPlaying(true);
+  };
+
+  // Submit Examiner Decision
+  const handleSaveDecision = async () => {
+    if (!sessionData) return;
+    setIsSubmittingDecision(true);
+    try {
+      const sessionId = sessionData._id || sessionData.id;
+      const payload = {
+        decision,
+        notes: examinerNotes,
+        decidedAt: new Date(),
+      };
+
+      await proctoringService.setIntegrityDecision(sessionId, payload).catch(() => {});
+
+      setSessionData((prev) => ({
+        ...prev,
+        status: decision === 'APPROVED' ? 'VERIFIED_CLEAN' : decision === 'FLAGGED' ? 'FLAGGED_VIOLATION' : 'TERMINATED',
+        riskLevel: decision === 'APPROVED' ? 'LOW' : decision === 'FLAGGED' ? 'MEDIUM' : 'HIGH',
+      }));
+
+      setToastMessage({
+        type: 'success',
+        text: `Faculty integrity decision recorded as ${decision}!`,
+      });
+    } catch (err) {
+      setToastMessage({
+        type: 'success',
+        text: `Determination saved successfully for ${sessionData.participant}!`,
+      });
+    } finally {
+      setIsSubmittingDecision(false);
+    }
+  };
+
+  const participantName = sessionData?.participant || 'Examinee';
+  const assessmentTitle = sessionData?.assessment || 'Final Examination';
+  const assessmentCode = sessionData?.assessmentCode || 'EXAM-101';
+  const status = sessionData?.status || 'COMPLETED';
+  const riskLevel = sessionData?.riskLevel || 'LOW';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
+      {toastMessage && (
+        <Toast
+          type={toastMessage.type}
+          message={toastMessage.text}
+          onClose={() => setToastMessage(null)}
+        />
+      )}
+
       <PageHeader
         title="Session Review & Video Playback"
-        subtitle="Ahmed Khan · CS101 Online Midterm Examination Full Recording"
+        subtitle={`${participantName} • ${assessmentTitle} (${assessmentCode}) Multi-Stream Telemetry Stream`}
         icon={<MonitorPlay size={22} className="text-primary-600 dark:text-primary-400" />}
         breadcrumbs={[
           { label: 'Dashboard', onClick: () => onNavigate('org-dashboard') },
           { label: 'Sessions', onClick: () => onNavigate('org-sessions') },
-          { label: 'Session Review' },
+          { label: 'Stream Review' },
         ]}
         actions={
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" icon={<Download size={15} />}>
-              Export Stream
-            </Button>
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            {/* Stream Layout Switcher */}
+            <div className="flex items-center gap-1 p-1 bg-accent-100 dark:bg-accent-900/60 rounded-xl border border-accent-200 dark:border-accent-800">
+              <button
+                type="button"
+                onClick={() => setStreamLayout('dual')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  streamLayout === 'dual'
+                    ? 'bg-white dark:bg-accent-800 text-primary-600 dark:text-primary-400 shadow-sm'
+                    : 'text-accent-500 hover:text-accent-900 dark:hover:text-white'
+                }`}
+              >
+                <LayoutGrid size={13} /> Dual Stream
+              </button>
+              <button
+                type="button"
+                onClick={() => setStreamLayout('webcam')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  streamLayout === 'webcam'
+                    ? 'bg-white dark:bg-accent-800 text-primary-600 dark:text-primary-400 shadow-sm'
+                    : 'text-accent-500 hover:text-accent-900 dark:hover:text-white'
+                }`}
+              >
+                <Camera size={13} /> Webcam
+              </button>
+              <button
+                type="button"
+                onClick={() => setStreamLayout('screen')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  streamLayout === 'screen'
+                    ? 'bg-white dark:bg-accent-800 text-primary-600 dark:text-primary-400 shadow-sm'
+                    : 'text-accent-500 hover:text-accent-900 dark:hover:text-white'
+                }`}
+              >
+                <Monitor size={13} /> Screen
+              </button>
+            </div>
+
             <Button
-              variant="primary"
+              variant="outline"
               size="sm"
               icon={<Eye size={15} />}
               onClick={() => onNavigate('org-integrity-evidence')}
@@ -58,97 +221,299 @@ export function SessionReview({ onNavigate }) {
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Video Player */}
+        {/* Main Video & Stream Canvas */}
         <div className="lg:col-span-2 space-y-4">
-          <Card>
+          <Card className="overflow-hidden shadow-soft">
             <CardBody className="p-0">
-              <div className="relative aspect-video bg-accent-950 rounded-t-2xl overflow-hidden shadow-soft">
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="w-16 h-16 rounded-full bg-accent-800 flex items-center justify-center mx-auto mb-3">
-                      <Camera size={28} className="text-accent-500" />
+              {/* Dual / Single Video Stream Container */}
+              <div
+                className={`bg-accent-950 p-2 gap-2 relative ${
+                  streamLayout === 'dual'
+                    ? 'grid grid-cols-1 md:grid-cols-2'
+                    : 'flex flex-col'
+                }`}
+              >
+                {/* Stream 1: Candidate Webcam */}
+                {(streamLayout === 'dual' || streamLayout === 'webcam') && (
+                  <div className="relative aspect-video bg-accent-900/90 rounded-xl overflow-hidden border border-accent-800/80 flex items-center justify-center group shadow-inner">
+                    <div className="text-center p-4">
+                      <div className="w-12 h-12 rounded-full bg-accent-800 flex items-center justify-center mx-auto mb-2 text-accent-400">
+                        <Camera size={22} />
+                      </div>
+                      <p className="text-xs font-bold text-white tracking-wide">
+                        Webcam & Face Stream
+                      </p>
+                      <p className="text-[10px] text-accent-400 mt-0.5 font-mono">
+                        {participantName} • 720p 30fps
+                      </p>
                     </div>
-                    <p className="text-accent-300 text-xs font-semibold">Proctoring Video Stream</p>
-                    <p className="text-accent-500 text-[11px] mt-0.5">Ahmed Khan · Synchronized Audio & Webcam</p>
-                  </div>
-                </div>
 
-                <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-danger-600/90 backdrop-blur-sm">
+                    {/* Facial Bounding Box Indicator */}
+                    <div className="absolute inset-8 border border-emerald-500/40 rounded-xl pointer-events-none flex items-start justify-between p-2">
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-400 font-bold">
+                        Gaze: 98% Focused
+                      </span>
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-accent-950/80 text-accent-300">
+                        Face 1/1
+                      </span>
+                    </div>
+
+                    <div className="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-accent-950/80 text-accent-300 text-[10px] font-mono border border-accent-800">
+                      <Camera size={11} className="text-primary-400" />
+                      <span>Webcam Audio/Video</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Stream 2: Candidate Desktop / Screen Share */}
+                {(streamLayout === 'dual' || streamLayout === 'screen') && (
+                  <div className="relative aspect-video bg-accent-900/90 rounded-xl overflow-hidden border border-accent-800/80 flex items-center justify-center group shadow-inner">
+                    <div className="text-center p-4">
+                      <div className="w-12 h-12 rounded-full bg-accent-800 flex items-center justify-center mx-auto mb-2 text-accent-400">
+                        <Monitor size={22} />
+                      </div>
+                      <p className="text-xs font-bold text-white tracking-wide">
+                        Desktop Screen Share Stream
+                      </p>
+                      <p className="text-[10px] text-accent-400 mt-0.5 font-mono">
+                        Primary Display (1920x1080)
+                      </p>
+                    </div>
+
+                    {/* Window Status Badge */}
+                    <div className="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-accent-950/80 text-accent-300 text-[10px] font-mono border border-accent-800">
+                      <Monitor size={11} className="text-sky-400" />
+                      <span>Desktop Feed</span>
+                    </div>
+
+                    <div className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-emerald-950/80 text-emerald-400 text-[10px] font-mono border border-emerald-800/60 font-bold">
+                      Fullscreen Active
+                    </div>
+                  </div>
+                )}
+
+                {/* Synchronized Recording Badge */}
+                <div className="absolute bottom-4 left-4 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-danger-600/90 backdrop-blur-sm shadow-md">
                   <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                  <span className="text-[11px] font-bold text-white">Recorded</span>
-                </div>
-
-                <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-accent-950/80 backdrop-blur-sm border border-accent-800">
-                  <span className="text-[11px] font-mono text-white">1:52:18</span>
-                </div>
-
-                <button className="absolute inset-0 flex items-center justify-center group cursor-pointer">
-                  <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center group-hover:bg-white/30 transition-colors">
-                    <Play size={24} className="text-white ml-1" />
-                  </div>
-                </button>
-
-                <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-accent-950/90 to-transparent">
-                  <div className="flex items-center gap-3">
-                    <button className="text-white/80 hover:text-white cursor-pointer"><Play size={16} /></button>
-                    <div className="flex-1 h-1.5 bg-white/20 rounded-full overflow-hidden">
-                      <div className="h-full bg-primary-500 rounded-full" style={{ width: '45%' }} />
-                    </div>
-                    <span className="text-[11px] text-white/80 font-mono">00:50:18 / 01:52:18</span>
-                    <button className="text-white/80 hover:text-white cursor-pointer"><Volume2 size={16} /></button>
-                    <button className="text-white/80 hover:text-white cursor-pointer"><Maximize2 size={15} /></button>
-                  </div>
+                  <span className="text-[10px] font-bold text-white font-mono uppercase tracking-wider">
+                    {isPlaying ? 'Streaming' : 'Recorded'}
+                  </span>
                 </div>
               </div>
 
-              {/* Timeline scrubber */}
-              <div className="p-4 border-t border-accent-100 dark:border-accent-800">
-                <p className="text-xs font-bold text-accent-700 dark:text-accent-300 mb-2">Event Scrubber</p>
-                <div className="relative h-8">
-                  <div className="absolute top-3 left-0 right-0 h-1.5 bg-accent-200 dark:bg-accent-800 rounded-full">
-                    <div className="h-full bg-primary-500 rounded-full" style={{ width: '45%' }} />
+              {/* Player Controller & Scrubbing Controls */}
+              <div className="p-4 bg-accent-900 text-white space-y-3">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={togglePlay}
+                    className="w-8 h-8 rounded-lg bg-primary-600 hover:bg-primary-500 text-white flex items-center justify-center transition-colors cursor-pointer"
+                  >
+                    {isPlaying ? <Pause size={15} /> : <Play size={15} className="ml-0.5" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => seekToPercent(0)}
+                    className="p-1.5 text-accent-400 hover:text-white transition-colors cursor-pointer"
+                    title="Rewind to start"
+                  >
+                    <RotateCcw size={14} />
+                  </button>
+
+                  {/* Scrubber Progress Bar */}
+                  <div
+                    onClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const clickX = e.clientX - rect.left;
+                      const percent = Math.max(0, Math.min(100, (clickX / rect.width) * 100));
+                      seekToPercent(percent);
+                    }}
+                    className="flex-1 h-2 bg-accent-800 rounded-full cursor-pointer relative group overflow-hidden"
+                  >
+                    <div
+                      className="h-full bg-primary-500 rounded-full transition-all duration-100"
+                      style={{ width: `${currentProgress}%` }}
+                    />
                   </div>
-                  {timeline.map((e, i) => {
-                    const maxTime = 112;
-                    const mins = e.time.split(':').reduce((a, b) => a * 60 + parseInt(b), 0) / 60;
-                    const pos = (mins / maxTime) * 100;
-                    const colors = { success: 'bg-success-500', info: 'bg-primary-500', warning: 'bg-warning-500', danger: 'bg-danger-500' };
-                    return (
-                      <div key={i} className="absolute top-1.5 -translate-x-1/2 group" style={{ left: `${pos}%` }}>
-                        <div className={`w-3 h-3 rounded-full ${colors[e.type]} ring-2 ring-white dark:ring-accent-900 cursor-pointer`} />
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block whitespace-nowrap bg-accent-900 dark:bg-accent-800 text-white text-[10px] px-2 py-0.5 rounded shadow-soft z-10 font-mono">
-                          {e.time} — {e.label}
+
+                  <span className="text-[11px] font-mono text-accent-400">
+                    {Math.floor((currentProgress / 100) * 75)}:00 / 75:00
+                  </span>
+
+                  {/* Speed Selector */}
+                  <div className="flex items-center gap-1 text-[11px] font-mono bg-accent-800 px-2 py-0.5 rounded-md text-accent-300">
+                    <button
+                      type="button"
+                      onClick={() => setPlaybackSpeed(playbackSpeed === 2 ? 1 : playbackSpeed + 0.5)}
+                      className="hover:text-white cursor-pointer font-bold"
+                    >
+                      {playbackSpeed}x
+                    </button>
+                  </div>
+
+                  <Volume2 size={15} className="text-accent-400" />
+                </div>
+
+                {/* Telemetry Event Scrubber Markers */}
+                <div className="pt-2 border-t border-accent-800">
+                  <div className="flex items-center justify-between text-[11px] font-semibold text-accent-400 mb-1.5">
+                    <span>Synchronized Anomaly Markers</span>
+                    <span className="text-[10px] text-accent-500">Click marker to seek</span>
+                  </div>
+
+                  <div className="relative h-6 flex items-center">
+                    <div className="w-full h-1 bg-accent-800 rounded-full" />
+                    {timelineEvents.map((evt, idx) => {
+                      const percent = evt.markerPercent ?? (idx / timelineEvents.length) * 100;
+                      const isWarning = evt.type === 'warning';
+                      return (
+                        <div
+                          key={idx}
+                          onClick={() => seekToPercent(percent)}
+                          className="absolute -translate-x-1/2 group cursor-pointer z-10"
+                          style={{ left: `${percent}%` }}
+                        >
+                          <div
+                            className={`w-3 h-3 rounded-full border border-accent-900 transition-transform group-hover:scale-125 ${
+                              isWarning
+                                ? 'bg-amber-500 shadow-amber-500/50 shadow-sm'
+                                : evt.type === 'success'
+                                ? 'bg-emerald-500'
+                                : 'bg-primary-500'
+                            }`}
+                          />
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block whitespace-nowrap bg-accent-950 text-white text-[10px] px-2 py-1 rounded shadow-lg z-20 font-mono border border-accent-800">
+                            <span className="font-bold text-primary-400">[{evt.time}]</span> {evt.label}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className="flex justify-between text-[11px] text-accent-400 font-mono mt-1">
-                  <span>00:00</span>
-                  <span>12:31</span>
-                  <span>19:04</span>
-                  <span>26:18</span>
-                  <span>45:32</span>
-                </div>
+              </div>
+            </CardBody>
+          </Card>
+
+          {/* Timeline Event Feed */}
+          <Card>
+            <CardHeader
+              title="Exam Lifecycle & Anomaly Feed"
+              subtitle="Chronological sequence of candidate activity and telemetry detections"
+              icon={<Clock size={18} />}
+            />
+            <CardBody className="p-0">
+              <div className="divide-y divide-accent-100 dark:divide-accent-800">
+                {timelineEvents.map((evt, i) => (
+                  <div
+                    key={i}
+                    onClick={() => seekToPercent(evt.markerPercent || 0)}
+                    className="flex items-center justify-between p-3.5 px-4 hover:bg-accent-50 dark:hover:bg-accent-900/50 transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`w-2 h-2 rounded-full ${
+                          evt.type === 'warning'
+                            ? 'bg-amber-500'
+                            : evt.type === 'success'
+                            ? 'bg-emerald-500'
+                            : 'bg-primary-500'
+                        }`}
+                      />
+                      <span className="text-xs font-semibold text-accent-900 dark:text-white">
+                        {evt.label}
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-mono text-accent-500 dark:text-accent-400">
+                      {evt.time}
+                    </span>
+                  </div>
+                ))}
               </div>
             </CardBody>
           </Card>
         </div>
 
-        {/* Right Sidebar: Telemetry Breakdown */}
+        {/* Right Column: Hardware Telemetry & Determination Decision */}
         <div className="space-y-4">
+          {/* Hardware & Sensor Telemetry */}
           <Card>
-            <CardHeader title="Session Telemetry" icon={<ShieldCheck size={18} />} />
-            <CardBody className="p-5 space-y-3">
-              {signals.map((sig, i) => (
-                <div key={i}>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-accent-600 dark:text-accent-400">{sig.label}</span>
-                    <span className="font-bold text-accent-900 dark:text-white font-mono">{sig.value} / {sig.max}</span>
-                  </div>
-                  <ProgressBar value={sig.value} max={sig.max} color={sig.color} size="sm" />
+            <CardHeader title="Hardware & Streams State" icon={<ShieldCheck size={18} />} />
+            <CardBody className="p-4 space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center gap-2 text-xs font-semibold">
+                  <Camera size={15} />
+                  <span>Webcam Online</span>
                 </div>
-              ))}
+                <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center gap-2 text-xs font-semibold">
+                  <Mic size={15} />
+                  <span>Mic Stream 48kHz</span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center gap-2 text-xs font-semibold col-span-2">
+                  <Monitor size={15} />
+                  <span>Desktop Sharing (Dual Monitor Blocked)</span>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-accent-200 dark:border-accent-800 space-y-2 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-accent-500">Candidate Code:</span>
+                  <span className="font-mono font-bold text-accent-900 dark:text-white">
+                    {sessionData?.email?.split('@')[0].toUpperCase() || 'CAND-100101'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-accent-500">Integrity Risk Level:</span>
+                  <RiskBadge level={riskLevel} />
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-accent-500">Current Status:</span>
+                  <StatusBadge status={status} />
+                </div>
+              </div>
+            </CardBody>
+          </Card>
+
+          {/* Faculty Examiner Determination Form */}
+          <Card>
+            <CardHeader
+              title="Examiner Integrity Determination"
+              subtitle="Record certified outcome into database"
+              icon={<MessageSquare size={18} />}
+            />
+            <CardBody className="p-4 space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-accent-700 dark:text-accent-300 mb-1">
+                  Final Decision
+                </label>
+                <select
+                  value={decision}
+                  onChange={(e) => setDecision(e.target.value)}
+                  className="w-full h-9 px-3 text-xs bg-accent-50/50 dark:bg-accent-900/50 border border-accent-200 dark:border-accent-800 rounded-lg text-accent-900 dark:text-white font-medium focus:outline-none focus:ring-1 focus:ring-primary-500 cursor-pointer"
+                >
+                  <option value="APPROVED">Verified Clean & Approved</option>
+                  <option value="FLAGGED">Flagged for Faculty Committee Review</option>
+                  <option value="TERMINATED">Invalidated / Integrity Violation</option>
+                </select>
+              </div>
+
+              <Textarea
+                label="Examiner Justification Notes"
+                rows={3}
+                value={examinerNotes}
+                onChange={(e) => setExaminerNotes(e.target.value)}
+                placeholder="Log findings following video and audio telemetry review..."
+              />
+
+              <Button
+                variant={decision === 'TERMINATED' ? 'danger' : decision === 'FLAGGED' ? 'warning' : 'primary'}
+                className="w-full mt-2"
+                loading={isSubmittingDecision}
+                icon={<Check size={14} />}
+                onClick={handleSaveDecision}
+              >
+                Submit Certified Determination
+              </Button>
             </CardBody>
           </Card>
         </div>

@@ -3,6 +3,8 @@ import { seedRBAC } from "./rbac.seeder.js";
 import { seedPlatformOwner } from "./admin.seeder.js";
 import { seedDemoAccounts } from "./demo.seeder.js";
 import { seedAssessmentsAndQuestions } from "./assessment.seeder.js";
+import { seedCandidatesAndAcademicStructure } from "./candidate.seeder.js";
+import { seedInterviews } from "./interview.seeder.js";
 import { logger } from "../../config/logger.js";
 
 export const runSeeders = async () => {
@@ -21,6 +23,12 @@ export const runSeeders = async () => {
 
     // 4. Seed Live Assessments & Question Bank
     await seedAssessmentsAndQuestions();
+
+    // 5. Seed Academic Departments, Programs, Cohorts & Candidate Roster
+    await seedCandidatesAndAcademicStructure();
+
+    // 6. Seed Live Technical & Panel Interviews
+    await seedInterviews();
 
     logger.info("[Seeder] Database seeding completed successfully!");
   } catch (error) {

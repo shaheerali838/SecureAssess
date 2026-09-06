@@ -210,7 +210,8 @@ export function AssessmentExperience({ onNavigate }) {
 
               <div className="space-y-3">
                 {q.options.map((opt, i) => {
-                  const isSelected = answers[currentQ] === i;
+                  const optText = typeof opt === 'object' ? (opt?.text ?? opt?.label ?? opt?.value ?? '') : opt;
+                  const isSelected = answers[currentQ] === i || (typeof opt === 'object' && opt?.id && answers[currentQ] === opt.id);
                   return (
                     <button
                       key={i}
@@ -230,7 +231,7 @@ export function AssessmentExperience({ onNavigate }) {
                         {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
                       </div>
                       <span className={`text-xs sm:text-sm font-medium ${isSelected ? 'text-primary-900 dark:text-white font-semibold' : ''}`}>
-                        {opt}
+                        {optText}
                       </span>
                     </button>
                   );

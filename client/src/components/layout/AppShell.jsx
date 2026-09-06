@@ -3,12 +3,43 @@ import {
   LayoutDashboard, FileText, PlusCircle, Library, Users, Video,
   ClipboardList, BarChart3, Settings, CreditCard, Shield, Building2,
   Sliders, UserPlus, FileSearch, ShieldCheck, Activity,
-  ChevronDown, Sun, Moon, LogOut, Menu, X
+  ChevronDown, Sun, Moon, LogOut, Menu, X,
+  GraduationCap, FileCheck, FolderKanban, HelpCircle, Award, ScrollText,
+  ShieldAlert, Key
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { Badge, Avatar } from '@/components/ui';
+
+import { getSidebarForRole, hasPermission } from '@/config/rbac.config';
+
+const ICON_MAP = {
+  LayoutDashboard,
+  Building2,
+  UserPlus,
+  ShieldCheck,
+  BarChart3,
+  Activity,
+  FileText,
+  PlusCircle,
+  Library,
+  Users,
+  Video,
+  ClipboardList,
+  CreditCard,
+  Settings,
+  GraduationCap,
+  FileCheck,
+  FolderKanban,
+  HelpCircle,
+  Award,
+  ScrollText,
+  Shield,
+  ShieldAlert,
+  Sliders,
+  Key,
+};
 
 export function AppShell({
   currentPage,
@@ -18,7 +49,7 @@ export function AppShell({
 }) {
   const { user, logout, isPlatformAdmin, isPlatformStaff } = useAuth();
   const { theme, toggleTheme, isDark } = useTheme();
-  const { currentOrganization, organizations, switchOrganization } = useOrganization();
+  const { currentOrganization, organizations, switchOrganization, userRole } = useOrganization();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
@@ -28,46 +59,74 @@ export function AppShell({
   const isPlatformUser = Boolean(
     typeof isPlatformAdmin === 'function'
       ? isPlatformAdmin()
-      : isPlatformStaff || user?.platformRole === 'PLATFORM_OWNER' || user?.platformRole === 'PLATFORM_ADMIN'
+      : isPlatformStaff || user?.platformRole === 'PLATFORM_ADMIN'
   );
 
   const isPlatform = currentKey.startsWith('platform');
+  const normalizedRole = (userRole || user?.platformRole || user?.role || '').toUpperCase();
+  const isCandidate = normalizedRole === 'CANDIDATE';
+  const isProctor = normalizedRole === 'PROCTOR';
+  const isExaminer = normalizedRole === 'EXAMINER';
 
-  // Navigation schema for Platform Admins
-  const platformNav = [
-    { label: 'Platform Hub', icon: <LayoutDashboard size={18} />, id: 'platform-dashboard' },
-    { label: 'Tenant Organizations', icon: <Building2 size={18} />, id: 'platform-organizations' },
-    { label: 'Provision Tenant', icon: <UserPlus size={18} />, id: 'platform-onboarding' },
-  ];
+  const activeRole = isPlatform
+    ? 'PLATFORM_ADMIN'
+    : isCandidate
+    ? 'CANDIDATE'
+    : normalizedRole || (isPlatformUser ? 'PLATFORM_ADMIN' : 'ORGANIZATION_ADMIN');
 
-  // Navigation schema for Organization Staff
-  const orgNav = [
-    { label: 'Overview Dashboard', icon: <LayoutDashboard size={18} />, id: 'org-dashboard' },
-    { label: 'Assessments Library', icon: <FileText size={18} />, id: 'org-assessments' },
-    { label: 'Create Assessment', icon: <PlusCircle size={18} />, id: 'org-assessment-builder' },
-    { label: 'Question Bank', icon: <Library size={18} />, id: 'org-question-bank' },
-    { label: 'Candidate Roster', icon: <Users size={18} />, id: 'org-participants' },
-    { label: 'Proctoring Telemetry', icon: <ShieldCheck size={18} />, id: 'org-integrity' },
-    { label: 'Session Recordings', icon: <Activity size={18} />, id: 'org-sessions' },
-    { label: 'Live Interviews', icon: <Video size={18} />, id: 'org-interviews' },
-    { label: 'Grading & Rubrics', icon: <ClipboardList size={18} />, id: 'org-evaluations' },
-    { label: 'Certified Reports', icon: <BarChart3 size={18} />, id: 'org-reports' },
-    { label: 'Faculty & Staff', icon: <Users size={18} />, id: 'org-users' },
-    { label: 'Resource Billing', icon: <CreditCard size={18} />, id: 'org-billing' },
-    { label: 'Workspace Settings', icon: <Settings size={18} />, id: 'org-settings' },
-  ];
+  const rawNav = getSidebarForRole(activeRole);
 
-  const currentNav = isPlatform ? platformNav : orgNav;
+  // Filter navigation items and groups based on permissions
+  const currentNav = rawNav
+    .map((entry) => {
+      if (entry.group) {
+        const filteredItems = entry.items.filter(
+          (item) => !item.permission || hasPermission(activeRole, item.permission)
+        );
+        if (filteredItems.length === 0) return null;
+        return { ...entry, items: filteredItems };
+      }
+      if (entry.permission && !hasPermission(activeRole, entry.permission)) {
+        return null;
+      }
+      return entry;
+    })
+    .filter(Boolean);
 
   const displayOrgName = currentOrganization?.name || user?.organizationName || 'Stanford Engineering';
-  const displayUserName = user?.name || (isPlatform ? 'Platform Super Admin' : 'Dean of Engineering');
-  const displayUserEmail = user?.email || (isPlatform ? 'shaheer838838@gmail.com' : 'dean@stanford.edu');
-  const displayUserRole = user?.role || (isPlatform ? 'Super Admin' : 'Org Admin');
+  const displayUserName = user?.name || (isPlatform ? 'Platform Administrator' : user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'Organization Staff');
+  const displayUserEmail = user?.email || (isPlatform ? 'admin@secureassess.io' : 'user@institution.edu');
+  const displayUserRole = normalizedRole.replace(/_/g, ' ') || (isPlatform ? 'PLATFORM ADMIN' : 'STAFF');
 
   const handleToggleClick = (e) => {
     e.preventDefault();
     e.stopPropagation();
     toggleTheme();
+  };
+
+  const renderNavItem = (item) => {
+    const isActive = currentKey === item.id;
+    const Icon = typeof item.icon === 'string' ? ICON_MAP[item.icon] || LayoutDashboard : item.icon;
+    return (
+      <button
+        key={item.id}
+        type="button"
+        onClick={() => {
+          onNavigate(item.id);
+          setMobileOpen(false);
+        }}
+        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+          isActive
+            ? 'bg-primary-50 dark:bg-primary-950/60 text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-primary-800/50 shadow-soft'
+            : 'text-accent-600 dark:text-accent-400 hover:bg-accent-50 dark:hover:bg-accent-800/60 hover:text-accent-900 dark:hover:text-white'
+        }`}
+      >
+        <span className={isActive ? 'text-primary-600 dark:text-primary-400' : 'text-accent-400'}>
+          {React.isValidElement(Icon) ? Icon : <Icon size={16} />}
+        </span>
+        <span className="truncate">{item.label}</span>
+      </button>
+    );
   };
 
   const sidebarContent = (
@@ -85,12 +144,14 @@ export function AppShell({
                   <h1 className="font-bold text-xs text-accent-900 dark:text-white truncate">
                     SecureAssess
                   </h1>
-                  <Badge variant="primary" className="text-[10px] px-1.5 py-0">Platform Root</Badge>
+                  <Badge variant="primary" className="text-[10px] px-1.5 py-0">Platform Operator</Badge>
                 </div>
               </>
             ) : (
               <>
-                <div className="w-8 h-8 rounded-xl bg-secondary-600 flex items-center justify-center text-white font-bold text-xs shadow-soft shrink-0">
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-white font-bold text-xs shadow-soft shrink-0 ${
+                  isCandidate ? 'bg-emerald-600' : isProctor ? 'bg-amber-600' : isExaminer ? 'bg-indigo-600' : 'bg-secondary-600'
+                }`}>
                   {displayOrgName.substring(0, 2).toUpperCase()}
                 </div>
                 <div className="min-w-0">
@@ -98,7 +159,7 @@ export function AppShell({
                     {displayOrgName}
                   </p>
                   <p className="text-[10px] text-accent-500 dark:text-accent-400 font-medium leading-tight">
-                    SecureAssess Tenant
+                    {isCandidate ? 'Candidate Portal' : isProctor ? 'Proctoring Workspace' : isExaminer ? 'Examiner Workspace' : 'SecureAssess Tenant'}
                   </p>
                 </div>
               </>
@@ -117,7 +178,7 @@ export function AppShell({
           </button>
         </div>
 
-        {/* Tenant Organization Switcher */}
+        {/* Tenant Organization Switcher (Only within tenant workspace) */}
         {!isPlatform && organizations.length > 1 && (
           <div className="mt-3 relative">
             <button
@@ -161,46 +222,25 @@ export function AppShell({
         )}
       </div>
 
-      {/* Navigation Links */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto no-scrollbar">
-        {currentNav.map((item) => {
-          const isActive = currentKey === item.id;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => {
-                onNavigate(item.id);
-                setMobileOpen(false);
-              }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                isActive
-                  ? 'bg-primary-50 dark:bg-primary-950/60 text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-primary-800/50 shadow-soft'
-                  : 'text-accent-600 dark:text-accent-400 hover:bg-accent-50 dark:hover:bg-accent-800/60 hover:text-accent-900 dark:hover:text-white'
-              }`}
-            >
-              <span className={isActive ? 'text-primary-600 dark:text-primary-400' : 'text-accent-400'}>
-                {item.icon}
-              </span>
-              <span className="truncate">{item.label}</span>
-            </button>
-          );
+      {/* Navigation Links with Group Headers */}
+      <nav className="flex-1 px-3 py-3 space-y-3 overflow-y-auto no-scrollbar">
+        {currentNav.map((entry, idx) => {
+          if (entry.group) {
+            return (
+              <div key={entry.group || idx} className="space-y-1">
+                <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-accent-400 dark:text-accent-500">
+                  {entry.group}
+                </div>
+                {entry.items.map((item) => renderNavItem(item))}
+              </div>
+            );
+          }
+          return <div key={entry.id || idx}>{renderNavItem(entry)}</div>;
         })}
       </nav>
 
-      {/* Portal Mode Switcher / User Footer */}
-      <div className="p-3 border-t border-accent-100 dark:border-accent-800 space-y-2">
-        {isPlatformUser && (
-          <button
-            type="button"
-            onClick={() => onNavigate(isPlatform ? 'org-dashboard' : 'platform-dashboard')}
-            className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl bg-accent-100 dark:bg-accent-800 text-accent-700 dark:text-accent-300 hover:bg-accent-200 dark:hover:bg-accent-700 transition-colors cursor-pointer"
-          >
-            <Sliders size={13} />
-            <span>{isPlatform ? 'Switch to Organization Workspace' : 'Switch to Platform Admin'}</span>
-          </button>
-        )}
-
+      {/* User Footer */}
+      <div className="p-3 border-t border-accent-100 dark:border-accent-800">
         <div className="relative">
           <button
             type="button"

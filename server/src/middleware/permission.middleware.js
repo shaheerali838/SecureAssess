@@ -164,7 +164,22 @@ export const requireOrganizationOrPlatformPermission = (platformPerm, orgPerm) =
         return next(new ApiError(403, "Forbidden. Membership role is missing or invalid."));
       }
 
-      const userOrgPerms = (role.permissions || []).map((p) => p.key);
+      // Organization Owners and Organization Admins have full access to organization endpoints
+      if (
+        role.name === "ORGANIZATION_OWNER" ||
+        role.name === "ORGANIZATION_ADMIN" ||
+        role.name === "ADMIN" ||
+        role.name === "OWNER"
+      ) {
+        req.membership = membership;
+        req.organizationId = targetOrgId;
+        return next();
+      }
+
+      const userOrgPerms = (role.permissions || []).map((p) =>
+        typeof p === "string" ? p : p.key || p.name || ""
+      );
+
       if (orgPerm && !userOrgPerms.includes(orgPerm)) {
         AuditLogService.createSecurityAuditLog({
           organizationId: targetOrgId,
@@ -199,3 +214,10 @@ export const requireOrganizationOrPlatformPermission = (platformPerm, orgPerm) =
  * Generic Permission Middleware
  */
 export const requirePermissions = requirePlatformPermission;
+export { requirePermission } from "../config/rbac.config.js";
+export default {
+  requirePlatformPermission,
+  requireOrganizationOrPlatformPermission,
+  requirePermissions,
+};
+

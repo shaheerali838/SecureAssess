@@ -80,7 +80,20 @@ api.interceptors.response.use(
         localStorage.removeItem('secureassess_access_token');
         localStorage.removeItem('secureassess_refresh_token');
         localStorage.removeItem('secureassess_user');
-        window.location.href = '/login';
+
+        const pathname = window.location.pathname || '';
+        const isPublicGuestPath =
+          pathname.startsWith('/interview/entry') ||
+          pathname.startsWith('/interview/room') ||
+          pathname.startsWith('/candidate/assessment') ||
+          pathname.startsWith('/candidate/system-check') ||
+          pathname.startsWith('/request-demo') ||
+          pathname === '/' ||
+          pathname === '/login';
+
+        if (!isPublicGuestPath) {
+          window.location.href = '/login';
+        }
         return Promise.reject(error);
       }
 
@@ -89,8 +102,13 @@ api.interceptors.response.use(
           refreshToken,
         });
 
-        const { accessToken: newAccessToken, refreshToken: newRefreshToken } =
-          response.data.data || response.data;
+        const payload = response.data?.data || response.data;
+        const newAccessToken = payload?.tokens?.accessToken || payload?.accessToken;
+        const newRefreshToken = payload?.tokens?.refreshToken || payload?.refreshToken;
+
+        if (!newAccessToken) {
+          throw new Error('Token refresh payload did not contain access token');
+        }
 
         localStorage.setItem('secureassess_access_token', newAccessToken);
         if (newRefreshToken) {

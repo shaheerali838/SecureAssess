@@ -2,8 +2,15 @@ import mongoose from "mongoose";
 import Organization from "./organization.model.js";
 import { OrganizationRepository } from "./organization.repository.js";
 import { OrganizationMapper } from "./organization.mapper.js";
-import { ORGANIZATION_TYPES, ORGANIZATION_STATUSES } from "./organization.constants.js";
-import { PLATFORM_ROLES, ORGANIZATION_ROLES, ROLE_SCOPES } from "../../constants/roles.js";
+import {
+  ORGANIZATION_TYPES,
+  ORGANIZATION_STATUSES,
+} from "./organization.constants.js";
+import {
+  PLATFORM_ROLES,
+  ORGANIZATION_ROLES,
+  ROLE_SCOPES,
+} from "../../constants/roles.js";
 import { USER_STATUSES } from "../../constants/userStatuses.js";
 import { MEMBERSHIP_STATUSES } from "../../constants/membershipStatuses.js";
 import { ApiError } from "../../utils/ApiError.js";
@@ -41,7 +48,9 @@ export class OrganizationService {
     let candidateSlug = baseSlug;
     let counter = 2;
 
-    while (await OrganizationRepository.findBySlug(candidateSlug, { session })) {
+    while (
+      await OrganizationRepository.findBySlug(candidateSlug, { session })
+    ) {
       candidateSlug = `${baseSlug}-${counter}`;
       counter++;
     }
@@ -70,7 +79,9 @@ export class OrganizationService {
     while (!isUnique && attempts < 10) {
       const suffix = generateRandomCode(5).toUpperCase();
       candidateCode = `${prefix}-${suffix}`;
-      const existing = await OrganizationRepository.findByCode(candidateCode, { session });
+      const existing = await OrganizationRepository.findByCode(candidateCode, {
+        session,
+      });
       if (!existing) {
         isUnique = true;
       }
@@ -106,13 +117,15 @@ export class OrganizationService {
       if (!ownerRole) {
         throw new ApiError(
           500,
-          "System configuration error: ORGANIZATION_OWNER system role is missing. Please run database seeders."
+          "System configuration error: ORGANIZATION_OWNER system role is missing. Please run database seeders.",
         );
       }
 
       // 3. Find or create Owner User
       const ownerEmail = data.owner.email.toLowerCase().trim();
-      let ownerUser = await User.findOne({ email: ownerEmail }).session(session);
+      let ownerUser = await User.findOne({ email: ownerEmail }).session(
+        session,
+      );
 
       if (!ownerUser) {
         const createdUsers = await User.create(
@@ -127,7 +140,7 @@ export class OrganizationService {
               emailVerified: true,
             },
           ],
-          { session }
+          { session },
         );
         ownerUser = createdUsers[0];
       }
@@ -157,7 +170,7 @@ export class OrganizationService {
           settings: data.settings || {},
           createdBy: creatorId || ownerUser._id,
         },
-        { session }
+        { session },
       );
 
       // 5. Create Organization Owner Membership
@@ -171,7 +184,7 @@ export class OrganizationService {
             invitedBy: creatorId,
           },
         ],
-        { session }
+        { session },
       );
       const membership = createdMemberships[0];
 
@@ -275,7 +288,10 @@ export class OrganizationService {
       });
 
       if (!membership) {
-        throw new ApiError(403, "Forbidden. You do not have access to this organization.");
+        throw new ApiError(
+          403,
+          "Forbidden. You do not have access to this organization.",
+        );
       }
     }
 
@@ -333,12 +349,23 @@ export class OrganizationService {
       });
 
       if (!membership) {
-        throw new ApiError(403, "Forbidden. You do not have access to this organization.");
+        throw new ApiError(
+          403,
+          "Forbidden. You do not have access to this organization.",
+        );
       }
 
-      const rolePerms = (membership.roleId?.permissions || []).map((p) => p.key);
-      if (!rolePerms.includes("organizations.profile.update") && !rolePerms.includes("organizations.update")) {
-        throw new ApiError(403, "Forbidden. Missing organization update permission.");
+      const rolePerms = (membership.roleId?.permissions || []).map(
+        (p) => p.key,
+      );
+      if (
+        !rolePerms.includes("organizations.profile.update") &&
+        !rolePerms.includes("organizations.update")
+      ) {
+        throw new ApiError(
+          403,
+          "Forbidden. Missing organization update permission.",
+        );
       }
     }
 
@@ -346,14 +373,19 @@ export class OrganizationService {
     const safeUpdate = {};
     if (updateData.name) safeUpdate.name = updateData.name.trim();
     if (updateData.type) safeUpdate.type = updateData.type;
-    if (updateData.tenantIndustry) safeUpdate.tenantIndustry = updateData.tenantIndustry;
-    if (updateData.description !== undefined) safeUpdate.description = updateData.description;
+    if (updateData.tenantIndustry)
+      safeUpdate.tenantIndustry = updateData.tenantIndustry;
+    if (updateData.description !== undefined)
+      safeUpdate.description = updateData.description;
     if (updateData.address) safeUpdate.address = updateData.address;
     if (updateData.logo) safeUpdate.logo = updateData.logo;
     if (updateData.settings) safeUpdate.settings = updateData.settings;
     if (updateData.contact) safeUpdate.contact = updateData.contact;
 
-    const updatedOrg = await OrganizationRepository.update(organizationId, safeUpdate);
+    const updatedOrg = await OrganizationRepository.update(
+      organizationId,
+      safeUpdate,
+    );
     if (!updatedOrg) {
       throw new ApiError(404, "Organization not found");
     }
@@ -383,17 +415,23 @@ export class OrganizationService {
       user.platformRole === PLATFORM_ROLES.PLATFORM_ADMIN;
 
     if (!isPlatformStaff) {
-      throw new ApiError(403, "Forbidden. Only platform administrators can change organization status.");
+      throw new ApiError(
+        403,
+        "Forbidden. Only platform administrators can change organization status.",
+      );
     }
 
     if (!Object.values(ORGANIZATION_STATUSES).includes(status)) {
       throw new ApiError(
         400,
-        `Invalid status. Must be one of: ${Object.values(ORGANIZATION_STATUSES).join(", ")}`
+        `Invalid status. Must be one of: ${Object.values(ORGANIZATION_STATUSES).join(", ")}`,
       );
     }
 
-    const updatedOrg = await OrganizationRepository.updateStatus(organizationId, status);
+    const updatedOrg = await OrganizationRepository.updateStatus(
+      organizationId,
+      status,
+    );
     if (!updatedOrg) {
       throw new ApiError(404, "Organization not found");
     }
@@ -420,12 +458,15 @@ export class OrganizationService {
 
     const isPlatformOwner = user.platformRole === PLATFORM_ROLES.PLATFORM_OWNER;
     if (!isPlatformOwner) {
-      throw new ApiError(403, "Forbidden. Only platform owner can delete an organization.");
+      throw new ApiError(
+        403,
+        "Forbidden. Only platform owner can delete an organization.",
+      );
     }
 
     const updatedOrg = await OrganizationRepository.updateStatus(
       organizationId,
-      ORGANIZATION_STATUSES.DEACTIVATED
+      ORGANIZATION_STATUSES.DEACTIVATED,
     );
 
     if (!updatedOrg) {
@@ -447,20 +488,47 @@ export class OrganizationService {
   /**
    * Invites a new staff member to the organization
    */
-  static async inviteStaffMember(organizationId, { email, firstName, lastName, roleName }, inviterUserId) {
+  static async inviteStaffMember(
+    organizationId,
+    { email, firstName, lastName, roleName },
+    inviterUserId,
+  ) {
     if (!email || !firstName) {
-      throw new ApiError(400, "Email and firstName are required for staff invitation");
+      throw new ApiError(
+        400,
+        "Email and firstName are required for staff invitation",
+      );
     }
 
     const targetEmail = email.toLowerCase().trim();
+    const normalizedRoleName = (
+      roleName || ORGANIZATION_ROLES.EXAMINER
+    ).toUpperCase();
 
-    // Verify role exists
+    // Disallow assigning PLATFORM roles or ORGANIZATION_OWNER through standard staff invitation
+    const ALLOWED_STAFF_ROLES = [
+      ORGANIZATION_ROLES.ORGANIZATION_ADMIN,
+      ORGANIZATION_ROLES.EXAMINER,
+      ORGANIZATION_ROLES.PROCTOR,
+    ];
+
+    if (!ALLOWED_STAFF_ROLES.includes(normalizedRoleName)) {
+      throw new ApiError(
+        400,
+        `Invalid organization staff role: '${roleName}'. Allowed roles are: ${ALLOWED_STAFF_ROLES.join(", ")}`,
+      );
+    }
+
+    // Verify role exists in database
     const role = await Role.findOne({
-      name: roleName || ORGANIZATION_ROLES.EXAMINER,
+      name: normalizedRoleName,
       scope: ROLE_SCOPES.ORGANIZATION,
     });
     if (!role) {
-      throw new ApiError(400, `Invalid organization role: '${roleName}'`);
+      throw new ApiError(
+        400,
+        `Organization role '${normalizedRoleName}' does not exist.`,
+      );
     }
 
     let user = await User.findOne({ email: targetEmail });
@@ -483,7 +551,10 @@ export class OrganizationService {
 
     if (existingMembership) {
       if (existingMembership.status === MEMBERSHIP_STATUSES.ACTIVE) {
-        throw new ApiError(400, "User is already an active member of this organization");
+        throw new ApiError(
+          400,
+          "User is already an active member of this organization",
+        );
       }
       existingMembership.status = MEMBERSHIP_STATUSES.INVITED;
       existingMembership.roleId = role._id;
@@ -518,18 +589,40 @@ export class OrganizationService {
       description: `Invited '${targetEmail}' with role '${role.name}'`,
     }).catch(() => {});
 
-    return { success: true, email: targetEmail, role: role.name, status: "INVITED" };
+    return {
+      success: true,
+      email: targetEmail,
+      role: role.name,
+      status: "INVITED",
+    };
   }
 
   /**
-   * Lists staff memberships in an organization
+   * Lists staff memberships in an organization (strictly staff roles: Owner, Admin, Examiner, Proctor)
    */
   static async listMembers(organizationId, query = {}) {
     const page = Math.max(1, parseInt(query.page) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(query.limit) || 20));
     const skip = (page - 1) * limit;
 
+    // Only query organizational staff roles (excluding candidates)
+    const staffRoles = await Role.find({
+      name: {
+        $in: [
+          ORGANIZATION_ROLES.ORGANIZATION_OWNER,
+          ORGANIZATION_ROLES.ORGANIZATION_ADMIN,
+          ORGANIZATION_ROLES.EXAMINER,
+          ORGANIZATION_ROLES.PROCTOR,
+        ],
+      },
+    }).select("_id");
+
+    const staffRoleIds = staffRoles.map((r) => r._id);
+
     const filter = { organizationId };
+    if (staffRoleIds.length > 0) {
+      filter.roleId = { $in: staffRoleIds };
+    }
     if (query.status) filter.status = query.status;
 
     const [items, total] = await Promise.all([
@@ -555,9 +648,14 @@ export class OrganizationService {
   }
 
   /**
-   * Updates staff membership role or status
+   * Updates staff membership role or status with ownership protection
    */
-  static async updateMember(organizationId, membershipId, { roleName, status }, actorUserId) {
+  static async updateMember(
+    organizationId,
+    membershipId,
+    { roleName, status },
+    actorUserId,
+  ) {
     if (!mongoose.Types.ObjectId.isValid(membershipId)) {
       throw new ApiError(400, "Invalid membership ID format");
     }
@@ -565,15 +663,46 @@ export class OrganizationService {
     const membership = await UserMembership.findOne({
       _id: membershipId,
       organizationId,
-    });
+    }).populate("roleId");
 
     if (!membership) {
       throw new ApiError(404, "Membership not found in this organization");
     }
 
+    const currentRoleName = membership.roleId?.name?.toUpperCase();
+
+    // Prevent modifying the organization owner through standard staff update
+    if (currentRoleName === ORGANIZATION_ROLES.ORGANIZATION_OWNER) {
+      throw new ApiError(
+        403,
+        "Forbidden. Organization Owner membership cannot be modified through normal team role management.",
+      );
+    }
+
     if (roleName) {
-      const role = await Role.findOne({ name: roleName, scope: ROLE_SCOPES.ORGANIZATION });
-      if (!role) throw new ApiError(400, `Invalid organization role: '${roleName}'`);
+      const normalizedRoleName = roleName.toUpperCase();
+      const ALLOWED_STAFF_ROLES = [
+        ORGANIZATION_ROLES.ORGANIZATION_ADMIN,
+        ORGANIZATION_ROLES.EXAMINER,
+        ORGANIZATION_ROLES.PROCTOR,
+      ];
+
+      if (!ALLOWED_STAFF_ROLES.includes(normalizedRoleName)) {
+        throw new ApiError(
+          400,
+          `Invalid target role: '${roleName}'. Allowed roles are: ${ALLOWED_STAFF_ROLES.join(", ")}`,
+        );
+      }
+
+      const role = await Role.findOne({
+        name: normalizedRoleName,
+        scope: ROLE_SCOPES.ORGANIZATION,
+      });
+      if (!role)
+        throw new ApiError(
+          400,
+          `Invalid organization role: '${normalizedRoleName}'`,
+        );
       membership.roleId = role._id;
     }
 
@@ -596,21 +725,33 @@ export class OrganizationService {
   }
 
   /**
-   * Removes staff membership from an organization
+   * Removes staff membership from an organization with ownership protection
    */
   static async removeMember(organizationId, membershipId, actorUserId) {
     if (!mongoose.Types.ObjectId.isValid(membershipId)) {
       throw new ApiError(400, "Invalid membership ID format");
     }
 
-    const membership = await UserMembership.findOneAndDelete({
+    const membership = await UserMembership.findOne({
       _id: membershipId,
       organizationId,
-    });
+    }).populate("roleId");
 
     if (!membership) {
       throw new ApiError(404, "Membership not found in this organization");
     }
+
+    const currentRoleName = membership.roleId?.name?.toUpperCase();
+
+    // Prevent removing the organization owner through standard staff removal
+    if (currentRoleName === ORGANIZATION_ROLES.ORGANIZATION_OWNER) {
+      throw new ApiError(
+        403,
+        "Forbidden. Organization Owner cannot be removed from the organization.",
+      );
+    }
+
+    await UserMembership.deleteOne({ _id: membershipId, organizationId });
 
     AuditLogService.createAuditLog({
       organizationId,
@@ -634,7 +775,10 @@ export class OrganizationService {
 
     const organization = await Organization.findById(organizationId);
     if (!organization || organization.status !== ORGANIZATION_STATUSES.ACTIVE) {
-      throw new ApiError(400, "Target organization is not active or does not exist");
+      throw new ApiError(
+        400,
+        "Target organization is not active or does not exist",
+      );
     }
 
     const membership = await UserMembership.findOne({
@@ -644,7 +788,10 @@ export class OrganizationService {
     }).populate("roleId");
 
     if (!membership) {
-      throw new ApiError(403, "Forbidden. You do not hold an active membership in this organization.");
+      throw new ApiError(
+        403,
+        "Forbidden. You do not hold an active membership in this organization.",
+      );
     }
 
     const scopedToken = generateAccessToken({

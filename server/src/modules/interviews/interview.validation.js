@@ -15,9 +15,6 @@ export const createInterviewSchema = {
     if (!body.scheduledEndAt) {
       errors.push({ message: "scheduledEndAt is required" });
     }
-    if (!body.candidateId || !mongoose.Types.ObjectId.isValid(body.candidateId)) {
-      errors.push({ message: "Valid candidateId is required" });
-    }
     return {
       error: errors.length ? { details: errors } : null,
       value: body,

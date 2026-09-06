@@ -2,10 +2,46 @@ import api from './api';
 
 export const interviewService = {
   /**
+   * Helper to get active organization ID
+   */
+  getOrgId() {
+    try {
+      const directOrgId = localStorage.getItem('secureassess_current_org_id');
+      if (directOrgId) return directOrgId;
+
+      const activeOrg = JSON.parse(localStorage.getItem('secureassess_active_org') || 'null');
+      if (activeOrg?.id || activeOrg?._id) return activeOrg.id || activeOrg._id;
+
+      const user = JSON.parse(localStorage.getItem('secureassess_user') || 'null');
+      return user?.activeOrganizationId || user?.organizationId || '';
+    } catch {
+      return '';
+    }
+  },
+
+  /**
    * List live interviews for organization
    */
   async getInterviews(params = {}) {
-    const response = await api.get('/interviews', { params });
+    const orgId = this.getOrgId();
+    const config = {
+      params,
+      headers: orgId ? { 'x-organization-id': orgId } : {},
+    };
+    const response = await api.get('/interviews', config);
+    return response.data || response;
+  },
+
+  /**
+   * Get candidate's personal interviews
+   */
+  async getMyInterviews(params = {}) {
+    const orgId = this.getOrgId();
+    const config = {
+      params,
+      headers: orgId ? { 'x-organization-id': orgId } : {},
+    };
+    const response = await api.get('/interviews/my', config);
     return response.data || response;
   },
 
@@ -13,7 +49,11 @@ export const interviewService = {
    * Get single interview by ID
    */
   async getInterviewById(interviewId) {
-    const response = await api.get(`/interviews/${interviewId}`);
+    const orgId = this.getOrgId();
+    const config = {
+      headers: orgId ? { 'x-organization-id': orgId } : {},
+    };
+    const response = await api.get(`/interviews/${interviewId}`, config);
     return response.data || response;
   },
 
@@ -21,7 +61,11 @@ export const interviewService = {
    * Schedule new live interview
    */
   async scheduleInterview(data) {
-    const response = await api.post('/interviews', data);
+    const orgId = this.getOrgId();
+    const config = {
+      headers: orgId ? { 'x-organization-id': orgId } : {},
+    };
+    const response = await api.post('/interviews', data, config);
     return response.data || response;
   },
 
@@ -29,7 +73,11 @@ export const interviewService = {
    * Update interview details
    */
   async updateInterview(interviewId, data) {
-    const response = await api.patch(`/interviews/${interviewId}`, data);
+    const orgId = this.getOrgId();
+    const config = {
+      headers: orgId ? { 'x-organization-id': orgId } : {},
+    };
+    const response = await api.patch(`/interviews/${interviewId}`, data, config);
     return response.data || response;
   },
 
@@ -37,7 +85,11 @@ export const interviewService = {
    * Cancel interview
    */
   async cancelInterview(interviewId, reason) {
-    const response = await api.post(`/interviews/${interviewId}/cancel`, { reason });
+    const orgId = this.getOrgId();
+    const config = {
+      headers: orgId ? { 'x-organization-id': orgId } : {},
+    };
+    const response = await api.post(`/interviews/${interviewId}/cancel`, { reason }, config);
     return response.data || response;
   },
 
@@ -45,7 +97,47 @@ export const interviewService = {
    * Authorize and join live interview room
    */
   async joinInterview(interviewId) {
-    const response = await api.post(`/interviews/${interviewId}/join`);
+    const orgId = this.getOrgId();
+    const config = {
+      headers: orgId ? { 'x-organization-id': orgId } : {},
+    };
+    const response = await api.post(`/interviews/${interviewId}/join`, {}, config);
+    return response.data || response;
+  },
+
+  /**
+   * Conclude / End interview session
+   */
+  async endInterview(interviewId) {
+    const orgId = this.getOrgId();
+    const config = {
+      headers: orgId ? { 'x-organization-id': orgId } : {},
+    };
+    const response = await api.post(`/interviews/${interviewId}/end`, {}, config);
+    return response.data || response;
+  },
+
+  /**
+   * Add examiner evaluation note to interview
+   */
+  async addNote(interviewId, noteData) {
+    const orgId = this.getOrgId();
+    const config = {
+      headers: orgId ? { 'x-organization-id': orgId } : {},
+    };
+    const response = await api.post(`/interviews/${interviewId}/notes`, noteData, config);
+    return response.data || response;
+  },
+
+  /**
+   * Get notes for an interview
+   */
+  async getNotes(interviewId) {
+    const orgId = this.getOrgId();
+    const config = {
+      headers: orgId ? { 'x-organization-id': orgId } : {},
+    };
+    const response = await api.get(`/interviews/${interviewId}/notes`, config);
     return response.data || response;
   },
 
@@ -53,9 +145,22 @@ export const interviewService = {
    * Submit interview evaluation / feedback
    */
   async submitFeedback(interviewId, feedbackData) {
-    const response = await api.post(`/interviews/${interviewId}/feedback`, feedbackData);
+    const orgId = this.getOrgId();
+    const config = {
+      headers: orgId ? { 'x-organization-id': orgId } : {},
+    };
+    const response = await api.post(`/interviews/${interviewId}/feedback`, feedbackData, config);
+    return response.data || response;
+  },
+
+  /**
+   * Authorize and fetch 1-time guest interview entry
+   */
+  async getPublicEntryInterview(tokenOrId) {
+    const response = await api.get(`/interviews/entry/${tokenOrId}`);
     return response.data || response;
   },
 };
 
 export default interviewService;
+

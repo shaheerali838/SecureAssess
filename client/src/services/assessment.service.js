@@ -77,8 +77,13 @@ export const assessmentService = {
    * Assign assessment to candidate or candidate group
    */
   async assignAssessment(assessmentId, data) {
-    const response = await api.post(`/assessments/${assessmentId}/assignments`, data);
-    return response.data || response;
+    try {
+      const response = await api.post(`/assessments/${assessmentId}/assign`, data);
+      return response.data || response;
+    } catch {
+      const response = await api.post(`/assessments/${assessmentId}/assignments`, data);
+      return response.data || response;
+    }
   },
 
   /**

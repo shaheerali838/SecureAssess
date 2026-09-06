@@ -29,8 +29,16 @@ export const AuthProvider = ({ children }) => {
     try {
       const data = await authService.getMe();
       const verifiedUser = data.user || data;
-      setUser(verifiedUser);
-      localStorage.setItem('secureassess_user', JSON.stringify(verifiedUser));
+      const memberships = data.memberships || [];
+      const primaryRole =
+        verifiedUser.platformRole ||
+        memberships[0]?.roleId?.name ||
+        memberships[0]?.role?.name ||
+        verifiedUser.role ||
+        null;
+      const userObject = { ...verifiedUser, memberships, role: primaryRole };
+      setUser(userObject);
+      localStorage.setItem('secureassess_user', JSON.stringify(userObject));
     } catch (err) {
       console.warn('Session verification failed, logging out:', err.message);
       authService.logout();
@@ -55,11 +63,20 @@ export const AuthProvider = ({ children }) => {
       const authUser = data.user || data;
       const token = data.tokens?.accessToken || data.accessToken || data.token;
       const refreshToken = data.tokens?.refreshToken || data.refreshToken;
+      const memberships = data.memberships || [];
+      const primaryRole =
+        authUser.platformRole ||
+        memberships[0]?.roleId?.name ||
+        memberships[0]?.role?.name ||
+        authUser.role ||
+        null;
 
-      setUser(authUser);
+      const userObject = { ...authUser, memberships, role: primaryRole };
+
+      setUser(userObject);
       setAccessToken(token);
 
-      localStorage.setItem('secureassess_user', JSON.stringify(authUser));
+      localStorage.setItem('secureassess_user', JSON.stringify(userObject));
       if (token) {
         localStorage.setItem('secureassess_access_token', token);
       }
@@ -67,7 +84,15 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('secureassess_refresh_token', refreshToken);
       }
 
-      return authUser;
+      if (memberships.length > 0) {
+        const primaryOrg = memberships[0].organizationId || memberships[0].organization;
+        const orgId = typeof primaryOrg === 'object' ? (primaryOrg._id || primaryOrg.id) : primaryOrg;
+        if (orgId) {
+          localStorage.setItem('secureassess_current_org_id', orgId);
+        }
+      }
+
+      return { user: userObject, memberships, tokens: data.tokens, ...data };
     } finally {
       setIsLoading(false);
     }
