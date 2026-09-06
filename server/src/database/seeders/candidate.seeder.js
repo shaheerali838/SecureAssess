@@ -21,6 +21,14 @@ export const seedCandidatesAndAcademicStructure = async () => {
     return;
   }
 
+  // Quick Idempotency Check
+  const existingCandidates = await Candidate.countDocuments({ organizationId: org._id });
+  const existingDepts = await Department.countDocuments({ organizationId: org._id });
+  if (existingCandidates >= 5 && existingDepts >= 5) {
+    logger.info(`[Seeder] Academic structure & candidate roster (${existingCandidates} candidates) already seeded, skipping.`);
+    return;
+  }
+
   const candidateRole = await Role.findOne({ name: ORGANIZATION_ROLES.CANDIDATE });
 
   // 1. Seed Departments

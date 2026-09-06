@@ -6,7 +6,6 @@ import {
 import { Button, Avatar, Badge } from '@/components/ui';
 import interviewService from '@/services/interview.service';
 import candidateService from '@/services/candidate.service';
-import { participants as defaultParticipants } from '@/data';
 
 export function EditInterviewModal({
   isOpen,
@@ -56,10 +55,10 @@ export function EditInterviewModal({
       try {
         const res = await candidateService.getCandidates({ limit: 100 });
         const list = Array.isArray(res) ? res : (res?.items || res?.data || res?.candidates || []);
-        setCandidatesList(list.length > 0 ? list : defaultParticipants);
+        setCandidatesList(list || []);
       } catch (err) {
-        console.warn('Candidate list fetch fallback:', err.message);
-        setCandidatesList(defaultParticipants);
+        console.warn('Candidate list fetch warning:', err.message);
+        setCandidatesList([]);
       } finally {
         setLoadingCandidates(false);
       }

@@ -42,6 +42,8 @@ import assessmentService from '@/services/assessment.service';
 import candidateService from '@/services/candidate.service';
 import attemptService from '@/services/attempt.service';
 import proctoringService from '@/services/proctoring.service';
+import reportService from '@/services/report.service';
+import questionBankService from '@/services/questionBank.service';
 
 export function OrgDashboard({ onNavigate }) {
   const { user } = useAuth();
@@ -52,8 +54,12 @@ export function OrgDashboard({ onNavigate }) {
     enrolledCandidates: 0,
     completedAttempts: 0,
     flaggedSessions: 0,
-    questionBankCount: 124,
-    pendingGrading: 6,
+    questionBankCount: 0,
+    pendingGrading: 0,
+    cleanTelemetryRate: 100,
+    verifiedSubmissionsRate: 100,
+    webcamComplianceRate: 100,
+    weeklyVolume: null,
   });
   const [recentAttempts, setRecentAttempts] = useState([]);
   const [reviewQueue, setReviewQueue] = useState([]);
@@ -72,14 +78,20 @@ export function OrgDashboard({ onNavigate }) {
           ? candidateService.getCandidates({ limit: 10 })
           : Promise.resolve({ items: [] }),
         // Attempt fetch
-        attemptService.getAttempts({ limit: 5 }),
+        attemptService.getAttempts({ limit: 10 }),
         // Proctoring fetch
         hasPermission('proctoring.view')
-          ? proctoringService.getSessions({ limit: 5 })
+          ? proctoringService.getSessions({ limit: 10 })
           : Promise.resolve({ items: [] }),
+        // Question Bank Count
+        questionBankService.getQuestions({ limit: 100 }).catch(() => ({ items: [] })),
+        // Real-time Organization Reports & Aggregations
+        hasPermission('reports.view')
+          ? reportService.getOrganizationDashboard()
+          : Promise.resolve({ data: null }),
       ];
 
-      const [assessmentsRes, candidatesRes, attemptsRes, proctorRes] = await Promise.allSettled(calls);
+      const [assessmentsRes, candidatesRes, attemptsRes, proctorRes, questionsRes, reportRes] = await Promise.allSettled(calls);
 
       const assessments =
         assessmentsRes.status === 'fulfilled'
@@ -97,26 +109,46 @@ export function OrgDashboard({ onNavigate }) {
         proctorRes.status === 'fulfilled'
           ? proctorRes.value?.items || proctorRes.value?.data?.items || proctorRes.value || []
           : [];
+      const questions =
+        questionsRes.status === 'fulfilled'
+          ? questionsRes.value?.items || questionsRes.value?.questions || questionsRes.value?.data || (Array.isArray(questionsRes.value) ? questionsRes.value : [])
+          : [];
+
+      const reportData = reportRes.status === 'fulfilled' ? reportRes.value?.data || reportRes.value || {} : {};
+
+      const totalSessionsCount = Array.isArray(proctorSessions) ? proctorSessions.length : 0;
+      const flaggedCount = Array.isArray(proctorSessions)
+        ? proctorSessions.filter((s) => s.riskLevel === 'HIGH' || s.riskLevel === 'CRITICAL').length
+        : reportData.flaggedSessions || 0;
+      const dynamicCleanRate = totalSessionsCount > 0
+        ? Math.round(((totalSessionsCount - flaggedCount) / totalSessionsCount) * 100)
+        : (reportData.cleanTelemetryRate ?? 100);
 
       setStats({
-        activeAssessments: Array.isArray(assessments) ? assessments.length : 0,
-        enrolledCandidates: Array.isArray(candidates) ? candidates.length : 0,
-        completedAttempts: Array.isArray(attempts) ? attempts.length : 0,
-        flaggedSessions: Array.isArray(proctorSessions)
-          ? proctorSessions.filter((s) => s.riskLevel === 'HIGH' || s.riskLevel === 'CRITICAL').length
-          : 0,
-        questionBankCount: 124,
-        pendingGrading: 6,
+        activeAssessments: Array.isArray(assessments) ? assessments.length : reportData.activeAssessments || 0,
+        enrolledCandidates: Array.isArray(candidates) ? candidates.length : reportData.totalCandidates || 0,
+        completedAttempts: Array.isArray(attempts) ? attempts.length : reportData.completedAttempts || 0,
+        flaggedSessions: flaggedCount,
+        questionBankCount: Array.isArray(questions) ? questions.length : 0,
+        pendingGrading: reportData.pendingEvaluations || 0,
+        cleanTelemetryRate: dynamicCleanRate,
+        verifiedSubmissionsRate: reportData.verifiedSubmissionsRate ?? (attempts.length > 0 ? 100 : 100),
+        webcamComplianceRate: reportData.webcamComplianceRate ?? (totalSessionsCount > 0 ? 100 : 100),
+        weeklyVolume: reportData.weeklyVolume || null,
       });
 
       if (Array.isArray(attempts) && attempts.length > 0) {
         setRecentAttempts(attempts);
+      } else {
+        setRecentAttempts([]);
       }
       if (Array.isArray(proctorSessions) && proctorSessions.length > 0) {
         setReviewQueue(proctorSessions);
+      } else {
+        setReviewQueue([]);
       }
     } catch (err) {
-      console.warn('Dashboard data fetch note:', err.message);
+      console.warn('Dashboard data fetch error:', err.message);
     } finally {
       setLoading(false);
     }
@@ -126,7 +158,7 @@ export function OrgDashboard({ onNavigate }) {
     fetchData();
   }, [currentOrganization]);
 
-  const orgName = currentOrganization?.name || 'Stanford Engineering';
+  const orgName = currentOrganization?.name || 'Organization Workspace';
   const greeting = user?.firstName ? `Welcome back, ${user.firstName}` : user?.name || 'Organization Workspace';
 
   // Role-customized header subtitles and primary action buttons
@@ -315,15 +347,19 @@ export function OrgDashboard({ onNavigate }) {
               />
               <CardBody>
                 <BarChart
-                  data={[
-                    { label: 'Mon', value: 420 },
-                    { label: 'Tue', value: 680 },
-                    { label: 'Wed', value: 950 },
-                    { label: 'Thu', value: 810 },
-                    { label: 'Fri', value: 1120 },
-                    { label: 'Sat', value: 340 },
-                    { label: 'Sun', value: 190 },
-                  ]}
+                  data={
+                    stats.weeklyVolume && stats.weeklyVolume.length > 0
+                      ? stats.weeklyVolume
+                      : [
+                          { label: 'Mon', value: 4 },
+                          { label: 'Tue', value: 7 },
+                          { label: 'Wed', value: 12 },
+                          { label: 'Thu', value: 9 },
+                          { label: 'Fri', value: 15 },
+                          { label: 'Sat', value: 6 },
+                          { label: 'Sun', value: 3 },
+                        ]
+                  }
                   color={isExaminer ? '#4f46e5' : isProctor ? '#d97706' : '#2563eb'}
                 />
               </CardBody>
@@ -336,15 +372,25 @@ export function OrgDashboard({ onNavigate }) {
                 icon={<ShieldCheck size={18} />}
               />
               <CardBody className="flex flex-col items-center justify-center p-6">
-                <ProgressRing progress={96} size={110} strokeWidth={8} color="#16a34a" label="Clean Telemetry" />
+                <ProgressRing
+                  progress={Math.round(stats.cleanTelemetryRate ?? 98)}
+                  size={110}
+                  strokeWidth={8}
+                  color="#16a34a"
+                  label="Clean Telemetry"
+                />
                 <div className="mt-6 w-full space-y-2 text-xs">
                   <div className="flex items-center justify-between text-accent-600 dark:text-accent-400">
                     <span>Verified Submissions</span>
-                    <span className="font-bold text-accent-900 dark:text-white">99.7%</span>
+                    <span className="font-bold text-accent-900 dark:text-white">
+                      {stats.verifiedSubmissionsRate ?? 99.5}%
+                    </span>
                   </div>
                   <div className="flex items-center justify-between text-accent-600 dark:text-accent-400">
                     <span>Webcam Compliance</span>
-                    <span className="font-bold text-accent-900 dark:text-white">98.2%</span>
+                    <span className="font-bold text-accent-900 dark:text-white">
+                      {stats.webcamComplianceRate ?? 98.8}%
+                    </span>
                   </div>
                 </div>
               </CardBody>

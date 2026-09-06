@@ -10,6 +10,14 @@ export const reportService = {
   },
 
   /**
+   * Get organization dashboard statistics
+   */
+  async getOrganizationDashboard(params = {}) {
+    const response = await api.get('/reports/dashboard', { params });
+    return response.data || response;
+  },
+
+  /**
    * Get assessment-specific analytics report
    */
   async getAssessmentReport(assessmentId) {
@@ -22,6 +30,14 @@ export const reportService = {
    */
   async getIntegrityReport() {
     const response = await api.get('/reports/integrity');
+    return response.data || response;
+  },
+
+  /**
+   * Get platform-wide overview metrics (Super Admin)
+   */
+  async getPlatformDashboard() {
+    const response = await api.get('/platform/reports/dashboard');
     return response.data || response;
   },
 };

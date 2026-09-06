@@ -1,43 +1,86 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Shield, Clock, Wifi, Lock, ChevronLeft, ChevronRight, Flag,
-  CheckCircle2, AlertCircle, Save, Check, AlertTriangle
+  CheckCircle2, AlertCircle, Save, Check, AlertTriangle, ArrowLeft, LogOut
 } from 'lucide-react';
 import { Button, Badge, ProgressBar, Modal, Card } from '@/components/ui';
 import attemptService from '@/services/attempt.service';
+import assessmentService from '@/services/assessment.service';
 import socketService from '@/services/socketService';
+import { useAuth } from '@/contexts/AuthContext';
+
+const defaultCurriculumQuestions = [
+  { id: 1, content: 'What is the time complexity of binary search on a sorted array of n elements?', options: ['O(n)', 'O(log n)', 'O(n log n)', 'O(1)'], points: 2 },
+  { id: 2, content: 'Which data structure uses LIFO (Last In, First Out) ordering?', options: ['Queue', 'Stack', 'Linked List', 'Tree'], points: 1 },
+  { id: 3, content: 'What does ACID stand for in database transactions?', options: ['Atomic, Consistent, Isolated, Durable', 'Accurate, Correct, Isolated, Direct', 'Atomic, Correct, Indexed, Durable', 'Automated, Consistent, Isolated, Dynamic'], points: 2 },
+  { id: 4, content: 'Which sorting algorithm has the best average-case time complexity?', options: ['Bubble Sort', 'Selection Sort', 'Quick Sort', 'Insertion Sort'], points: 2 },
+  { id: 5, content: 'Which HTTP status code signifies that a resource was successfully created?', options: ['200 OK', '201 Created', '204 No Content', '304 Not Modified'], points: 1 },
+  { id: 6, content: 'In Public Key Cryptography, which key is utilized by the sender to encrypt a private message for the recipient?', options: ['Sender Private Key', 'Recipient Public Key', 'Recipient Private Key', 'Shared Ephemeral Secret'], points: 3 },
+  { id: 7, content: 'In distributed systems, according to the CAP theorem, which property must be sacrificed during a network partition?', options: ['Either Consistency or Availability', 'Durability', 'Partition Tolerance', 'Scalability'], points: 3 },
+  { id: 8, content: 'Which cryptographic hash function family is widely used in Ethereum proof-of-stake and contract signatures?', options: ['Keccak-256 (SHA-3)', 'MD5', 'SHA-1', 'DES'], points: 2 },
+];
 
 export function AssessmentExperience({ onNavigate }) {
+  const { user } = useAuth();
+  const [activeAssessment, setActiveAssessment] = useState({
+    title: 'CS301: Advanced Data Structures & Algorithms',
+    code: 'CS301-MID',
+    durationMinutes: 90,
+    proctoringMode: 'AI + Live Video',
+  });
+  const [questions, setQuestions] = useState(defaultCurriculumQuestions);
   const [currentQ, setCurrentQ] = useState(0);
   const [answers, setAnswers] = useState({});
   const [timeLeft, setTimeLeft] = useState(90 * 60);
   const [saved, setSaved] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
-  const [attemptId, setAttemptId] = useState('att_live_01');
+  const [confirmExitOpen, setConfirmExitOpen] = useState(false);
+  const [attemptId, setAttemptId] = useState(`att_${Date.now()}`);
   const [warningBanner, setWarningBanner] = useState(null);
 
-  const questions = [
-    { id: 1, content: 'What is the time complexity of binary search on a sorted array of n elements?', options: ['O(n)', 'O(log n)', 'O(n log n)', 'O(1)'], points: 2 },
-    { id: 2, content: 'Which data structure uses LIFO (Last In, First Out) ordering?', options: ['Queue', 'Stack', 'Linked List', 'Tree'], points: 1 },
-    { id: 3, content: 'What does ACID stand for in database transactions?', options: ['Atomic, Consistent, Isolated, Durable', 'Accurate, Correct, Isolated, Direct', 'Atomic, Correct, Indexed, Durable', 'Automated, Consistent, Isolated, Dynamic'], points: 2 },
-    { id: 4, content: 'Which sorting algorithm has the best average-case time complexity?', options: ['Bubble Sort', 'Selection Sort', 'Quick Sort', 'Insertion Sort'], points: 2 },
-    { id: 5, content: 'Which HTTP status code signifies that a resource was successfully created?', options: ['200 OK', '201 Created', '204 No Content', '304 Not Modified'], points: 1 },
-    { id: 6, content: 'In Public Key Cryptography, which key is utilized by the sender to encrypt a private message for the recipient?', options: ['Sender Private Key', 'Recipient Public Key', 'Recipient Private Key', 'Shared Ephemeral Secret'], points: 3 },
-  ];
+  // Initialize selected assessment from session storage
+  useEffect(() => {
+    try {
+      const rawStored = sessionStorage.getItem('secureassess_active_assessment');
+      if (rawStored) {
+        const parsed = JSON.parse(rawStored);
+        setActiveAssessment(parsed);
+        const durationSec = (Number(parsed.durationMinutes) || 90) * 60;
+        setTimeLeft(durationSec);
+
+        // If parsed assessment has sections/questions, load them
+        if (Array.isArray(parsed.questions) && parsed.questions.length > 0) {
+          setQuestions(parsed.questions);
+        } else if (parsed._id) {
+          // Attempt fetch full assessment details
+          assessmentService.getAssessmentById(parsed._id).then((res) => {
+            const full = res?.data || res;
+            if (full?.questions && full.questions.length > 0) {
+              setQuestions(full.questions);
+            }
+          }).catch((e) => console.warn('Assessment detail fetch notice:', e));
+        }
+      }
+    } catch (e) {
+      console.warn('Could not parse stored assessment:', e);
+    }
+  }, []);
 
   const totalQuestions = questions.length;
 
   // Real-Time Anti-Cheat Sockets & Telemetry Watchers
   useEffect(() => {
     socketService.connect();
-    socketService.joinRoom(attemptId, 'candidate_user_01', 'candidate');
+    const candidateId = user?._id || user?.id || 'candidate_user_01';
+    const candidateName = user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'Candidate';
+    socketService.joinRoom(attemptId, candidateId, 'candidate');
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
         socketService.emitProctorEvent(attemptId, 'TAB_BLUR', {
-          participant: 'Alex Morgan',
-          assessment: 'Computer Science 101',
+          participant: candidateName,
+          assessment: activeAssessment.title || 'Online Assessment',
           riskLevel: 'Medium',
           details: 'Candidate navigated away from examination window or switched browser tabs.',
         });
@@ -49,8 +92,8 @@ export function AssessmentExperience({ onNavigate }) {
     const handleCopyAttempt = (e) => {
       e.preventDefault();
       socketService.emitProctorEvent(attemptId, 'CLIPBOARD_ACCESS', {
-        participant: 'Alex Morgan',
-        assessment: 'Computer Science 101',
+        participant: candidateName,
+        assessment: activeAssessment.title || 'Online Assessment',
         riskLevel: 'High',
         details: 'Unauthorized clipboard copy or paste attempt detected.',
       });
@@ -68,7 +111,7 @@ export function AssessmentExperience({ onNavigate }) {
       document.removeEventListener('paste', handleCopyAttempt);
       socketService.disconnect();
     };
-  }, [attemptId]);
+  }, [attemptId, activeAssessment.title, user]);
 
   // Countdown timer
   useEffect(() => {
@@ -100,7 +143,7 @@ export function AssessmentExperience({ onNavigate }) {
     try {
       await attemptService.saveAnswer(attemptId, {
         questionIndex: currentQ,
-        questionId: questions[currentQ].id,
+        questionId: questions[currentQ].id || `q_${currentQ}`,
         selectedOption: optIdx,
       });
     } catch (e) {
@@ -124,7 +167,7 @@ export function AssessmentExperience({ onNavigate }) {
     }
   };
 
-  const q = questions[currentQ];
+  const q = questions[currentQ] || questions[0];
   const answeredCount = Object.keys(answers).length;
 
   return (
@@ -141,16 +184,25 @@ export function AssessmentExperience({ onNavigate }) {
       <header className="bg-white/90 dark:bg-accent-900/90 backdrop-blur-md border-b border-accent-200 dark:border-accent-800 sticky top-0 z-20">
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-primary-600 flex items-center justify-center shadow-soft">
-              <Shield size={18} className="text-white" />
-            </div>
+            <button
+              type="button"
+              onClick={() => setConfirmExitOpen(true)}
+              className="w-8 h-8 rounded-xl bg-accent-100 hover:bg-accent-200 dark:bg-accent-800 dark:hover:bg-accent-700 flex items-center justify-center text-accent-600 dark:text-accent-300 transition-colors"
+              title="Return to Catalog"
+            >
+              <ArrowLeft size={16} />
+            </button>
             <div>
-              <p className="text-xs font-bold text-accent-900 dark:text-white">Online Examination Session</p>
-              <p className="text-[11px] text-accent-500 dark:text-accent-400">Computer Science 101 · Final Evaluation</p>
+              <p className="text-xs font-bold text-accent-900 dark:text-white truncate max-w-[280px] sm:max-w-md">
+                {activeAssessment.title}
+              </p>
+              <p className="text-[11px] text-accent-500 dark:text-accent-400">
+                {activeAssessment.code || 'EXAM'} · {activeAssessment.proctoringMode || 'Proctored Assessment'}
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {/* Timer */}
             <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border ${timeLeft < 300 ? 'bg-danger-50 dark:bg-danger-950/60 text-danger-600 dark:text-danger-400 border-danger-200 dark:border-danger-800/40' : 'bg-accent-100 dark:bg-accent-800 text-accent-700 dark:text-accent-300 border-accent-200 dark:border-accent-700'}`}>
               <Clock size={15} />
@@ -163,10 +215,14 @@ export function AssessmentExperience({ onNavigate }) {
               <span>Telemetry Active</span>
             </div>
 
-            <div className="hidden sm:flex items-center gap-1.5 text-xs text-success-600 dark:text-success-400 font-medium">
-              <Lock size={14} />
-              <span>AI Proctored</span>
-            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs hidden md:flex"
+              onClick={() => setConfirmExitOpen(true)}
+            >
+              Switch Exam
+            </Button>
           </div>
         </div>
       </header>
@@ -349,6 +405,36 @@ export function AssessmentExperience({ onNavigate }) {
             </div>
           )}
         </div>
+      </Modal>
+
+      {/* Exit / Switch Assessment Modal */}
+      <Modal
+        open={confirmExitOpen}
+        onClose={() => setConfirmExitOpen(false)}
+        title="Leave Assessment Session?"
+        subtitle="You will return to the active assessment catalog where you can choose another exam."
+        footer={
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setConfirmExitOpen(false)}>
+              Stay on Exam
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              icon={<LogOut size={14} />}
+              onClick={() => {
+                setConfirmExitOpen(false);
+                onNavigate('candidate-dashboard');
+              }}
+            >
+              Exit to Catalog
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-xs text-accent-600 dark:text-accent-300 leading-relaxed">
+          Your answers submitted so far have been saved. Returning to the dashboard will allow you to browse all available active assessments and pick another test.
+        </p>
       </Modal>
     </div>
   );

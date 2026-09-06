@@ -7,13 +7,11 @@ import {
   Mail,
   ArrowRight,
   AlertCircle,
-  CheckCircle2,
   Eye,
   EyeOff,
   Sparkles,
-  KeyRound,
 } from 'lucide-react';
-import { PLATFORM_ROLES } from '../../constants/roles';
+import { PLATFORM_ROLES, ORGANIZATION_ROLES } from '../../constants/roles';
 
 export const Login = () => {
   const navigate = useNavigate();
@@ -35,6 +33,17 @@ export const Login = () => {
       icon: '🛡️',
       badgeColor: 'text-primary-400 bg-primary-950/60 border-primary-800/60',
       destination: 'Platform Super Admin Portal',
+      role: 'PLATFORM_ADMIN',
+    },
+    {
+      key: 'org_owner',
+      title: 'Organization Owner',
+      email: 'owner@stanford.edu',
+      password: 'Owner@123',
+      icon: '👑',
+      badgeColor: 'text-amber-400 bg-amber-950/60 border-amber-800/60',
+      destination: 'Organization Workspace',
+      role: ORGANIZATION_ROLES.ORGANIZATION_OWNER,
     },
     {
       key: 'org_admin',
@@ -44,6 +53,7 @@ export const Login = () => {
       icon: '🏢',
       badgeColor: 'text-secondary-400 bg-secondary-950/60 border-secondary-800/60',
       destination: 'Organization Workspace',
+      role: ORGANIZATION_ROLES.ORGANIZATION_ADMIN,
     },
     {
       key: 'examiner',
@@ -53,6 +63,17 @@ export const Login = () => {
       icon: '🎓',
       badgeColor: 'text-warning-400 bg-warning-950/60 border-warning-800/60',
       destination: 'Assessment Studio',
+      role: ORGANIZATION_ROLES.EXAMINER,
+    },
+    {
+      key: 'proctor',
+      title: 'Proctor / Invigilator',
+      email: 'proctor@stanford.edu',
+      password: 'Proctor@123',
+      icon: '👁️',
+      badgeColor: 'text-rose-400 bg-rose-950/60 border-rose-800/60',
+      destination: 'Integrity & Proctoring Center',
+      role: ORGANIZATION_ROLES.PROCTOR,
     },
     {
       key: 'candidate',
@@ -62,6 +83,7 @@ export const Login = () => {
       icon: '📝',
       badgeColor: 'text-success-400 bg-success-950/60 border-success-800/60',
       destination: 'Candidate Exam Room',
+      role: ORGANIZATION_ROLES.CANDIDATE,
     },
   ];
 
@@ -87,23 +109,29 @@ export const Login = () => {
       const user = authResponse.user || authResponse;
       const memberships = authResponse.memberships || [];
 
+      const roleStr = (
+        user.platformRole ||
+        memberships[0]?.roleId?.name ||
+        memberships[0]?.role?.name ||
+        memberships[0]?.roleName ||
+        user.role ||
+        ''
+      ).toUpperCase();
+
       // Route immediately according to verified role
       if (
         user.platformRole === PLATFORM_ROLES.PLATFORM_OWNER ||
         user.platformRole === PLATFORM_ROLES.PLATFORM_ADMIN ||
-        user.platformRole === 'PLATFORM_OWNER' ||
-        user.platformRole === 'PLATFORM_ADMIN'
+        roleStr === 'PLATFORM_OWNER' ||
+        roleStr === 'PLATFORM_ADMIN'
       ) {
         navigate('/platform/dashboard', { replace: true });
+      } else if (roleStr === 'CANDIDATE') {
+        navigate('/candidate/dashboard', { replace: true });
+      } else if (roleStr === 'PROCTOR') {
+        navigate('/organization/integrity', { replace: true });
       } else {
-        const isCandidate = memberships.some(
-          (m) => (m.roleId?.name || m.roleName) === 'CANDIDATE'
-        );
-        if (isCandidate) {
-          navigate('/candidate/system-check', { replace: true });
-        } else {
-          navigate('/organization/dashboard', { replace: true });
-        }
+        navigate('/organization/dashboard', { replace: true });
       }
     } catch (err) {
       setError(err.message || 'Invalid email or password credentials.');
@@ -170,7 +198,7 @@ export const Login = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="text-xs text-accent-400 hover:text-white flex items-center gap-1 transition-colors"
+                  className="text-xs text-accent-400 hover:text-white flex items-center gap-1 transition-colors cursor-pointer"
                 >
                   {showPassword ? (
                     <>
@@ -222,7 +250,7 @@ export const Login = () => {
             <div className="flex items-center justify-between mb-3">
               <p className="text-[11px] font-bold text-accent-400 uppercase tracking-wider flex items-center gap-1.5">
                 <Sparkles size={13} className="text-primary-400" />
-                <span>Quick Sign In (Seeded Personas)</span>
+                <span>Quick Sign In (All 6 Seeded Roles)</span>
               </p>
               <span className="text-[10px] text-accent-500 font-mono">1-Click Fill</span>
             </div>
@@ -245,7 +273,7 @@ export const Login = () => {
                       <span className="text-base shrink-0">{p.icon}</span>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <p className="text-xs font-bold text-white group-hover:text-primary-300 transition-colors">
+                          <p className="text-xs font-bold text-white group-hover:text-primary-300 transition-colors truncate">
                             {p.title}
                           </p>
                         </div>

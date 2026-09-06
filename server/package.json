@@ -8,6 +8,7 @@
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "db:seed": "node src/database/seeders/index.js",
+    "db:seed:fresh": "node src/database/seeders/index.js --fresh",
     "db:migrate": "node src/database/migrations/index.js",
     "test": "echo \"Error: no test specified\" && exit 0"
   },

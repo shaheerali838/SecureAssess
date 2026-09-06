@@ -1,28 +1,90 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Settings as SettingsIcon, Palette, Users, Shield, Bell, Database, Lock, Plug,
-  Building2, FileText, Video, ChevronRight, Check
+  Building2, FileText, Video, ChevronRight, Check, RefreshCw
 } from 'lucide-react';
 import {
-  Card, CardHeader, CardBody, Badge, Button, Input, Select, PageHeader,
+  Card, CardHeader, CardBody, Badge, Button, Input, Select, PageHeader, Toast
 } from '@/components/ui';
+import { useOrganization } from '@/contexts/OrganizationContext';
+import organizationService from '@/services/organization.service';
 
 export function Settings({ onNavigate }) {
+  const { currentOrganization, fetchMemberships } = useOrganization();
   const [activeSection, setActiveSection] = useState('organization');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
+
+  // Form State
+  const [name, setName] = useState('');
+  const [domain, setDomain] = useState('');
+  const [country, setCountry] = useState('United States');
+  const [contactEmail, setContactEmail] = useState('');
+  const [industry, setIndustry] = useState('education');
+  const [primaryColor, setPrimaryColor] = useState('#2563eb');
+
+  useEffect(() => {
+    if (currentOrganization) {
+      setName(currentOrganization.name || '');
+      setDomain(currentOrganization.domain || currentOrganization.website || '');
+      setCountry(currentOrganization.country || 'United States');
+      setContactEmail(currentOrganization.contactEmail || currentOrganization.billingEmail || '');
+      setIndustry(currentOrganization.industry || currentOrganization.type || 'education');
+      if (currentOrganization.branding?.primaryColor) {
+        setPrimaryColor(currentOrganization.branding.primaryColor);
+      }
+    }
+  }, [currentOrganization]);
+
+  const handleSaveOrganization = async () => {
+    const orgId = currentOrganization?._id || currentOrganization?.id;
+    if (!orgId) {
+      setToastMessage({ type: 'error', text: 'No active organization context found.' });
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await organizationService.updateOrganization(orgId, {
+        name,
+        domain,
+        country,
+        contactEmail,
+        industry,
+        branding: {
+          ...currentOrganization.branding,
+          primaryColor,
+        },
+      });
+      setToastMessage({ type: 'success', text: 'Organization profile updated successfully in database!' });
+      if (typeof fetchMemberships === 'function') {
+        fetchMemberships();
+      }
+    } catch (err) {
+      setToastMessage({ type: 'error', text: 'Update failed: ' + (err.response?.data?.message || err.message) });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const sections = [
     { key: 'organization', label: 'Tenant Identity', icon: <Building2 size={16} /> },
     { key: 'branding', label: 'Brand & Portal Styling', icon: <Palette size={16} /> },
-    { key: 'users', label: 'Faculty & Team Access', icon: <Users size={16} /> },
     { key: 'assessment-policies', label: 'Assessment Policies', icon: <FileText size={16} /> },
     { key: 'integrity-policies', label: 'Proctoring Parameters', icon: <Shield size={16} /> },
-    { key: 'notifications', label: 'Webhooks & Alerts', icon: <Bell size={16} /> },
     { key: 'retention', label: 'GDPR & Data Retention', icon: <Database size={16} /> },
     { key: 'security', label: 'MFA & Authentication', icon: <Lock size={16} /> },
   ];
 
   return (
     <div className="space-y-6">
+      {toastMessage && (
+        <Toast
+          type={toastMessage.type}
+          message={toastMessage.text}
+          onClose={() => setToastMessage(null)}
+        />
+      )}
+
       <PageHeader
         title="Workspace Configuration"
         subtitle="Manage organization preferences, security thresholds, and brand identities."
@@ -61,25 +123,52 @@ export function Settings({ onNavigate }) {
             <Card className="animate-fade-in">
               <CardHeader title="Organization Profile" subtitle="General institutional details and public contact channels" />
               <CardBody className="p-5 space-y-4">
-                <Input label="Organization Name" defaultValue="Stanford Engineering Faculty" />
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <Input label="Country / Region" defaultValue="United States" />
-                  <Input label="Domain Website" defaultValue="https://stanford.edu" />
-                </div>
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <Input label="Lead Administrator" defaultValue="Dean of Academic Computing" />
-                  <Input label="Administrative Email" defaultValue="dean@stanford.edu" />
-                </div>
-                <Select
-                  label="Accreditation Domain"
-                  options={[
-                    { value: 'education', label: 'Higher Education' },
-                    { value: 'corporate', label: 'Corporate / Technical Hiring' },
-                    { value: 'aviation', label: 'Aviation & Defense Certification' },
-                  ]}
+                <Input
+                  label="Organization Name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Stanford Engineering Faculty"
                 />
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <Input
+                    label="Country / Region"
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
+                  />
+                  <Input
+                    label="Domain Website"
+                    value={domain}
+                    onChange={(e) => setDomain(e.target.value)}
+                    placeholder="https://institution.edu"
+                  />
+                </div>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <Input
+                    label="Administrative Contact Email"
+                    value={contactEmail}
+                    onChange={(e) => setContactEmail(e.target.value)}
+                    placeholder="admin@institution.edu"
+                  />
+                  <Select
+                    label="Accreditation Domain"
+                    value={industry}
+                    onChange={(e) => setIndustry(e.target.value)}
+                    options={[
+                      { value: 'education', label: 'Higher Education / University' },
+                      { value: 'corporate', label: 'Corporate / Technical Hiring' },
+                      { value: 'aviation', label: 'Aviation & Defense Certification' },
+                    ]}
+                  />
+                </div>
                 <div className="flex justify-end pt-2">
-                  <Button variant="primary" icon={<Check size={16} />}>Save Profile</Button>
+                  <Button
+                    variant="primary"
+                    icon={<Check size={16} />}
+                    loading={isSubmitting}
+                    onClick={handleSaveOrganization}
+                  >
+                    Save Profile
+                  </Button>
                 </div>
               </CardBody>
             </Card>
@@ -92,8 +181,11 @@ export function Settings({ onNavigate }) {
                 <div>
                   <label className="block text-xs font-semibold text-accent-700 dark:text-accent-300 mb-2">Organization Monogram</label>
                   <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-2xl bg-primary-600 flex items-center justify-center text-white font-bold text-lg shadow-soft">
-                      SE
+                    <div
+                      className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-soft"
+                      style={{ backgroundColor: primaryColor }}
+                    >
+                      {name ? name.slice(0, 2).toUpperCase() : 'SA'}
                     </div>
                     <Button variant="outline" size="sm">Upload High-Res Vector SVG</Button>
                   </div>
@@ -104,14 +196,24 @@ export function Settings({ onNavigate }) {
                     {['#2563eb', '#0d9488', '#7c3aed', '#059669', '#1e3a8a', '#d97706', '#dc2626', '#475569'].map((c) => (
                       <button
                         key={c}
-                        className="w-9 h-9 rounded-xl transition-all hover:scale-105 ring-2 ring-offset-2 ring-accent-200 dark:ring-accent-700 cursor-pointer"
+                        onClick={() => setPrimaryColor(c)}
+                        className={`w-9 h-9 rounded-xl transition-all hover:scale-105 ring-2 ring-offset-2 cursor-pointer ${
+                          primaryColor === c ? 'ring-primary-600 scale-105' : 'ring-transparent'
+                        }`}
                         style={{ backgroundColor: c }}
                       />
                     ))}
                   </div>
                 </div>
                 <div className="flex justify-end pt-2">
-                  <Button variant="primary" icon={<Check size={16} />}>Apply Styling</Button>
+                  <Button
+                    variant="primary"
+                    icon={<Check size={16} />}
+                    loading={isSubmitting}
+                    onClick={handleSaveOrganization}
+                  >
+                    Apply Styling
+                  </Button>
                 </div>
               </CardBody>
             </Card>
@@ -143,7 +245,14 @@ export function Settings({ onNavigate }) {
                   </div>
                 ))}
                 <div className="flex justify-end pt-3">
-                  <Button variant="primary" icon={<Check size={16} />}>Save Parameters</Button>
+                  <Button
+                    variant="primary"
+                    icon={<Check size={16} />}
+                    loading={isSubmitting}
+                    onClick={handleSaveOrganization}
+                  >
+                    Save Parameters
+                  </Button>
                 </div>
               </CardBody>
             </Card>

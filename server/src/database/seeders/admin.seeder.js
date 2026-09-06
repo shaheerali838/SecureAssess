@@ -16,7 +16,7 @@ export const seedPlatformOwner = async () => {
       lastName: ENV.ADMIN_LAST_NAME,
       email: ownerEmail,
       passwordHash,
-      platformRole: PLATFORM_ROLES.PLATFORM_OWNER,
+      platformRole: PLATFORM_ROLES.PLATFORM_ADMIN,
       emailVerified: true,
       emailVerifiedAt: new Date(),
       profile: {
@@ -28,7 +28,7 @@ export const seedPlatformOwner = async () => {
     // Update existing root admin to guarantee platformRole, names, and password match latest .env
     existing.firstName = ENV.ADMIN_FIRST_NAME;
     existing.lastName = ENV.ADMIN_LAST_NAME;
-    existing.platformRole = PLATFORM_ROLES.PLATFORM_OWNER;
+    existing.platformRole = PLATFORM_ROLES.PLATFORM_ADMIN;
     existing.passwordHash = passwordHash;
     existing.emailVerified = true;
     if (ENV.ADMIN_PHONE) {

@@ -4,6 +4,7 @@ export const ROLE_SCOPES = Object.freeze({
 });
 
 export const PLATFORM_ROLES = Object.freeze({
+  PLATFORM_OWNER: "PLATFORM_OWNER",
   PLATFORM_ADMIN: "PLATFORM_ADMIN",
 });
 

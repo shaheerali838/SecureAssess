@@ -18,6 +18,13 @@ export const seedInterviews = async () => {
     return;
   }
 
+  // Quick Idempotency Check
+  const existingInterviews = await Interview.countDocuments({ organizationId: org._id });
+  if (existingInterviews >= 3) {
+    logger.info(`[Seeder] Live interviews (${existingInterviews} sessions) already seeded, skipping.`);
+    return;
+  }
+
   // Find users & candidates
   const faculty = await User.findOne({ email: "faculty@stanford.edu" }) || await User.findOne({});
   const candidates = await Candidate.find({ organizationId: org._id }).limit(5);

@@ -9,13 +9,6 @@ import {
   SearchBar, PageHeader, Select, EmptyState, Modal, Input, Toast, SkeletonTable, Badge,
   ConfirmModal
 } from '@/components/ui';
-import {
-  participants as defaultParticipants,
-  departments as defaultDepartments,
-  programs as defaultPrograms,
-  candidateGroups as defaultCandidateGroups,
-  assessments as defaultAssessments
-} from '@/data';
 import candidateService from '@/services/candidate.service';
 import organizationService from '@/services/organization.service';
 import assessmentService from '@/services/assessment.service';
@@ -71,53 +64,49 @@ export function ParticipantManagement({ onNavigate }) {
       if (candRes.status === 'fulfilled') {
         const raw = candRes.value;
         const items = Array.isArray(raw) ? raw : (raw?.items || raw?.users || raw?.data || []);
-        if (items.length > 0) {
-          setCandidatesList(items);
-        } else {
-          setCandidatesList(defaultParticipants);
-        }
+        setCandidatesList(items || []);
       } else {
-        setCandidatesList(defaultParticipants);
+        setCandidatesList([]);
       }
 
       // 2. Process Departments
       if (deptRes.status === 'fulfilled') {
         const raw = deptRes.value;
         const items = Array.isArray(raw) ? raw : (raw?.items || raw?.data || []);
-        setDepartments(items.length > 0 ? items : defaultDepartments);
+        setDepartments(items || []);
       } else {
-        setDepartments(defaultDepartments);
+        setDepartments([]);
       }
 
       // 3. Process Programs
       if (progRes.status === 'fulfilled') {
         const raw = progRes.value;
         const items = Array.isArray(raw) ? raw : (raw?.items || raw?.data || []);
-        setPrograms(items.length > 0 ? items : defaultPrograms);
+        setPrograms(items || []);
       } else {
-        setPrograms(defaultPrograms);
+        setPrograms([]);
       }
 
       // 4. Process Groups
       if (grpRes.status === 'fulfilled') {
         const raw = grpRes.value;
         const items = Array.isArray(raw) ? raw : (raw?.items || raw?.data || []);
-        setCandidateGroups(items.length > 0 ? items : defaultCandidateGroups);
+        setCandidateGroups(items || []);
       } else {
-        setCandidateGroups(defaultCandidateGroups);
+        setCandidateGroups([]);
       }
 
       // 5. Process Assessments
       if (assessRes.status === 'fulfilled') {
         const raw = assessRes.value;
         const items = Array.isArray(raw) ? raw : (raw?.items || raw?.assessments || raw?.data || []);
-        setAssessmentsList(items.length > 0 ? items : defaultAssessments);
+        setAssessmentsList(items || []);
       } else {
-        setAssessmentsList(defaultAssessments);
+        setAssessmentsList([]);
       }
     } catch (err) {
-      console.warn('Roster sync fallback triggered:', err.message);
-      setCandidatesList(defaultParticipants);
+      console.warn('Roster fetch error:', err.message);
+      setCandidatesList([]);
     } finally {
       setLoading(false);
     }

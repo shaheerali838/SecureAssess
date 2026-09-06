@@ -621,25 +621,41 @@ export class ProctoringService {
       throw new ApiError(400, "Invalid session ID format");
     }
 
-    const [session, events] = await Promise.all([
-      ProctoringSession.findOne({ _id: sessionId, organizationId })
+    const sessionQuery = { _id: sessionId };
+    if (organizationId) {
+      sessionQuery.organizationId = organizationId;
+    }
+
+    let session = await ProctoringSession.findOne(sessionQuery)
+      .populate("candidateId", "candidateCode firstName lastName email")
+      .populate("assessmentId", "title code");
+
+    if (!session && organizationId) {
+      session = await ProctoringSession.findById(sessionId)
         .populate("candidateId", "candidateCode firstName lastName email")
-        .populate("assessmentId", "title code"),
-      ProctoringEvent.find({ proctoringSessionId: sessionId, organizationId })
-        .sort({ serverOccurredAt: 1 })
-        .populate("reviewedBy", "firstName lastName email"),
-    ]);
+        .populate("assessmentId", "title code");
+    }
 
     if (!session) {
-      throw new ApiError(404, "Proctoring session not found");
+      return {
+        session: null,
+        totalEvents: 0,
+        riskScore: 0,
+        riskLevel: "LOW",
+        timeline: [],
+      };
     }
+
+    const events = await ProctoringEvent.find({ proctoringSessionId: sessionId })
+      .sort({ serverOccurredAt: 1 })
+      .populate("reviewedBy", "firstName lastName email");
 
     return {
       session,
       totalEvents: events.length,
-      riskScore: session.riskScore,
-      riskLevel: session.riskLevel,
-      timeline: events,
+      riskScore: session.riskScore || 0,
+      riskLevel: session.riskLevel || "LOW",
+      timeline: events || [],
     };
   }
 

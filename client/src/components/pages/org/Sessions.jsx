@@ -139,75 +139,10 @@ export function Sessions({ onNavigate }) {
       // Sort all recordings by timestamp descending (newest first)
       items.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
 
-      // Fallback dynamic institutional records if DB collections are fresh
-      if (items.length === 0) {
-        items = [
-          {
-            id: 'sess-101',
-            participant: 'Ahmed Khan',
-            email: 'ahmed.khan@stanford.edu',
-            assessment: 'CS301: Advanced Data Structures Midterm',
-            assessmentCode: 'CS301-MID',
-            status: 'COMPLETED',
-            riskLevel: 'LOW',
-            duration: '88 mins',
-            date: 'Today, 2:15 PM',
-            timestamp: new Date().toISOString(),
-            violationsCount: 1,
-            hasRecording: true,
-            isLiveInterview: false,
-          },
-          {
-            id: 'sess-102',
-            participant: 'Elena Rostova',
-            email: 'elena.r@stanford.edu',
-            assessment: 'SE404: Distributed Systems Final Run',
-            assessmentCode: 'SE404-FIN',
-            status: 'REVIEW_REQUIRED',
-            riskLevel: 'HIGH',
-            duration: '115 mins',
-            date: 'Today, 11:30 AM',
-            timestamp: new Date().toISOString(),
-            violationsCount: 5,
-            hasRecording: true,
-            isLiveInterview: false,
-          },
-          {
-            id: 'sess-103',
-            participant: 'Marcus Vance',
-            email: 'mvance@stanford.edu',
-            assessment: 'MATH202: Discrete Probability & Graphs',
-            assessmentCode: 'MATH202',
-            status: 'COMPLETED',
-            riskLevel: 'LOW',
-            duration: '60 mins',
-            date: 'Yesterday',
-            timestamp: new Date(Date.now() - 86400000).toISOString(),
-            violationsCount: 0,
-            hasRecording: true,
-            isLiveInterview: false,
-          },
-          {
-            id: 'sess-104',
-            participant: 'Sarah Chen',
-            email: 'schen@stanford.edu',
-            assessment: 'CS102: Object Oriented Principles',
-            assessmentCode: 'CS102',
-            status: 'FLAGGED',
-            riskLevel: 'MEDIUM',
-            duration: '45 mins',
-            date: 'Sep 03, 2026',
-            timestamp: new Date(Date.now() - 172800000).toISOString(),
-            violationsCount: 3,
-            hasRecording: true,
-            isLiveInterview: false,
-          },
-        ];
-      }
-
       setSessionsList(items);
     } catch (err) {
       console.warn('Error fetching dynamic sessions:', err.message);
+      setSessionsList([]);
     } finally {
       setLoading(false);
     }

@@ -1,6 +1,7 @@
 import { PLATFORM_ROLES, ORGANIZATION_ROLES } from "@/constants/roles";
 
 export const ROLES = Object.freeze({
+  PLATFORM_OWNER: "PLATFORM_OWNER",
   PLATFORM_ADMIN: "PLATFORM_ADMIN",
   ORGANIZATION_OWNER: "ORGANIZATION_OWNER",
   ORGANIZATION_ADMIN: "ORGANIZATION_ADMIN",
@@ -152,6 +153,32 @@ export const PERMISSIONS = Object.freeze({
 export const PERMISSION_LIST = Object.values(PERMISSIONS);
 
 export const ROLE_PERMISSIONS = Object.freeze({
+  [ROLES.PLATFORM_OWNER]: [
+    PERMISSIONS.PLATFORM_VIEW,
+    PERMISSIONS.PLATFORM_CONFIG_MANAGE,
+    PERMISSIONS.PLATFORM_FEATURES_MANAGE,
+    PERMISSIONS.PLATFORM_HEALTH_VIEW,
+    PERMISSIONS.PLATFORM_SECURITY_VIEW,
+    PERMISSIONS.PLATFORM_AUDIT_LOGS_VIEW,
+    PERMISSIONS.PLATFORM_ACCESS_LOGS_VIEW,
+    PERMISSIONS.PLATFORM_EVENTS_VIEW,
+    PERMISSIONS.PLATFORM_ROLES_MANAGE,
+    PERMISSIONS.PLATFORM_PERMISSIONS_MANAGE,
+    PERMISSIONS.PLATFORM_ACCESS_MANAGE,
+    PERMISSIONS.PLATFORM_MONITORING_VIEW,
+    PERMISSIONS.PLATFORM_SERVICES_VIEW,
+    PERMISSIONS.PLATFORM_ACTIVITY_VIEW,
+    PERMISSIONS.PLATFORM_PLANS_MANAGE,
+    PERMISSIONS.PLATFORM_SUBSCRIPTIONS_MANAGE,
+    PERMISSIONS.PLATFORM_BILLING_MANAGE,
+    PERMISSIONS.PLATFORM_SETTINGS_MANAGE,
+    PERMISSIONS.ORGANIZATIONS_CREATE,
+    PERMISSIONS.ORGANIZATIONS_VIEW,
+    PERMISSIONS.ORGANIZATIONS_UPDATE,
+    PERMISSIONS.ORGANIZATIONS_SUSPEND,
+    PERMISSIONS.ORGANIZATIONS_DELETE,
+  ],
+
   [ROLES.PLATFORM_ADMIN]: [
     PERMISSIONS.PLATFORM_VIEW,
     PERMISSIONS.PLATFORM_CONFIG_MANAGE,
@@ -402,6 +429,40 @@ export const ROLE_PERMISSIONS = Object.freeze({
  * Fully Optimized, De-duplicated Sidebar Configuration
  */
 export const SIDEBAR_CONFIG = Object.freeze({
+  [ROLES.PLATFORM_OWNER]: [
+    { label: "Dashboard", path: "/platform/dashboard", id: "platform-dashboard", icon: "LayoutDashboard", permission: PERMISSIONS.PLATFORM_VIEW },
+    {
+      group: "Tenants & Workspaces",
+      items: [
+        { label: "Tenant Organizations", path: "/platform/organizations", id: "platform-organizations", icon: "Building2", permission: PERMISSIONS.ORGANIZATIONS_VIEW },
+        { label: "Provision Tenant", path: "/platform/onboarding", id: "platform-onboarding", icon: "PlusCircle", permission: PERMISSIONS.ORGANIZATIONS_CREATE },
+      ],
+    },
+    {
+      group: "Security & Governance",
+      items: [
+        { label: "Security Center", path: "/platform/security", id: "platform-security", icon: "ShieldCheck", permission: PERMISSIONS.PLATFORM_SECURITY_VIEW },
+        { label: "Audit Logs", path: "/platform/audit-logs", id: "platform-audit-logs", icon: "FileText", permission: PERMISSIONS.PLATFORM_AUDIT_LOGS_VIEW },
+        { label: "Platform Access", path: "/platform/access", id: "platform-access", icon: "Key", permission: PERMISSIONS.PLATFORM_ACCESS_MANAGE },
+      ],
+    },
+    {
+      group: "Infrastructure & Health",
+      items: [
+        { label: "System Monitoring", path: "/platform/monitoring", id: "platform-monitoring", icon: "BarChart3", permission: PERMISSIONS.PLATFORM_MONITORING_VIEW },
+        { label: "Service Health", path: "/platform/services", id: "platform-services", icon: "Activity", permission: PERMISSIONS.PLATFORM_SERVICES_VIEW },
+      ],
+    },
+    {
+      group: "Commercial & Plans",
+      items: [
+        { label: "Subscription Plans", path: "/platform/plans", id: "platform-plans", icon: "ClipboardList", permission: PERMISSIONS.PLATFORM_PLANS_MANAGE },
+        { label: "Platform Billing", path: "/platform/billing", id: "platform-billing", icon: "CreditCard", permission: PERMISSIONS.PLATFORM_BILLING_MANAGE },
+      ],
+    },
+    { label: "Platform Settings", path: "/platform/settings", id: "platform-settings", icon: "Settings", permission: PERMISSIONS.PLATFORM_SETTINGS_MANAGE },
+  ],
+
   [ROLES.PLATFORM_ADMIN]: [
     { label: "Dashboard", path: "/platform/dashboard", id: "platform-dashboard", icon: "LayoutDashboard", permission: PERMISSIONS.PLATFORM_VIEW },
     {
@@ -454,6 +515,7 @@ export const SIDEBAR_CONFIG = Object.freeze({
       ],
     },
     { label: "Candidate Roster", path: "/organization/participants", id: "org-participants", icon: "Users", permission: PERMISSIONS.CANDIDATES_VIEW },
+    { label: "Academic Structure", path: "/organization/structure", id: "org-structure", icon: "GraduationCap", permission: PERMISSIONS.DEPARTMENTS_VIEW },
     { label: "Team & Staff", path: "/organization/users", id: "org-users", icon: "Users", permission: PERMISSIONS.ORG_USERS_VIEW },
     {
       group: "Proctoring & Integrity",
@@ -486,6 +548,7 @@ export const SIDEBAR_CONFIG = Object.freeze({
       ],
     },
     { label: "Candidate Roster", path: "/organization/participants", id: "org-participants", icon: "Users", permission: PERMISSIONS.CANDIDATES_VIEW },
+    { label: "Academic Structure", path: "/organization/structure", id: "org-structure", icon: "GraduationCap", permission: PERMISSIONS.DEPARTMENTS_VIEW },
     { label: "Team & Staff", path: "/organization/users", id: "org-users", icon: "Users", permission: PERMISSIONS.ORG_USERS_VIEW },
     {
       group: "Proctoring & Integrity",
@@ -535,8 +598,8 @@ export const SIDEBAR_CONFIG = Object.freeze({
 
   [ROLES.CANDIDATE]: [
     { label: "Dashboard", path: "/candidate/dashboard", id: "candidate-dashboard", icon: "LayoutDashboard", permission: PERMISSIONS.CANDIDATE_DASHBOARD_VIEW },
-    { label: "Active Assessment", path: "/candidate/assessment", id: "participant-assessment", icon: "FileText", permission: PERMISSIONS.ATTEMPTS_CREATE },
-    { label: "Live Interview", path: "/candidate/interview", id: "participant-interview", icon: "Video", permission: PERMISSIONS.INTERVIEWS_JOIN },
+    { label: "My Assessments", path: "/candidate/assessments", id: "candidate-assessments", icon: "FileText", permission: PERMISSIONS.CANDIDATE_ASSESSMENTS_VIEW },
+    { label: "My Interviews", path: "/candidate/interviews", id: "candidate-interviews", icon: "Video", permission: PERMISSIONS.CANDIDATE_INTERVIEWS_VIEW },
     { label: "Results & Feedback", path: "/candidate/evaluation", id: "participant-evaluation", icon: "ClipboardList", permission: PERMISSIONS.RESULTS_VIEW_OWN },
     { label: "System Diagnostic", path: "/candidate/system-check", id: "participant-system-check", icon: "ShieldCheck", permission: PERMISSIONS.SYSTEM_CHECK_RUN },
   ],

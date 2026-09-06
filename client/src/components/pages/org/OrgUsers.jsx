@@ -10,7 +10,6 @@ import {
   PageHeader, Select, Modal, Input, Toast, SkeletonTable, EmptyState,
   ConfirmModal
 } from '@/components/ui';
-import { platformUsers as defaultStaff } from '@/data';
 import organizationService from '@/services/organization.service';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -73,6 +72,11 @@ export function OrgUsers({ onNavigate }) {
     setLoading(true);
     try {
       const orgId = currentOrganization?._id || currentOrganization?.id;
+      if (!orgId) {
+        setUsersList([]);
+        setLoading(false);
+        return;
+      }
       const data = await organizationService.listMembers(orgId);
       const items = Array.isArray(data) ? data : (data?.items || data?.members || data?.data || []);
 
@@ -109,33 +113,11 @@ export function OrgUsers({ onNavigate }) {
 
         setUsersList(staffMembers);
       } else {
-        setUsersList(
-          defaultStaff
-            .map((s) => ({
-              ...s,
-              role:
-                typeof s.role === 'object' && s.role !== null
-                  ? (s.role.name || 'EXAMINER').toUpperCase()
-                  : String(s.role || 'EXAMINER').toUpperCase(),
-              status: String(s.status || 'ACTIVE').toUpperCase(),
-            }))
-            .filter((s) => !['CANDIDATE', 'PARTICIPANT', 'STUDENT'].includes(s.role))
-        );
+        setUsersList([]);
       }
     } catch (err) {
-      console.warn('Members API fallback triggered:', err.message);
-      setUsersList(
-        defaultStaff
-          .map((s) => ({
-            ...s,
-            role:
-              typeof s.role === 'object' && s.role !== null
-                ? (s.role.name || 'EXAMINER').toUpperCase()
-                : String(s.role || 'EXAMINER').toUpperCase(),
-            status: String(s.status || 'ACTIVE').toUpperCase(),
-          }))
-          .filter((s) => !['CANDIDATE', 'PARTICIPANT', 'STUDENT'].includes(s.role))
-      );
+      console.warn('Members fetch error:', err.message);
+      setUsersList([]);
     } finally {
       setLoading(false);
     }

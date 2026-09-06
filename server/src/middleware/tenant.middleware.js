@@ -31,7 +31,7 @@ export const requireTenantContext = async (req, res, next) => {
       return next(new ApiError(401, "Authentication token required"));
     }
 
-    const rawOrgId =
+    let rawOrgId =
       req.params.organizationId ||
       req.headers["x-organization-id"] ||
       req.headers["x-tenant-id"] ||
@@ -42,8 +42,11 @@ export const requireTenantContext = async (req, res, next) => {
 
     const isPlatformStaff =
       req.user.platformRole === PLATFORM_ROLES.PLATFORM_OWNER ||
-      req.user.platformRole === PLATFORM_ROLES.PLATFORM_ADMIN;
+      req.user.platformRole === PLATFORM_ROLES.PLATFORM_ADMIN ||
+      req.user.platformRole === "PLATFORM_OWNER" ||
+      req.user.platformRole === "PLATFORM_ADMIN";
 
+    // 1. If no organization ID context was passed:
     if (!rawOrgId) {
       if (isPlatformStaff) {
         req.organization = null;
@@ -56,15 +59,63 @@ export const requireTenantContext = async (req, res, next) => {
         };
         return next();
       }
+
+      // Auto-fallback: Resolve user's active membership organization
+      const autoMembership = await UserMembership.findOne({
+        userId: req.user.id || req.user._id,
+        status: "ACTIVE",
+      })
+        .populate("organizationId")
+        .populate({
+          path: "roleId",
+          populate: { path: "permissions" },
+        });
+
+      if (autoMembership && autoMembership.organizationId) {
+        req.organization = autoMembership.organizationId;
+        req.organizationId = autoMembership.organizationId._id;
+        req.tenantId = autoMembership.organizationId._id;
+        req.membership = autoMembership;
+        req.organizationRole = autoMembership.roleId;
+        return next();
+      }
+
       return next(new ApiError(400, "Organization ID context is required"));
     }
 
-    if (!mongoose.Types.ObjectId.isValid(rawOrgId)) {
-      return next(new ApiError(400, "Invalid organization ID format"));
+    // 2. Find Organization by ObjectId, slug, or code
+    let organization = null;
+    if (mongoose.Types.ObjectId.isValid(rawOrgId)) {
+      organization = await Organization.findById(rawOrgId);
+    } else {
+      organization = await Organization.findOne({
+        $or: [{ slug: rawOrgId }, { code: String(rawOrgId).toUpperCase() }],
+      });
     }
 
-    const organization = await Organization.findById(rawOrgId);
+    // If org was not found by ID/slug (e.g. stale dummy id stored in client), fallback to user's real membership org
     if (!organization) {
+      if (!isPlatformStaff) {
+        const fallbackMembership = await UserMembership.findOne({
+          userId: req.user.id || req.user._id,
+          status: "ACTIVE",
+        })
+          .populate("organizationId")
+          .populate({
+            path: "roleId",
+            populate: { path: "permissions" },
+          });
+
+        if (fallbackMembership && fallbackMembership.organizationId) {
+          req.organization = fallbackMembership.organizationId;
+          req.organizationId = fallbackMembership.organizationId._id;
+          req.tenantId = fallbackMembership.organizationId._id;
+          req.membership = fallbackMembership;
+          req.organizationRole = fallbackMembership.roleId;
+          return next();
+        }
+      }
+
       return next(new ApiError(404, "Organization not found"));
     }
 
@@ -88,8 +139,8 @@ export const requireTenantContext = async (req, res, next) => {
       return next(new ApiError(403, "This organization is suspended. Access denied."));
     }
 
-    // Resolve tenant membership
-    const membership = await UserMembership.findOne({
+    // 3. Resolve tenant membership
+    let membership = await UserMembership.findOne({
       userId: req.user.id || req.user._id,
       organizationId: organization._id,
       status: "ACTIVE",
@@ -98,7 +149,27 @@ export const requireTenantContext = async (req, res, next) => {
       populate: { path: "permissions" },
     });
 
+    // If membership not found in target org (e.g. user switched accounts), check user's actual active org
     if (!membership) {
+      const activeMembership = await UserMembership.findOne({
+        userId: req.user.id || req.user._id,
+        status: "ACTIVE",
+      })
+        .populate("organizationId")
+        .populate({
+          path: "roleId",
+          populate: { path: "permissions" },
+        });
+
+      if (activeMembership && activeMembership.organizationId) {
+        req.organization = activeMembership.organizationId;
+        req.organizationId = activeMembership.organizationId._id;
+        req.tenantId = activeMembership.organizationId._id;
+        req.membership = activeMembership;
+        req.organizationRole = activeMembership.roleId;
+        return next();
+      }
+
       AuditLogService.createSecurityAuditLog({
         organizationId: organization._id,
         actorId: req.user.id || req.user._id,

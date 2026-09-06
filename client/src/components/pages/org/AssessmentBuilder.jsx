@@ -7,21 +7,33 @@ import {
   Card, CardHeader, CardBody, Button, Input, Select, Textarea, Badge,
   PageHeader, Toast
 } from '@/components/ui';
-import { questions as defaultQuestions } from '@/data';
 import assessmentService from '@/services/assessment.service';
 
 const questionTypes = ['Multiple Choice', 'Multiple Select', 'True / False', 'Short Answer', 'Long Answer', 'Numerical', 'Scenario', 'Coding', 'Custom'];
 const securityLevels = ['Standard', 'Monitored', 'Secure'];
 const assessmentTypes = ['Quiz', 'Examination', 'MCQ Test', 'Knowledge Assessment', 'Skills Assessment', 'Aptitude Test', 'Scenario Assessment', 'Interview Assessment', 'Custom Assessment'];
 
+const initialDefaultQuestion = {
+  id: Date.now(),
+  type: 'Multiple Choice',
+  content: 'Enter question text here...',
+  options: ['Option 1', 'Option 2', 'Option 3', 'Option 4'],
+  correctAnswer: 0,
+  explanation: '',
+  points: 1,
+  difficulty: 'Medium',
+  category: 'General',
+  tags: [],
+};
+
 export function AssessmentBuilder({ onNavigate }) {
-  const [title, setTitle] = useState('University Admission Test');
+  const [title, setTitle] = useState('');
   const [assessmentType, setAssessmentType] = useState('Examination');
   const [duration, setDuration] = useState(90);
   const [passingScore, setPassingScore] = useState(60);
   const [securityTier, setSecurityTier] = useState('Secure');
 
-  const [questions, setQuestions] = useState(defaultQuestions.slice(0, 4));
+  const [questions, setQuestions] = useState([initialDefaultQuestion]);
   const [activeIdx, setActiveIdx] = useState(0);
   const [showPreview, setShowPreview] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -88,19 +100,11 @@ export function AssessmentBuilder({ onNavigate }) {
         })),
       };
 
-      try {
-        await assessmentService.createAssessment(payload);
-        setToastMessage({
-          type: 'success',
-          text: isPublish ? 'Assessment published successfully!' : 'Assessment draft saved successfully!',
-        });
-      } catch (err) {
-        console.warn('API sync fallback triggered:', err.message);
-        setToastMessage({
-          type: 'success',
-          text: isPublish ? 'Assessment published to workspace (local synced)!' : 'Assessment draft saved!',
-        });
-      }
+      await assessmentService.createAssessment(payload);
+      setToastMessage({
+        type: 'success',
+        text: isPublish ? 'Assessment published successfully!' : 'Assessment draft saved successfully!',
+      });
 
       setTimeout(() => {
         if (isPublish) {
@@ -110,7 +114,7 @@ export function AssessmentBuilder({ onNavigate }) {
     } catch (err) {
       setToastMessage({
         type: 'error',
-        text: 'Could not save assessment: ' + err.message,
+        text: 'Could not save assessment: ' + (err.response?.data?.message || err.message),
       });
     } finally {
       setIsSubmitting(false);

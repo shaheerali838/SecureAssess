@@ -6,9 +6,9 @@ import {
 } from 'lucide-react';
 import {
   Card, CardHeader, CardBody, MetricCard, Badge, RiskBadge, Button,
-  SearchBar, PageHeader, Select, DonutChart, BarChart, Toast, Modal, Textarea
+  SearchBar, PageHeader, Select, DonutChart, BarChart, Toast, Modal, Textarea,
+  EmptyState, SkeletonCards
 } from '@/components/ui';
-import { integrityFlags as defaultFlags } from '@/data';
 import proctoringService from '@/services/proctoring.service';
 import socketService from '@/services/socketService';
 
@@ -44,16 +44,16 @@ export function IntegrityCenter({ onNavigate }) {
       if (eventsRes.status === 'fulfilled') {
         const raw = eventsRes.value;
         const items = Array.isArray(raw) ? raw : (raw?.items || raw?.events || raw?.data || []);
-        if (items.length > 0) {
+        if (Array.isArray(items)) {
           loadedEvents = items.map((e, idx) => ({
             id: e._id || e.id || `evt_${idx}`,
-            participant: e.candidateName || e.candidateId?.firstName ? `${e.candidateId.firstName} ${e.candidateId.lastName || ''}`.trim() : (e.userId?.firstName || 'Candidate'),
+            participant: e.candidateName || (e.candidateId?.firstName ? `${e.candidateId.firstName} ${e.candidateId.lastName || ''}`.trim() : (e.userId?.firstName || 'Candidate')),
             assessment: e.assessmentTitle || e.assessmentId?.title || 'Proctored Assessment',
             type: e.eventType || e.type || 'TAB_BLUR',
             title: e.title || formatEventTitle(e.eventType || e.type),
             description: e.description || e.metadata?.details || 'Proctoring engine recorded potential examinee anomaly.',
             riskLevel: e.riskLevel || (e.severity === 'CRITICAL' || e.severity === 'HIGH' ? 'High' : e.severity === 'MEDIUM' ? 'Medium' : 'Low'),
-            timestamp: e.timestamp ? formatTimeAgo(new Date(e.timestamp)) : 'Recent',
+            timestamp: e.timestamp || e.createdAt ? formatTimeAgo(new Date(e.timestamp || e.createdAt)) : 'Recent',
             status: e.status || 'Under Review',
             evidence: e.evidence || [],
             sessionId: e.sessionId || e.session?._id,
@@ -64,18 +64,17 @@ export function IntegrityCenter({ onNavigate }) {
       if (sessionsRes.status === 'fulfilled') {
         const raw = sessionsRes.value;
         const items = Array.isArray(raw) ? raw : (raw?.items || raw?.sessions || raw?.data || []);
-        loadedSessions = items;
+        if (Array.isArray(items)) {
+          loadedSessions = items;
+        }
       }
 
-      if (loadedEvents.length > 0) {
-        setFlags(loadedEvents);
-      } else {
-        setFlags(defaultFlags);
-      }
+      setFlags(loadedEvents);
       setSessions(loadedSessions);
     } catch (err) {
-      console.warn('Proctoring telemetry sync fallback:', err.message);
-      setFlags(defaultFlags);
+      console.warn('Proctoring telemetry sync note:', err.message);
+      setFlags([]);
+      setSessions([]);
     } finally {
       setLoading(false);
     }
@@ -115,7 +114,7 @@ export function IntegrityCenter({ onNavigate }) {
 
         setLiveIncidentToast({
           type: risk === 'High' ? 'error' : 'warning',
-          text: `🚨 Live Telemetry Signal: ${newFlag.title} (${candidateName})`,
+          text: `Live Telemetry Signal: ${newFlag.title} (${candidateName})`,
         });
       };
 
@@ -233,10 +232,17 @@ export function IntegrityCenter({ onNavigate }) {
     return matchesSearch && matchesRisk && matchesType;
   });
 
-  const highRiskCount = flags.filter((f) => f.riskLevel === 'High').length;
-  const mediumRiskCount = flags.filter((f) => f.riskLevel === 'Medium').length;
-  const lowRiskCount = flags.filter((f) => f.riskLevel === 'Low').length;
-  const totalAnalyzed = (sessions.length > 0 ? sessions.length : 120) + flags.length;
+  const highRiskCount = flags.filter((f) => (f.riskLevel || '').toLowerCase() === 'high').length;
+  const mediumRiskCount = flags.filter((f) => (f.riskLevel || '').toLowerCase() === 'medium').length;
+  const lowRiskCount = flags.filter((f) => (f.riskLevel || '').toLowerCase() === 'low').length;
+  const totalMonitored = sessions.length;
+
+  const focusLossCount = flags.filter((f) => f.type?.includes('BLUR') || f.type?.includes('TAB')).length;
+  const multiFaceCount = flags.filter((f) => f.type?.includes('MULTI_FACE')).length;
+  const noFaceCount = flags.filter((f) => f.type?.includes('NO_FACE')).length;
+  const devToolsCount = flags.filter((f) => f.type?.includes('DEV')).length;
+  const audioCount = flags.filter((f) => f.type?.includes('VOICE') || f.type?.includes('AUDIO')).length;
+  const clipCount = flags.filter((f) => f.type?.includes('CLIP') || f.type?.includes('COPY')).length;
 
   return (
     <div className="space-y-6">
@@ -277,252 +283,277 @@ export function IntegrityCenter({ onNavigate }) {
       {/* Dynamic Telemetry Metrics */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
-          label="Sessions Monitored"
-          value={totalAnalyzed}
+          label="Active Sessions Monitored"
+          value={String(totalMonitored)}
           icon={<Activity size={20} />}
+          trend={{ value: 'Real-Time Telemetry', up: true }}
           color="primary"
         />
         <MetricCard
-          label="Clean / Low Risk"
-          value={Math.max(1, totalAnalyzed - highRiskCount - mediumRiskCount)}
+          label="Clean / Compliant Sessions"
+          value={String(Math.max(0, totalMonitored - highRiskCount))}
           icon={<ShieldCheck size={20} />}
+          trend={{ value: 'Passed Verification', up: true }}
           color="success"
         />
         <MetricCard
-          label="Medium Flags"
-          value={mediumRiskCount}
+          label="Medium Risk Flags"
+          value={String(mediumRiskCount)}
           icon={<AlertTriangle size={20} />}
+          trend={{ value: 'Under Review', up: false }}
           color="warning"
         />
         <MetricCard
           label="High Risk Anomalies"
-          value={highRiskCount}
+          value={String(highRiskCount)}
           icon={<AlertCircle size={20} />}
+          trend={{ value: 'Intervention Required', up: false }}
           color="danger"
         />
       </div>
 
-      {/* Dynamic Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader title="Live Risk Distribution" icon={<ShieldCheck size={18} />} />
-          <CardBody>
-            <DonutChart
-              centerValue={String(flags.length)}
-              centerLabel="Events"
-              data={[
-                { label: 'Low Risk', value: Math.max(1, lowRiskCount), color: '#22c55e' },
-                { label: 'Medium Risk', value: Math.max(1, mediumRiskCount), color: '#f59e0b' },
-                { label: 'High Risk', value: Math.max(1, highRiskCount), color: '#ef4444' },
-              ]}
-            />
-          </CardBody>
-        </Card>
+      {loading ? (
+        <SkeletonCards count={2} />
+      ) : (
+        <>
+          {/* Dynamic Charts */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <Card>
+              <CardHeader title="Live Risk Distribution" icon={<ShieldCheck size={18} />} />
+              <CardBody>
+                <DonutChart
+                  centerValue={String(flags.length)}
+                  centerLabel="Total Events"
+                  data={[
+                    { label: 'Low Risk', value: lowRiskCount, color: '#22c55e' },
+                    { label: 'Medium Risk', value: mediumRiskCount, color: '#f59e0b' },
+                    { label: 'High Risk', value: highRiskCount, color: '#ef4444' },
+                  ]}
+                />
+              </CardBody>
+            </Card>
 
-        <Card className="lg:col-span-2">
-          <CardHeader
-            title="Telemetry Signal Frequency"
-            subtitle="Browser tab shifts, facial absences, and audio events aggregated over time"
-            icon={<Activity size={18} />}
-          />
-          <CardBody>
-            <BarChart
-              data={[
-                { label: 'Focus Loss', value: flags.filter((f) => f.type?.includes('BLUR') || f.type?.includes('TAB')).length * 3 + 12 },
-                { label: 'Multi-Face', value: flags.filter((f) => f.type?.includes('FACE')).length * 2 + 8 },
-                { label: 'No Face', value: flags.filter((f) => f.type?.includes('NO_FACE')).length * 2 + 5 },
-                { label: 'DevTools', value: flags.filter((f) => f.type?.includes('DEV')).length + 3 },
-                { label: 'Audio Noise', value: flags.filter((f) => f.type?.includes('VOICE') || f.type?.includes('AUDIO')).length * 2 + 9 },
-                { label: 'Clipboard', value: flags.filter((f) => f.type?.includes('CLIP') || f.type?.includes('COPY')).length + 4 },
-              ]}
-              color="#f59e0b"
-            />
-          </CardBody>
-        </Card>
-      </div>
-
-      {/* Dynamic Review Queue */}
-      <Card>
-        <CardHeader
-          title="Telemetry Anomaly Review Queue"
-          subtitle="Real-time incident feed requiring proctor oversight or immediate intervention"
-          icon={<AlertCircle size={18} />}
-        />
-        <CardBody className="p-0">
-          <div className="px-5 pt-3">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <SearchBar
-                value={search}
-                onChange={setSearch}
-                placeholder="Search by candidate name, assessment, or signal description..."
-                className="flex-1"
+            <Card className="lg:col-span-2">
+              <CardHeader
+                title="Telemetry Signal Frequency"
+                subtitle="Real-time aggregation of browser blur events, multi-face presence, and audio spikes"
+                icon={<Activity size={18} />}
               />
-              <div className="flex gap-2 flex-wrap sm:flex-nowrap">
-                <Select
-                  value={riskFilter}
-                  onChange={(e) => setRiskFilter(e.target.value)}
-                  options={[
-                    { value: 'all', label: 'All Severity' },
-                    { value: 'low', label: 'Low Risk' },
-                    { value: 'medium', label: 'Medium Risk' },
-                    { value: 'high', label: 'High Risk' },
+              <CardBody>
+                <BarChart
+                  data={[
+                    { label: 'Focus Loss', value: focusLossCount },
+                    { label: 'Multi-Face', value: multiFaceCount },
+                    { label: 'No Face', value: noFaceCount },
+                    { label: 'DevTools', value: devToolsCount },
+                    { label: 'Audio Noise', value: audioCount },
+                    { label: 'Clipboard', value: clipCount },
                   ]}
-                  className="w-36"
+                  color="#f59e0b"
                 />
-                <Select
-                  value={typeFilter}
-                  onChange={(e) => setTypeFilter(e.target.value)}
-                  options={[
-                    { value: 'all', label: 'All Signal Types' },
-                    { value: 'blur', label: 'Window / Tab Focus' },
-                    { value: 'face', label: 'Facial / Vision' },
-                    { value: 'voice', label: 'Audio / Voice' },
-                    { value: 'dev', label: 'DevTools / Inspector' },
-                    { value: 'clip', label: 'Clipboard Activity' },
-                  ]}
-                  className="w-44"
-                />
-              </div>
-            </div>
+              </CardBody>
+            </Card>
           </div>
 
-          <div className="mt-3 divide-y divide-accent-100 dark:divide-accent-800">
-            {filtered.length === 0 ? (
-              <div className="p-8 text-center text-xs text-accent-400">
-                No telemetry anomalies matching active filters.
+          {/* Dynamic Review Queue */}
+          <Card>
+            <CardHeader
+              title="Telemetry Anomaly Review Queue"
+              subtitle="Real-time incident feed requiring proctor oversight or immediate intervention"
+              icon={<AlertCircle size={18} />}
+            />
+            <CardBody className="p-0">
+              <div className="px-5 pt-3">
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <SearchBar
+                    value={search}
+                    onChange={setSearch}
+                    placeholder="Search by candidate name, assessment, or signal description..."
+                    className="flex-1"
+                  />
+                  <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+                    <Select
+                      value={riskFilter}
+                      onChange={(e) => setRiskFilter(e.target.value)}
+                      options={[
+                        { value: 'all', label: 'All Severity' },
+                        { value: 'low', label: 'Low Risk' },
+                        { value: 'medium', label: 'Medium Risk' },
+                        { value: 'high', label: 'High Risk' },
+                      ]}
+                      className="w-36"
+                    />
+                    <Select
+                      value={typeFilter}
+                      onChange={(e) => setTypeFilter(e.target.value)}
+                      options={[
+                        { value: 'all', label: 'All Signal Types' },
+                        { value: 'blur', label: 'Window / Tab Focus' },
+                        { value: 'face', label: 'Facial / Vision' },
+                        { value: 'voice', label: 'Audio / Voice' },
+                        { value: 'dev', label: 'DevTools / Inspector' },
+                        { value: 'clip', label: 'Clipboard Activity' },
+                      ]}
+                      className="w-44"
+                    />
+                  </div>
+                </div>
               </div>
-            ) : (
-              filtered.map((flag) => (
-                <div
-                  key={flag.id}
-                  className="flex items-start gap-3.5 px-5 py-4 hover:bg-accent-50/60 dark:hover:bg-accent-800/40 transition-colors cursor-pointer"
-                  onClick={() => onNavigate('org-integrity-evidence')}
-                >
-                  <div
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-soft ${
-                      flag.riskLevel === 'High'
-                        ? 'bg-danger-50 dark:bg-danger-950/60 text-danger-600 dark:text-danger-400 border border-danger-200 dark:border-danger-900/50'
-                        : flag.riskLevel === 'Medium'
-                        ? 'bg-warning-50 dark:bg-warning-950/60 text-warning-600 dark:text-warning-400 border border-warning-200 dark:border-warning-900/50'
-                        : 'bg-success-50 dark:bg-success-950/60 text-success-600 dark:text-success-400 border border-success-200 dark:border-success-900/50'
-                    }`}
-                  >
-                    <AlertCircle size={20} />
-                  </div>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="text-xs font-bold text-accent-900 dark:text-white">
-                        {flag.participant}
-                      </span>
-                      <span className="text-accent-300 dark:text-accent-700">·</span>
-                      <span className="text-xs text-accent-500 dark:text-accent-400 truncate max-w-[200px]">
-                        {flag.assessment}
-                      </span>
-                      <RiskBadge level={flag.riskLevel} />
-                      <Badge variant="neutral" className="text-[10px]">
-                        {flag.type || 'Telemetry'}
-                      </Badge>
-                    </div>
-                    <p className="text-xs font-semibold text-accent-800 dark:text-accent-200 mb-0.5">
-                      {flag.title}
+              <div className="mt-3 divide-y divide-accent-100 dark:divide-accent-800">
+                {filtered.length === 0 ? (
+                  <div className="p-12 text-center text-xs text-accent-400 space-y-2">
+                    <CheckCircle2 size={32} className="mx-auto text-success-500 opacity-60" />
+                    <p className="font-semibold text-accent-800 dark:text-accent-200">
+                      Zero Telemetry Violations in Queue
                     </p>
-                    <p className="text-[11px] text-accent-500 dark:text-accent-400 leading-relaxed">
-                      {flag.description}
+                    <p className="text-[11px] text-accent-400">
+                      All active candidate sessions are currently verified and compliant with proctoring policies.
                     </p>
                   </div>
+                ) : (
+                  filtered.map((flag) => (
+                    <div
+                      key={flag.id}
+                      className="flex items-start gap-3.5 px-5 py-4 hover:bg-accent-50/60 dark:hover:bg-accent-800/40 transition-colors cursor-pointer"
+                      onClick={() => {
+                        try {
+                          onNavigate('org-sessions-review');
+                        } catch {
+                          onNavigate('org-sessions');
+                        }
+                      }}
+                    >
+                      <div className="mt-0.5">
+                        <RiskBadge risk={flag.riskLevel} />
+                      </div>
 
-                  {/* Actions & Timestamp */}
-                  <div className="flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
-                    <div className="hidden sm:flex items-center gap-1.5">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-[11px] h-7 px-2"
-                        icon={<AlertTriangle size={12} className="text-amber-500" />}
-                        onClick={() => handleOpenActionModal(flag, 'warning')}
-                      >
-                        Warn
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-[11px] h-7 px-2"
-                        icon={<CheckCircle2 size={12} className="text-emerald-500" />}
-                        onClick={() => handleOpenActionModal(flag, 'dismiss')}
-                      >
-                        Dismiss
-                      </Button>
-                      {flag.riskLevel === 'High' && (
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-bold text-accent-900 dark:text-white">
+                            {flag.participant}
+                          </span>
+                          <span className="text-accent-300 dark:text-accent-700">•</span>
+                          <span className="text-xs text-accent-600 dark:text-accent-400 font-medium">
+                            {flag.assessment}
+                          </span>
+                          <span className="text-accent-300 dark:text-accent-700">•</span>
+                          <span className="text-[11px] font-mono text-accent-400">
+                            {flag.timestamp}
+                          </span>
+                        </div>
+
+                        <p className="text-xs font-semibold text-accent-800 dark:text-accent-200 mt-0.5">
+                          {flag.title}
+                        </p>
+                        <p className="text-xs text-accent-500 dark:text-accent-400 mt-0.5 line-clamp-1">
+                          {flag.description}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                         <Button
-                          variant="danger"
-                          size="sm"
-                          className="text-[11px] h-7 px-2"
-                          icon={<XCircle size={12} />}
+                          variant="ghost"
+                          size="xs"
+                          className="text-warning-600 hover:text-warning-700 hover:bg-warning-50 dark:hover:bg-warning-950/40"
+                          onClick={() => handleOpenActionModal(flag, 'warning')}
+                        >
+                          Warn
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          className="text-danger-600 hover:text-danger-700 hover:bg-danger-50 dark:hover:bg-danger-950/40"
                           onClick={() => handleOpenActionModal(flag, 'terminate')}
                         >
                           Terminate
                         </Button>
-                      )}
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          className="text-accent-500 hover:text-accent-700"
+                          onClick={() => handleOpenActionModal(flag, 'dismiss')}
+                        >
+                          Dismiss
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1 text-[11px] text-accent-400 font-mono">
-                      <Clock size={12} /> {flag.timestamp}
-                    </div>
-                    <ChevronRight size={16} className="text-accent-400" />
-                  </div>
-                </div>
-              ))
+                  ))
+                )}
+              </div>
+            </CardBody>
+          </Card>
+        </>
+      )}
+
+      {/* Intervention Action Modal */}
+      {actionModalOpen && (
+        <Modal
+          isOpen={actionModalOpen}
+          onClose={() => setActionModalOpen(false)}
+          title={
+            actionType === 'warning'
+              ? 'Issue Live Candidate Warning'
+              : actionType === 'terminate'
+              ? 'Terminate Proctored Examination'
+              : 'Dismiss Telemetry Incident'
+          }
+        >
+          <div className="space-y-4 text-xs">
+            <div className="p-3 bg-accent-50 dark:bg-accent-950/60 rounded-xl border border-accent-200 dark:border-accent-800 space-y-1">
+              <p className="font-bold text-accent-900 dark:text-white">
+                Candidate: {selectedIncident?.participant}
+              </p>
+              <p className="text-accent-500">
+                Assessment: {selectedIncident?.assessment} • Signal: {selectedIncident?.title}
+              </p>
+            </div>
+
+            {actionType !== 'dismiss' ? (
+              <div className="space-y-1.5">
+                <label className="font-semibold text-accent-800 dark:text-accent-200">
+                  Direct Intervention Notice:
+                </label>
+                <Textarea
+                  rows={3}
+                  value={actionMessage}
+                  onChange={(e) => setActionMessage(e.target.value)}
+                  placeholder="Enter message to display on the examinee's screen..."
+                />
+              </div>
+            ) : (
+              <p className="text-accent-600 dark:text-accent-400">
+                Are you sure you want to dismiss this incident as a verified false positive? It will be logged in the immutable audit matrix.
+              </p>
             )}
-          </div>
-        </CardBody>
-      </Card>
 
-      {/* Proctor Intervention Modal */}
-      <Modal
-        open={actionModalOpen}
-        onClose={() => setActionModalOpen(false)}
-        title={
-          actionType === 'warning'
-            ? 'Send Invigilator Warning'
-            : actionType === 'terminate'
-            ? 'Terminate Examination Attempt'
-            : 'Dismiss Anomaly Flag'
-        }
-        subtitle={`Candidate: ${selectedIncident?.participant || 'Examinee'} • Assessment: ${selectedIncident?.assessment || 'Exam'}`}
-        size="md"
-        footer={
-          <div className="flex items-center justify-end gap-2 w-full">
-            <Button variant="outline" size="sm" onClick={() => setActionModalOpen(false)} disabled={isProcessingAction}>
-              Cancel
-            </Button>
-            <Button
-              variant={actionType === 'terminate' ? 'danger' : 'primary'}
-              size="sm"
-              loading={isProcessingAction}
-              onClick={handleExecuteIntervention}
-            >
-              {actionType === 'warning' ? 'Dispatch Warning' : actionType === 'terminate' ? 'Confirm Termination' : 'Mark as False Positive'}
-            </Button>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActionModalOpen(false)}
+                disabled={isProcessingAction}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant={actionType === 'terminate' ? 'danger' : 'primary'}
+                size="sm"
+                onClick={handleExecuteIntervention}
+                disabled={isProcessingAction}
+              >
+                {isProcessingAction
+                  ? 'Dispatching...'
+                  : actionType === 'warning'
+                  ? 'Send Live Warning'
+                  : actionType === 'terminate'
+                  ? 'Confirm Termination'
+                  : 'Confirm Dismissal'}
+              </Button>
+            </div>
           </div>
-        }
-      >
-        <div className="space-y-3">
-          <div className="p-3 rounded-xl bg-accent-50 dark:bg-accent-900/40 border border-accent-200 dark:border-accent-800 text-xs text-accent-700 dark:text-accent-300">
-            <p className="font-semibold text-accent-900 dark:text-white mb-1">
-              Triggering Signal: {selectedIncident?.title}
-            </p>
-            <p className="text-[11px] text-accent-500 dark:text-accent-400">{selectedIncident?.description}</p>
-          </div>
-
-          <Textarea
-            label="Message to Candidate / Audit Log Note"
-            rows={3}
-            value={actionMessage}
-            onChange={(e) => setActionMessage(e.target.value)}
-            placeholder="Enter reason or instructions..."
-          />
-        </div>
-      </Modal>
+        </Modal>
+      )}
     </div>
   );
 }

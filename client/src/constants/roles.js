@@ -4,6 +4,7 @@ export const ROLE_SCOPES = Object.freeze({
 });
 
 export const PLATFORM_ROLES = Object.freeze({
+  PLATFORM_OWNER: 'PLATFORM_OWNER',
   PLATFORM_ADMIN: 'PLATFORM_ADMIN',
 });
 
@@ -27,6 +28,7 @@ export const ROLES = Object.freeze({
 export const ROLE_LIST = Object.values(ROLES);
 
 export const ROLE_LABELS = Object.freeze({
+  [PLATFORM_ROLES.PLATFORM_OWNER]: 'Platform Owner',
   [PLATFORM_ROLES.PLATFORM_ADMIN]: 'Platform Administrator',
   [ORGANIZATION_ROLES.ORGANIZATION_OWNER]: 'Organization Owner',
   [ORGANIZATION_ROLES.ORGANIZATION_ADMIN]: 'Organization Administrator',
@@ -35,3 +37,13 @@ export const ROLE_LABELS = Object.freeze({
   [ORGANIZATION_ROLES.CANDIDATE]: 'Candidate / Student',
 });
 
+export default {
+  ROLE_SCOPES,
+  PLATFORM_ROLES,
+  PLATFORM_ROLE_LIST,
+  ORGANIZATION_ROLES,
+  ORGANIZATION_ROLE_LIST,
+  ROLES,
+  ROLE_LIST,
+  ROLE_LABELS,
+};

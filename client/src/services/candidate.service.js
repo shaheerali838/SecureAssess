@@ -56,6 +56,45 @@ export const candidateService = {
     const response = await api.delete(`/candidates/${candidateId}`);
     return response.data || response;
   },
+
+  /**
+   * Fetch candidate portal assigned assessments
+   */
+  async getMyAssignments(params = {}) {
+    try {
+      const response = await api.get('/candidates/portal/assignments', { params });
+      return response.data || response;
+    } catch {
+      const response = await api.get('/candidate-portal/assignments', { params });
+      return response.data || response;
+    }
+  },
+
+  /**
+   * Fetch candidate portal attempts
+   */
+  async getMyAttempts(params = {}) {
+    try {
+      const response = await api.get('/candidates/portal/attempts', { params });
+      return response.data || response;
+    } catch {
+      const response = await api.get('/candidate-portal/attempts', { params });
+      return response.data || response;
+    }
+  },
+
+  /**
+   * Fetch candidate portal scheduled live interviews
+   */
+  async getMyInterviews(params = {}) {
+    try {
+      const response = await api.get('/candidates/portal/interviews', { params });
+      return response.data || response;
+    } catch {
+      const response = await api.get('/candidate-portal/interviews', { params });
+      return response.data || response;
+    }
+  },
 };
 
 export default candidateService;

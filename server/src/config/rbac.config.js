@@ -536,8 +536,8 @@ export const SIDEBAR_CONFIG = Object.freeze({
 
   [ROLES.CANDIDATE]: [
     { label: "Dashboard", path: "/candidate/dashboard", id: "candidate-dashboard", icon: "LayoutDashboard", permission: PERMISSIONS.CANDIDATE_DASHBOARD_VIEW },
-    { label: "Active Assessment", path: "/candidate/assessment", id: "participant-assessment", icon: "FileText", permission: PERMISSIONS.ATTEMPTS_CREATE },
-    { label: "Live Interview", path: "/candidate/interview", id: "participant-interview", icon: "Video", permission: PERMISSIONS.INTERVIEWS_JOIN },
+    { label: "My Assessments", path: "/candidate/assessments", id: "candidate-assessments", icon: "FileText", permission: PERMISSIONS.CANDIDATE_ASSESSMENTS_VIEW },
+    { label: "My Interviews", path: "/candidate/interviews", id: "candidate-interviews", icon: "Video", permission: PERMISSIONS.CANDIDATE_INTERVIEWS_VIEW },
     { label: "Results & Feedback", path: "/candidate/evaluation", id: "participant-evaluation", icon: "ClipboardList", permission: PERMISSIONS.RESULTS_VIEW_OWN },
     { label: "System Diagnostic", path: "/candidate/system-check", id: "participant-system-check", icon: "ShieldCheck", permission: PERMISSIONS.SYSTEM_CHECK_RUN },
   ],

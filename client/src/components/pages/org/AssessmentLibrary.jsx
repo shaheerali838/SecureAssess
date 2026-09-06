@@ -7,7 +7,6 @@ import {
   Card, Badge, StatusBadge, SecurityBadge, Button, SearchBar,
   PageHeader, Select, EmptyState, SkeletonCards, Toast,
 } from '@/components/ui';
-import { assessments as fallbackAssessments } from '@/data';
 import assessmentService from '@/services/assessment.service';
 import { AssignAssessmentModal } from './AssignAssessmentModal';
 
@@ -26,14 +25,10 @@ export function AssessmentLibrary({ onNavigate }) {
     try {
       const data = await assessmentService.getAssessments();
       const items = Array.isArray(data) ? data : (data?.items || data?.assessments || data?.data || []);
-      if (items && items.length > 0) {
-        setAssessmentsList(items);
-      } else {
-        setAssessmentsList(fallbackAssessments);
-      }
+      setAssessmentsList(items || []);
     } catch (err) {
-      console.warn('Backend assessments not reachable, loaded local fallback:', err.message);
-      setAssessmentsList(fallbackAssessments);
+      console.warn('Backend assessments fetch error:', err.message);
+      setAssessmentsList([]);
     } finally {
       setLoading(false);
     }

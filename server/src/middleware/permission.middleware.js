@@ -55,10 +55,12 @@ export const requirePlatformPermission = (...requiredPermissions) => {
         return next(new ApiError(403, "Forbidden. Platform Admin role configuration missing."));
       }
 
-      const assignedKeys = platformAdminRole.permissions.map((p) => p.key);
-      const hasAll = requiredPermissions.every((perm) => assignedKeys.includes(perm));
+      const assignedKeys = (platformAdminRole.permissions || []).map((p) => p.key || p);
+      const hasPermission =
+        requiredPermissions.length === 0 ||
+        requiredPermissions.some((perm) => assignedKeys.includes(perm));
 
-      if (!hasAll) {
+      if (!hasPermission) {
         AuditLogService.createSecurityAuditLog({
           actorId: req.user.id || req.user._id,
           action: AUDIT_ACTIONS.PERMISSION_DENIED,

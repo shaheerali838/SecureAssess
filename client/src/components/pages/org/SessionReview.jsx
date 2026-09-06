@@ -41,63 +41,68 @@ export function SessionReview({ onNavigate }) {
       }
     }
 
-    if (!session) {
-      session = {
-        id: 'sess_default_01',
-        participant: 'Alex Johnson',
-        email: 'student@stanford.edu',
-        assessment: 'Data Structures Final Exam',
-        assessmentCode: 'CS-201',
-        status: 'COMPLETED',
-        riskLevel: 'LOW',
-        duration: '75 mins',
-        date: 'Today',
-        violationsCount: 1,
-      };
-    }
-    setSessionData(session);
-
-    // Fetch dynamic telemetry events and timeline
-    const loadSessionTelemetry = async () => {
+    const loadSessionAndTelemetry = async () => {
       setLoading(true);
       try {
-        const sessionId = session._id || session.id;
-        const [detailsRes, timelineRes] = await Promise.allSettled([
-          proctoringService.getSessionById(sessionId),
-          proctoringService.getSessionTimeline(sessionId),
-        ]);
-
-        if (timelineRes.status === 'fulfilled' && (timelineRes.value?.timeline || Array.isArray(timelineRes.value))) {
-          const events = timelineRes.value.timeline || timelineRes.value;
-          if (Array.isArray(events) && events.length > 0) {
-            setTimelineEvents(events);
-          } else {
-            setTimelineEvents(generateDefaultTimeline());
+        if (!session) {
+          const sessionsRes = await proctoringService.getSessions({ limit: 1 });
+          const items = Array.isArray(sessionsRes)
+            ? sessionsRes
+            : (sessionsRes?.items || sessionsRes?.data?.items || sessionsRes?.data || []);
+          if (items && items.length > 0) {
+            const s = items[0];
+            session = {
+              id: s._id || s.id,
+              participant: s.candidateName || s.participant || (s.candidateId?.firstName ? `${s.candidateId.firstName} ${s.candidateId.lastName || ''}`.trim() : 'Candidate'),
+              email: s.candidateEmail || s.candidateId?.email || 'candidate@secureassess.edu',
+              assessment: s.assessmentTitle || s.assessment || s.assessmentId?.title || 'Proctored Assessment',
+              assessmentCode: s.assessmentCode || s.assessmentId?.code || 'EXAM',
+              status: s.status || 'COMPLETED',
+              riskLevel: s.riskLevel || (s.violationsCount > 3 ? 'HIGH' : s.violationsCount > 0 ? 'MEDIUM' : 'LOW'),
+              duration: s.duration || (s.durationSeconds ? `${Math.floor(s.durationSeconds / 60)} mins` : '60 mins'),
+              date: s.createdAt ? new Date(s.createdAt).toLocaleDateString() : 'Recent',
+              violationsCount: s.violationsCount || s.eventsCount || 0,
+            };
           }
+        }
+
+        setSessionData(session);
+
+        if (session) {
+          const sessionId = session._id || session.id;
+          const [timelineRes, eventsRes] = await Promise.allSettled([
+            proctoringService.getSessionTimeline(sessionId),
+            proctoringService.getSessionEvents(sessionId),
+          ]);
+
+          let events = [];
+          if (timelineRes.status === 'fulfilled' && timelineRes.value) {
+            events = timelineRes.value.timeline || (Array.isArray(timelineRes.value) ? timelineRes.value : []);
+          }
+          if (events.length === 0 && eventsRes.status === 'fulfilled' && eventsRes.value) {
+            const rawEvents = Array.isArray(eventsRes.value) ? eventsRes.value : (eventsRes.value.items || eventsRes.value.data || []);
+            events = rawEvents.map((e, idx) => ({
+              time: e.timestamp ? new Date(e.timestamp).toLocaleTimeString([], { minute: '2-digit', second: '2-digit' }) : `00:${String(idx * 5).padStart(2, '0')}`,
+              label: e.description || e.type || 'Telemetry Signal',
+              type: e.severity === 'HIGH' || e.severity === 'CRITICAL' ? 'warning' : 'info',
+              markerPercent: Math.min(100, Math.round((idx + 1) * 15)),
+            }));
+          }
+
+          setTimelineEvents(events);
         } else {
-          setTimelineEvents(generateDefaultTimeline());
+          setTimelineEvents([]);
         }
       } catch (err) {
-        console.warn('Session timeline fallback:', err);
-        setTimelineEvents(generateDefaultTimeline());
+        console.warn('Session telemetry fetch error:', err);
+        setTimelineEvents([]);
       } finally {
         setLoading(false);
       }
     };
 
-    loadSessionTelemetry();
+    loadSessionAndTelemetry();
   }, []);
-
-  function generateDefaultTimeline() {
-    return [
-      { time: '00:00', label: 'Candidate identity verified & exam started', type: 'success', markerPercent: 0 },
-      { time: '08:15', label: 'Section 1 completed (MCQ Reasoning)', type: 'info', markerPercent: 12 },
-      { time: '14:20', label: 'Window blur / secondary tab focus recorded', type: 'warning', markerPercent: 24 },
-      { time: '22:45', label: 'Facial gaze shift warning marker', type: 'warning', markerPercent: 40 },
-      { time: '38:10', label: 'Coding Lab 2 test cases compiled', type: 'info', markerPercent: 62 },
-      { time: '52:30', label: 'Assessment finalized & response payload encrypted', type: 'success', markerPercent: 92 },
-    ];
-  }
 
   // Handle Play / Pause
   const togglePlay = () => {
@@ -403,33 +408,39 @@ export function SessionReview({ onNavigate }) {
               icon={<Clock size={18} />}
             />
             <CardBody className="p-0">
-              <div className="divide-y divide-accent-100 dark:divide-accent-800">
-                {timelineEvents.map((evt, i) => (
-                  <div
-                    key={i}
-                    onClick={() => seekToPercent(evt.markerPercent || 0)}
-                    className="flex items-center justify-between p-3.5 px-4 hover:bg-accent-50 dark:hover:bg-accent-900/50 transition-colors cursor-pointer"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-2 h-2 rounded-full ${
-                          evt.type === 'warning'
-                            ? 'bg-amber-500'
-                            : evt.type === 'success'
-                            ? 'bg-emerald-500'
-                            : 'bg-primary-500'
-                        }`}
-                      />
-                      <span className="text-xs font-semibold text-accent-900 dark:text-white">
-                        {evt.label}
+              {timelineEvents.length === 0 ? (
+                <div className="p-6 text-center text-xs text-accent-500 dark:text-accent-400">
+                  No telemetry violation markers recorded for this examination session.
+                </div>
+              ) : (
+                <div className="divide-y divide-accent-100 dark:divide-accent-800">
+                  {timelineEvents.map((evt, i) => (
+                    <div
+                      key={i}
+                      onClick={() => seekToPercent(evt.markerPercent || 0)}
+                      className="flex items-center justify-between p-3.5 px-4 hover:bg-accent-50 dark:hover:bg-accent-900/50 transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-2 h-2 rounded-full ${
+                            evt.type === 'warning'
+                              ? 'bg-amber-500'
+                              : evt.type === 'success'
+                              ? 'bg-emerald-500'
+                              : 'bg-primary-500'
+                          }`}
+                        />
+                        <span className="text-xs font-semibold text-accent-900 dark:text-white">
+                          {evt.label}
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-mono text-accent-500 dark:text-accent-400">
+                        {evt.time}
                       </span>
                     </div>
-                    <span className="text-[11px] font-mono text-accent-500 dark:text-accent-400">
-                      {evt.time}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardBody>
           </Card>
         </div>

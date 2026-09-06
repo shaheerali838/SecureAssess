@@ -8,13 +8,6 @@ import { Modal, Button, Badge, Avatar } from '@/components/ui';
 import candidateService from '@/services/candidate.service';
 import organizationService from '@/services/organization.service';
 import interviewService from '@/services/interview.service';
-import {
-  participants as defaultParticipants,
-  departments as defaultDepartments,
-  programs as defaultPrograms,
-  subjects as defaultSubjects,
-  candidateGroups as defaultCandidateGroups
-} from '@/data';
 
 export function ScheduleInterviewModal({
   isOpen,
@@ -25,7 +18,7 @@ export function ScheduleInterviewModal({
   // Target Scope: 'candidates' | 'departments' | 'subjects' | 'programs' | 'open_entry'
   const [targetScope, setTargetScope] = useState('candidates');
 
-  // Datasets from MongoDB / Fallback
+  // Datasets from MongoDB
   const [candidates, setCandidates] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [programs, setPrograms] = useState([]);
@@ -94,39 +87,39 @@ export function ScheduleInterviewModal({
           organizationService.getCandidateGroups(),
         ]);
 
-        if (candRes.status === 'fulfilled' && (candRes.value?.items || candRes.value?.data || Array.isArray(candRes.value))) {
-          const list = Array.isArray(candRes.value) ? candRes.value : (candRes.value.items || candRes.value.data || []);
-          setCandidates(list.length > 0 ? list : defaultParticipants);
+        if (candRes.status === 'fulfilled') {
+          const list = Array.isArray(candRes.value) ? candRes.value : (candRes.value?.items || candRes.value?.data || []);
+          setCandidates(list || []);
         } else {
-          setCandidates(defaultParticipants);
+          setCandidates([]);
         }
 
-        if (deptRes.status === 'fulfilled' && (deptRes.value?.items || deptRes.value?.data || Array.isArray(deptRes.value))) {
-          const list = Array.isArray(deptRes.value) ? deptRes.value : (deptRes.value.items || deptRes.value.data || []);
-          setDepartments(list.length > 0 ? list : defaultDepartments);
+        if (deptRes.status === 'fulfilled') {
+          const list = Array.isArray(deptRes.value) ? deptRes.value : (deptRes.value?.items || deptRes.value?.data || []);
+          setDepartments(list || []);
         } else {
-          setDepartments(defaultDepartments);
+          setDepartments([]);
         }
 
-        if (progRes.status === 'fulfilled' && (progRes.value?.items || progRes.value?.data || Array.isArray(progRes.value))) {
-          const list = Array.isArray(progRes.value) ? progRes.value : (progRes.value.items || progRes.value.data || []);
-          setPrograms(list.length > 0 ? list : defaultPrograms);
+        if (progRes.status === 'fulfilled') {
+          const list = Array.isArray(progRes.value) ? progRes.value : (progRes.value?.items || progRes.value?.data || []);
+          setPrograms(list || []);
         } else {
-          setPrograms(defaultPrograms);
+          setPrograms([]);
         }
 
-        if (subjRes.status === 'fulfilled' && (subjRes.value?.items || subjRes.value?.data || Array.isArray(subjRes.value))) {
-          const list = Array.isArray(subjRes.value) ? subjRes.value : (subjRes.value.items || subjRes.value.data || []);
-          setSubjects(list.length > 0 ? list : defaultSubjects);
+        if (subjRes.status === 'fulfilled') {
+          const list = Array.isArray(subjRes.value) ? subjRes.value : (subjRes.value?.items || subjRes.value?.data || []);
+          setSubjects(list || []);
         } else {
-          setSubjects(defaultSubjects);
+          setSubjects([]);
         }
 
-        if (grpRes.status === 'fulfilled' && (grpRes.value?.items || grpRes.value?.data || Array.isArray(grpRes.value))) {
-          const list = Array.isArray(grpRes.value) ? grpRes.value : (grpRes.value.items || grpRes.value.data || []);
-          setCandidateGroups(list.length > 0 ? list : defaultCandidateGroups);
+        if (grpRes.status === 'fulfilled') {
+          const list = Array.isArray(grpRes.value) ? grpRes.value : (grpRes.value?.items || grpRes.value?.data || []);
+          setCandidateGroups(list || []);
         } else {
-          setCandidateGroups(defaultCandidateGroups);
+          setCandidateGroups([]);
         }
       } catch (err) {
         console.warn('Academic data load warning:', err.message);

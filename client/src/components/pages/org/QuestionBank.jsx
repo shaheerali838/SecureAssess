@@ -7,7 +7,6 @@ import {
   Card, CardBody, Badge, Button, SearchBar, PageHeader, Select, EmptyState,
   Modal, Input, Textarea, Toast, SkeletonCards
 } from '@/components/ui';
-import { questions as defaultQuestions } from '@/data';
 import questionBankService from '@/services/questionBank.service';
 
 const difficultyColors = {
@@ -40,14 +39,10 @@ export function QuestionBank({ onNavigate }) {
     try {
       const data = await questionBankService.getQuestions();
       const items = Array.isArray(data) ? data : (data?.items || data?.questions || data?.data || []);
-      if (items && items.length > 0) {
-        setQuestionsList(items);
-      } else {
-        setQuestionsList(defaultQuestions);
-      }
+      setQuestionsList(items || []);
     } catch (err) {
-      console.warn('Questions API fallback triggered:', err.message);
-      setQuestionsList(defaultQuestions);
+      console.warn('Questions fetch error:', err.message);
+      setQuestionsList([]);
     } finally {
       setLoading(false);
     }
@@ -72,19 +67,14 @@ export function QuestionBank({ onNavigate }) {
         tags: [newCategory.toLowerCase()],
       };
 
-      try {
-        await questionBankService.createQuestion(payload);
-        setToastMessage({ type: 'success', text: 'Question added to bank!' });
-      } catch (err) {
-        console.warn('API error, saving locally:', err.message);
-        setToastMessage({ type: 'success', text: 'Question added to local workspace!' });
-      }
-
-      setQuestionsList((prev) => [{ id: Date.now(), ...payload }, ...prev]);
+      const res = await questionBankService.createQuestion(payload);
+      const createdItem = res?.data || res || { id: Date.now(), ...payload };
+      setQuestionsList((prev) => [createdItem, ...prev]);
+      setToastMessage({ type: 'success', text: 'Question added to bank!' });
       setModalOpen(false);
       setNewContent('');
     } catch (err) {
-      setToastMessage({ type: 'error', text: 'Failed to add question: ' + err.message });
+      setToastMessage({ type: 'error', text: 'Failed to add question: ' + (err.response?.data?.message || err.message) });
     } finally {
       setIsSubmitting(false);
     }
@@ -92,15 +82,11 @@ export function QuestionBank({ onNavigate }) {
 
   const handleDeleteQuestion = async (id) => {
     try {
-      try {
-        await questionBankService.deleteQuestion(id);
-      } catch (e) {
-        // fallback
-      }
+      await questionBankService.deleteQuestion(id);
       setQuestionsList((prev) => prev.filter((q) => (q._id || q.id) !== id));
       setToastMessage({ type: 'success', text: 'Question removed from bank.' });
     } catch (err) {
-      setToastMessage({ type: 'error', text: 'Failed to remove question.' });
+      setToastMessage({ type: 'error', text: 'Failed to remove question: ' + (err.response?.data?.message || err.message) });
     }
   };
 

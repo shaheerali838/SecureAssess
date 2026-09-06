@@ -18,6 +18,12 @@ export class SubjectValidator {
     if (body.credits !== undefined && (typeof body.credits !== "number" || body.credits < 0)) {
       errors.push("Credits must be a non-negative number");
     }
+    if (body.examinerId && !mongoose.Types.ObjectId.isValid(body.examinerId)) {
+      errors.push("Valid examinerId format required");
+    }
+    if (body.assignedExaminers && !Array.isArray(body.assignedExaminers)) {
+      errors.push("assignedExaminers must be an array of user IDs");
+    }
     if (body.status && !["ACTIVE", "INACTIVE", "ARCHIVED"].includes(body.status)) {
       errors.push("Status must be one of: ACTIVE, INACTIVE, ARCHIVED");
     }
@@ -40,6 +46,12 @@ export class SubjectValidator {
     }
     if (body.credits !== undefined && (typeof body.credits !== "number" || body.credits < 0)) {
       errors.push("Credits must be a non-negative number");
+    }
+    if (body.examinerId && !mongoose.Types.ObjectId.isValid(body.examinerId)) {
+      errors.push("Valid examinerId format required");
+    }
+    if (body.assignedExaminers && !Array.isArray(body.assignedExaminers)) {
+      errors.push("assignedExaminers must be an array of user IDs");
     }
     if (body.status && !["ACTIVE", "INACTIVE", "ARCHIVED"].includes(body.status)) {
       errors.push("Status must be one of: ACTIVE, INACTIVE, ARCHIVED");

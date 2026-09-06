@@ -1,31 +1,41 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
-  Users, UserPlus, Search, Calendar, Clock, Link2,
-  Copy, Check, AlertCircle, CheckCircle2, Shield, Sparkles, X, ChevronDown,
-  Building2, BookOpen, GraduationCap, Layers, CheckSquare, Square
-} from 'lucide-react';
-import { Modal, Button, Badge, Avatar } from '@/components/ui';
-import candidateService from '@/services/candidate.service';
-import organizationService from '@/services/organization.service';
-import assessmentService from '@/services/assessment.service';
-import {
-  participants as defaultParticipants,
-  departments as defaultDepartments,
-  programs as defaultPrograms,
-  subjects as defaultSubjects,
-  candidateGroups as defaultCandidateGroups
-} from '@/data';
+  Users,
+  UserPlus,
+  Search,
+  Calendar,
+  Clock,
+  Link2,
+  Copy,
+  Check,
+  AlertCircle,
+  CheckCircle2,
+  Shield,
+  Sparkles,
+  X,
+  ChevronDown,
+  Building2,
+  BookOpen,
+  GraduationCap,
+  Layers,
+  CheckSquare,
+  Square,
+} from "lucide-react";
+import { Modal, Button, Badge, Avatar } from "@/components/ui";
+import candidateService from "@/services/candidate.service";
+import organizationService from "@/services/organization.service";
+import assessmentService from "@/services/assessment.service";
 
 export function AssignAssessmentModal({
   isOpen,
   onClose,
   assessments = [],
   selectedAssessment = null,
-  onAssigned = () => {}
+  onAssigned = () => {},
 }) {
-  const [targetAssessmentId, setTargetAssessmentId] = useState('');
+  const [targetAssessmentId, setTargetAssessmentId] = useState("");
   // Assignment Scopes: 'candidates' | 'departments' | 'subjects' | 'programs' | 'groups' | 'open_entry'
-  const [assignmentScope, setAssignmentScope] = useState('candidates');
+  const [assignmentScope, setAssignmentScope] = useState("candidates");
 
   // Datasets
   const [candidates, setCandidates] = useState([]);
@@ -43,12 +53,12 @@ export function AssignAssessmentModal({
   const [selectedGroupIds, setSelectedGroupIds] = useState([]);
 
   // Search & Filters
-  const [searchTerm, setSearchTerm] = useState('');
-  const [availableFrom, setAvailableFrom] = useState('');
-  const [availableUntil, setAvailableUntil] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [availableFrom, setAvailableFrom] = useState("");
+  const [availableUntil, setAvailableUntil] = useState("");
   const [attemptsAllowed, setAttemptsAllowed] = useState(1);
   const [sendNotification, setSendNotification] = useState(true);
-  const [customEmail, setCustomEmail] = useState('');
+  const [customEmail, setCustomEmail] = useState("");
   const [copiedLink, setCopiedLink] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [statusFeedback, setStatusFeedback] = useState(null);
@@ -71,67 +81,98 @@ export function AssignAssessmentModal({
       setSelectedSubjectIds([]);
       setSelectedGroupIds([]);
       setStatusFeedback(null);
-      setSearchTerm('');
+      setSearchTerm("");
       return;
     }
 
     const loadAllData = async () => {
       setLoadingData(true);
       try {
-        const [candRes, deptRes, progRes, subjRes, grpRes] = await Promise.allSettled([
-          candidateService.getCandidates(),
-          organizationService.getDepartments(),
-          organizationService.getPrograms(),
-          organizationService.getSubjects(),
-          organizationService.getCandidateGroups(),
-        ]);
+        const [candRes, deptRes, progRes, subjRes, grpRes] =
+          await Promise.allSettled([
+            candidateService.getCandidates(),
+            organizationService.getDepartments(),
+            organizationService.getPrograms(),
+            organizationService.getSubjects(),
+            organizationService.getCandidateGroups(),
+          ]);
 
         // Candidates
-        if (candRes.status === 'fulfilled' && (candRes.value?.items || candRes.value?.data || Array.isArray(candRes.value))) {
-          const list = Array.isArray(candRes.value) ? candRes.value : (candRes.value.items || candRes.value.data || []);
-          setCandidates(list.length > 0 ? list : defaultParticipants);
+        if (
+          candRes.status === "fulfilled" &&
+          (candRes.value?.items ||
+            candRes.value?.data ||
+            Array.isArray(candRes.value))
+        ) {
+          const list = Array.isArray(candRes.value)
+            ? candRes.value
+            : candRes.value.items || candRes.value.data || [];
+          setCandidates(list || []);
         } else {
-          setCandidates(defaultParticipants);
+          setCandidates([]);
         }
 
         // Departments
-        if (deptRes.status === 'fulfilled' && (deptRes.value?.items || deptRes.value?.data || Array.isArray(deptRes.value))) {
-          const list = Array.isArray(deptRes.value) ? deptRes.value : (deptRes.value.items || deptRes.value.data || []);
-          setDepartments(list.length > 0 ? list : defaultDepartments);
+        if (
+          deptRes.status === "fulfilled" &&
+          (deptRes.value?.items ||
+            deptRes.value?.data ||
+            Array.isArray(deptRes.value))
+        ) {
+          const list = Array.isArray(deptRes.value)
+            ? deptRes.value
+            : deptRes.value.items || deptRes.value.data || [];
+          setDepartments(list || []);
         } else {
-          setDepartments(defaultDepartments);
+          setDepartments([]);
         }
 
         // Programs
-        if (progRes.status === 'fulfilled' && (progRes.value?.items || progRes.value?.data || Array.isArray(progRes.value))) {
-          const list = Array.isArray(progRes.value) ? progRes.value : (progRes.value.items || progRes.value.data || []);
-          setPrograms(list.length > 0 ? list : defaultPrograms);
+        if (
+          progRes.status === "fulfilled" &&
+          (progRes.value?.items ||
+            progRes.value?.data ||
+            Array.isArray(progRes.value))
+        ) {
+          const list = Array.isArray(progRes.value)
+            ? progRes.value
+            : progRes.value.items || progRes.value.data || [];
+          setPrograms(list || []);
         } else {
-          setPrograms(defaultPrograms);
+          setPrograms([]);
         }
 
         // Subjects
-        if (subjRes.status === 'fulfilled' && (subjRes.value?.items || subjRes.value?.data || Array.isArray(subjRes.value))) {
-          const list = Array.isArray(subjRes.value) ? subjRes.value : (subjRes.value.items || subjRes.value.data || []);
-          setSubjects(list.length > 0 ? list : defaultSubjects);
+        if (
+          subjRes.status === "fulfilled" &&
+          (subjRes.value?.items ||
+            subjRes.value?.data ||
+            Array.isArray(subjRes.value))
+        ) {
+          const list = Array.isArray(subjRes.value)
+            ? subjRes.value
+            : subjRes.value.items || subjRes.value.data || [];
+          setSubjects(list || []);
         } else {
-          setSubjects(defaultSubjects);
+          setSubjects([]);
         }
 
         // Candidate Groups
-        if (grpRes.status === 'fulfilled' && (grpRes.value?.items || grpRes.value?.data || Array.isArray(grpRes.value))) {
-          const list = Array.isArray(grpRes.value) ? grpRes.value : (grpRes.value.items || grpRes.value.data || []);
-          setCandidateGroups(list.length > 0 ? list : defaultCandidateGroups);
+        if (
+          grpRes.status === "fulfilled" &&
+          (grpRes.value?.items ||
+            grpRes.value?.data ||
+            Array.isArray(grpRes.value))
+        ) {
+          const list = Array.isArray(grpRes.value)
+            ? grpRes.value
+            : grpRes.value.items || grpRes.value.data || [];
+          setCandidateGroups(list || []);
         } else {
-          setCandidateGroups(defaultCandidateGroups);
+          setCandidateGroups([]);
         }
       } catch (err) {
-        console.warn('Academic data loading fallback triggered:', err);
-        setCandidates(defaultParticipants);
-        setDepartments(defaultDepartments);
-        setPrograms(defaultPrograms);
-        setSubjects(defaultSubjects);
-        setCandidateGroups(defaultCandidateGroups);
+        console.warn("Academic data loading error:", err);
       } finally {
         setLoadingData(false);
       }
@@ -140,14 +181,15 @@ export function AssignAssessmentModal({
     loadAllData();
   }, [isOpen]);
 
-  const currentAssessment = assessments.find(
-    (a) => (a._id || a.id) === targetAssessmentId
-  ) || selectedAssessment || assessments[0];
+  const currentAssessment =
+    assessments.find((a) => (a._id || a.id) === targetAssessmentId) ||
+    selectedAssessment ||
+    assessments[0];
 
   // Helper toggle functions
   const toggleItem = (list, setList, id) => {
     setList((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     );
   };
 
@@ -164,33 +206,35 @@ export function AssignAssessmentModal({
   const q = searchTerm.toLowerCase();
 
   const filteredCandidates = candidates.filter((c) => {
-    const name = (c.name || `${c.firstName || ''} ${c.lastName || ''}`).toLowerCase();
-    const email = (c.email || '').toLowerCase();
-    const code = (c.candidateCode || '').toLowerCase();
+    const name = (
+      c.name || `${c.firstName || ""} ${c.lastName || ""}`
+    ).toLowerCase();
+    const email = (c.email || "").toLowerCase();
+    const code = (c.candidateCode || "").toLowerCase();
     return name.includes(q) || email.includes(q) || code.includes(q);
   });
 
   const filteredDepartments = departments.filter((d) => {
-    const name = (d.name || '').toLowerCase();
-    const code = (d.code || '').toLowerCase();
+    const name = (d.name || "").toLowerCase();
+    const code = (d.code || "").toLowerCase();
     return name.includes(q) || code.includes(q);
   });
 
   const filteredPrograms = programs.filter((p) => {
-    const name = (p.name || '').toLowerCase();
-    const code = (p.code || '').toLowerCase();
+    const name = (p.name || "").toLowerCase();
+    const code = (p.code || "").toLowerCase();
     return name.includes(q) || code.includes(q);
   });
 
   const filteredSubjects = subjects.filter((s) => {
-    const name = (s.name || '').toLowerCase();
-    const code = (s.code || '').toLowerCase();
+    const name = (s.name || "").toLowerCase();
+    const code = (s.code || "").toLowerCase();
     return name.includes(q) || code.includes(q);
   });
 
   const filteredGroups = candidateGroups.filter((g) => {
-    const name = (g.name || '').toLowerCase();
-    const code = (g.code || '').toLowerCase();
+    const name = (g.name || "").toLowerCase();
+    const code = (g.code || "").toLowerCase();
     return name.includes(q) || code.includes(q);
   });
 
@@ -204,24 +248,27 @@ export function AssignAssessmentModal({
 
   const handleAddCustomEmail = (e) => {
     e.preventDefault();
-    if (!customEmail.trim() || !customEmail.includes('@')) return;
+    if (!customEmail.trim() || !customEmail.includes("@")) return;
     const tempId = `temp_${Date.now()}`;
     const newCand = {
       _id: tempId,
       id: tempId,
-      name: customEmail.split('@')[0],
+      name: customEmail.split("@")[0],
       email: customEmail.trim(),
       candidateCode: `EXT-${Math.floor(1000 + Math.random() * 9000)}`,
-      status: 'INVITED'
+      status: "INVITED",
     };
     setCandidates((prev) => [newCand, ...prev]);
     setSelectedCandidateIds((prev) => [...prev, tempId]);
-    setCustomEmail('');
+    setCustomEmail("");
   };
 
   const handleCopyLink = () => {
     const origin = window.location.origin;
-    const entryCode = currentAssessment?.settings?.entryCode || currentAssessment?.code || 'SECURE-EXAM';
+    const entryCode =
+      currentAssessment?.settings?.entryCode ||
+      currentAssessment?.code ||
+      "SECURE-EXAM";
     const link = `${origin}/candidate/exam/entry?assessmentId=${targetAssessmentId}&code=${entryCode}`;
     navigator.clipboard.writeText(link);
     setCopiedLink(true);
@@ -230,14 +277,18 @@ export function AssignAssessmentModal({
 
   const handleAssign = async () => {
     if (!targetAssessmentId) {
-      setStatusFeedback({ type: 'error', message: 'Please select an assessment to assign.' });
+      setStatusFeedback({
+        type: "error",
+        message: "Please select an assessment to assign.",
+      });
       return;
     }
 
-    if (assignmentScope !== 'open_entry' && totalSelectedCount === 0) {
+    if (assignmentScope !== "open_entry" && totalSelectedCount === 0) {
       setStatusFeedback({
-        type: 'error',
-        message: 'Please select at least one Candidate, Department, Subject, Program, or Cohort.'
+        type: "error",
+        message:
+          "Please select at least one Candidate, Department, Subject, Program, or Cohort.",
       });
       return;
     }
@@ -252,28 +303,42 @@ export function AssignAssessmentModal({
         programIds: selectedProgramIds,
         subjectIds: selectedSubjectIds,
         groupIds: selectedGroupIds,
-        isOpenEntry: assignmentScope === 'open_entry',
-        entryCode: currentAssessment?.settings?.entryCode || currentAssessment?.code || undefined,
+        isOpenEntry: assignmentScope === "open_entry",
+        entryCode:
+          currentAssessment?.settings?.entryCode ||
+          currentAssessment?.code ||
+          undefined,
         availableFrom: availableFrom || undefined,
         availableUntil: availableUntil || undefined,
         attemptsAllowed: Number(attemptsAllowed) || 1,
         sendNotification,
       };
 
-      const res = await assessmentService.assignAssessment(targetAssessmentId, payload);
-      
-      const summaryDescriptions = [];
-      if (selectedCandidateIds.length > 0) summaryDescriptions.push(`${selectedCandidateIds.length} candidate(s)`);
-      if (selectedDepartmentIds.length > 0) summaryDescriptions.push(`${selectedDepartmentIds.length} department(s)`);
-      if (selectedSubjectIds.length > 0) summaryDescriptions.push(`${selectedSubjectIds.length} subject(s)`);
-      if (selectedProgramIds.length > 0) summaryDescriptions.push(`${selectedProgramIds.length} program(s)`);
-      if (selectedGroupIds.length > 0) summaryDescriptions.push(`${selectedGroupIds.length} cohort group(s)`);
-      if (assignmentScope === 'open_entry') summaryDescriptions.push('Universal admission link generated');
+      const res = await assessmentService.assignAssessment(
+        targetAssessmentId,
+        payload,
+      );
 
-      const messageText = `Assessment assigned successfully to ${summaryDescriptions.join(', ') || 'examinees'}!`;
+      const summaryDescriptions = [];
+      if (selectedCandidateIds.length > 0)
+        summaryDescriptions.push(`${selectedCandidateIds.length} candidate(s)`);
+      if (selectedDepartmentIds.length > 0)
+        summaryDescriptions.push(
+          `${selectedDepartmentIds.length} department(s)`,
+        );
+      if (selectedSubjectIds.length > 0)
+        summaryDescriptions.push(`${selectedSubjectIds.length} subject(s)`);
+      if (selectedProgramIds.length > 0)
+        summaryDescriptions.push(`${selectedProgramIds.length} program(s)`);
+      if (selectedGroupIds.length > 0)
+        summaryDescriptions.push(`${selectedGroupIds.length} cohort group(s)`);
+      if (assignmentScope === "open_entry")
+        summaryDescriptions.push("Universal admission link generated");
+
+      const messageText = `Assessment assigned successfully to ${summaryDescriptions.join(", ") || "examinees"}!`;
 
       setStatusFeedback({
-        type: 'success',
+        type: "success",
         message: messageText,
       });
 
@@ -282,7 +347,7 @@ export function AssignAssessmentModal({
           assessmentId: targetAssessmentId,
           assignedCount: totalSelectedCount,
           scope: assignmentScope,
-          details: payload
+          details: payload,
         });
       }
 
@@ -290,9 +355,9 @@ export function AssignAssessmentModal({
         onClose();
       }, 1300);
     } catch (err) {
-      console.error('Assignment error:', err);
+      console.error("Assignment error:", err);
       setStatusFeedback({
-        type: 'success',
+        type: "success",
         message: `Assessment successfully assigned to selected entities!`,
       });
       setTimeout(() => {
@@ -315,20 +380,26 @@ export function AssignAssessmentModal({
       footer={
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center gap-2 text-xs text-accent-500 font-medium">
-            {assignmentScope === 'open_entry' ? (
+            {assignmentScope === "open_entry" ? (
               <span className="flex items-center gap-1 text-primary-600 dark:text-primary-400">
                 <Link2 size={13} /> Open self-enrollment link
               </span>
             ) : totalSelectedCount > 0 ? (
               <span className="flex items-center gap-1.5 text-primary-600 dark:text-primary-400 font-semibold">
-                <Check size={14} /> Total Selected: {totalSelectedCount} target{totalSelectedCount > 1 ? 's' : ''}
+                <Check size={14} /> Total Selected: {totalSelectedCount} target
+                {totalSelectedCount > 1 ? "s" : ""}
               </span>
             ) : (
-              'No criteria selected'
+              "No criteria selected"
             )}
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={onClose} disabled={submitting}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onClose}
+              disabled={submitting}
+            >
               Cancel
             </Button>
             <Button
@@ -336,9 +407,12 @@ export function AssignAssessmentModal({
               size="sm"
               icon={submitting ? undefined : <UserPlus size={15} />}
               onClick={handleAssign}
-              disabled={submitting || (assignmentScope !== 'open_entry' && totalSelectedCount === 0)}
+              disabled={
+                submitting ||
+                (assignmentScope !== "open_entry" && totalSelectedCount === 0)
+              }
             >
-              {submitting ? 'Assigning...' : 'Confirm & Assign'}
+              {submitting ? "Assigning..." : "Confirm & Assign"}
             </Button>
           </div>
         </div>
@@ -349,12 +423,16 @@ export function AssignAssessmentModal({
         {statusFeedback && (
           <div
             className={`p-3 rounded-xl flex items-center gap-2.5 text-xs font-medium ${
-              statusFeedback.type === 'error'
-                ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
-                : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+              statusFeedback.type === "error"
+                ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
+                : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
             }`}
           >
-            {statusFeedback.type === 'error' ? <AlertCircle size={16} /> : <CheckCircle2 size={16} />}
+            {statusFeedback.type === "error" ? (
+              <AlertCircle size={16} />
+            ) : (
+              <CheckCircle2 size={16} />
+            )}
             <span>{statusFeedback.message}</span>
           </div>
         )}
@@ -372,8 +450,8 @@ export function AssignAssessmentModal({
             >
               {assessments.map((a) => {
                 const id = a._id || a.id;
-                const title = a.title || a.name || 'Untitled Assessment';
-                const code = a.code ? ` (${a.code})` : '';
+                const title = a.title || a.name || "Untitled Assessment";
+                const code = a.code ? ` (${a.code})` : "";
                 return (
                   <option key={id} value={id}>
                     {title} {code}
@@ -400,16 +478,19 @@ export function AssignAssessmentModal({
               </span>
             )}
           </div>
-          
+
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 p-1 bg-accent-100/60 dark:bg-accent-900/60 rounded-xl border border-accent-200 dark:border-accent-800">
             {/* 1. Candidates */}
             <button
               type="button"
-              onClick={() => { setAssignmentScope('candidates'); setSearchTerm(''); }}
+              onClick={() => {
+                setAssignmentScope("candidates");
+                setSearchTerm("");
+              }}
               className={`flex flex-col items-center justify-center gap-1 py-2 px-2 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
-                assignmentScope === 'candidates'
-                  ? 'bg-white dark:bg-accent-800 text-primary-600 dark:text-primary-400 shadow-sm'
-                  : 'text-accent-600 dark:text-accent-400 hover:text-accent-900 dark:hover:text-white'
+                assignmentScope === "candidates"
+                  ? "bg-white dark:bg-accent-800 text-primary-600 dark:text-primary-400 shadow-sm"
+                  : "text-accent-600 dark:text-accent-400 hover:text-accent-900 dark:hover:text-white"
               }`}
             >
               <div className="relative">
@@ -426,11 +507,14 @@ export function AssignAssessmentModal({
             {/* 2. Department */}
             <button
               type="button"
-              onClick={() => { setAssignmentScope('departments'); setSearchTerm(''); }}
+              onClick={() => {
+                setAssignmentScope("departments");
+                setSearchTerm("");
+              }}
               className={`flex flex-col items-center justify-center gap-1 py-2 px-2 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
-                assignmentScope === 'departments'
-                  ? 'bg-white dark:bg-accent-800 text-primary-600 dark:text-primary-400 shadow-sm'
-                  : 'text-accent-600 dark:text-accent-400 hover:text-accent-900 dark:hover:text-white'
+                assignmentScope === "departments"
+                  ? "bg-white dark:bg-accent-800 text-primary-600 dark:text-primary-400 shadow-sm"
+                  : "text-accent-600 dark:text-accent-400 hover:text-accent-900 dark:hover:text-white"
               }`}
             >
               <div className="relative">
@@ -447,11 +531,14 @@ export function AssignAssessmentModal({
             {/* 3. Subject */}
             <button
               type="button"
-              onClick={() => { setAssignmentScope('subjects'); setSearchTerm(''); }}
+              onClick={() => {
+                setAssignmentScope("subjects");
+                setSearchTerm("");
+              }}
               className={`flex flex-col items-center justify-center gap-1 py-2 px-2 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
-                assignmentScope === 'subjects'
-                  ? 'bg-white dark:bg-accent-800 text-primary-600 dark:text-primary-400 shadow-sm'
-                  : 'text-accent-600 dark:text-accent-400 hover:text-accent-900 dark:hover:text-white'
+                assignmentScope === "subjects"
+                  ? "bg-white dark:bg-accent-800 text-primary-600 dark:text-primary-400 shadow-sm"
+                  : "text-accent-600 dark:text-accent-400 hover:text-accent-900 dark:hover:text-white"
               }`}
             >
               <div className="relative">
@@ -468,11 +555,14 @@ export function AssignAssessmentModal({
             {/* 4. Program */}
             <button
               type="button"
-              onClick={() => { setAssignmentScope('programs'); setSearchTerm(''); }}
+              onClick={() => {
+                setAssignmentScope("programs");
+                setSearchTerm("");
+              }}
               className={`flex flex-col items-center justify-center gap-1 py-2 px-2 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
-                assignmentScope === 'programs'
-                  ? 'bg-white dark:bg-accent-800 text-primary-600 dark:text-primary-400 shadow-sm'
-                  : 'text-accent-600 dark:text-accent-400 hover:text-accent-900 dark:hover:text-white'
+                assignmentScope === "programs"
+                  ? "bg-white dark:bg-accent-800 text-primary-600 dark:text-primary-400 shadow-sm"
+                  : "text-accent-600 dark:text-accent-400 hover:text-accent-900 dark:hover:text-white"
               }`}
             >
               <div className="relative">
@@ -489,11 +579,14 @@ export function AssignAssessmentModal({
             {/* 5. Cohort / Group */}
             <button
               type="button"
-              onClick={() => { setAssignmentScope('groups'); setSearchTerm(''); }}
+              onClick={() => {
+                setAssignmentScope("groups");
+                setSearchTerm("");
+              }}
               className={`flex flex-col items-center justify-center gap-1 py-2 px-2 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
-                assignmentScope === 'groups'
-                  ? 'bg-white dark:bg-accent-800 text-primary-600 dark:text-primary-400 shadow-sm'
-                  : 'text-accent-600 dark:text-accent-400 hover:text-accent-900 dark:hover:text-white'
+                assignmentScope === "groups"
+                  ? "bg-white dark:bg-accent-800 text-primary-600 dark:text-primary-400 shadow-sm"
+                  : "text-accent-600 dark:text-accent-400 hover:text-accent-900 dark:hover:text-white"
               }`}
             >
               <div className="relative">
@@ -510,11 +603,14 @@ export function AssignAssessmentModal({
             {/* 6. Open Link */}
             <button
               type="button"
-              onClick={() => { setAssignmentScope('open_entry'); setSearchTerm(''); }}
+              onClick={() => {
+                setAssignmentScope("open_entry");
+                setSearchTerm("");
+              }}
               className={`flex flex-col items-center justify-center gap-1 py-2 px-2 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
-                assignmentScope === 'open_entry'
-                  ? 'bg-white dark:bg-accent-800 text-primary-600 dark:text-primary-400 shadow-sm'
-                  : 'text-accent-600 dark:text-accent-400 hover:text-accent-900 dark:hover:text-white'
+                assignmentScope === "open_entry"
+                  ? "bg-white dark:bg-accent-800 text-primary-600 dark:text-primary-400 shadow-sm"
+                  : "text-accent-600 dark:text-accent-400 hover:text-accent-900 dark:hover:text-white"
               }`}
             >
               <Link2 size={15} />
@@ -524,11 +620,14 @@ export function AssignAssessmentModal({
         </div>
 
         {/* Tab 1: Direct Candidates */}
-        {assignmentScope === 'candidates' && (
+        {assignmentScope === "candidates" && (
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-2">
               <div className="relative flex-1">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-accent-400" />
+                <Search
+                  size={14}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-accent-400"
+                />
                 <input
                   type="text"
                   value={searchTerm}
@@ -541,11 +640,18 @@ export function AssignAssessmentModal({
                 variant="outline"
                 size="sm"
                 className="text-[11px] h-9"
-                onClick={() => toggleSelectAllForScope(filteredCandidates, selectedCandidateIds, setSelectedCandidateIds)}
+                onClick={() =>
+                  toggleSelectAllForScope(
+                    filteredCandidates,
+                    selectedCandidateIds,
+                    setSelectedCandidateIds,
+                  )
+                }
               >
-                {selectedCandidateIds.length === filteredCandidates.length && filteredCandidates.length > 0
-                  ? 'Deselect All'
-                  : 'Select All'}
+                {selectedCandidateIds.length === filteredCandidates.length &&
+                filteredCandidates.length > 0
+                  ? "Deselect All"
+                  : "Select All"}
               </Button>
             </div>
 
@@ -558,7 +664,12 @@ export function AssignAssessmentModal({
                 placeholder="Or quickly add examinee by email: student@example.com"
                 className="flex-1 h-8 px-3 text-xs bg-accent-50/40 dark:bg-accent-900/40 border border-accent-200 dark:border-accent-800 rounded-lg text-accent-900 dark:text-white placeholder:text-accent-400 focus:outline-none focus:ring-1 focus:ring-primary-500"
               />
-              <Button type="submit" variant="outline" size="sm" className="h-8 text-xs">
+              <Button
+                type="submit"
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs"
+              >
                 Add
               </Button>
             </form>
@@ -566,23 +677,39 @@ export function AssignAssessmentModal({
             {/* Candidates list */}
             <div className="max-h-48 overflow-y-auto border border-accent-200 dark:border-accent-800 rounded-xl divide-y divide-accent-100 dark:divide-accent-800/60 bg-accent-50/20 dark:bg-accent-950/20">
               {loadingData ? (
-                <div className="p-6 text-center text-xs text-accent-400">Loading candidate roster...</div>
+                <div className="p-6 text-center text-xs text-accent-400">
+                  Loading candidate roster...
+                </div>
               ) : filteredCandidates.length === 0 ? (
-                <div className="p-6 text-center text-xs text-accent-400">No candidates match your search.</div>
+                <div className="p-6 text-center text-xs text-accent-400">
+                  No candidates match your search.
+                </div>
               ) : (
                 filteredCandidates.map((cand) => {
                   const id = cand._id || cand.id;
-                  const name = cand.name || `${cand.firstName || ''} ${cand.lastName || ''}`.trim() || 'Candidate';
-                  const email = cand.email || '';
-                  const code = cand.candidateCode || `CAND-${id.toString().slice(-4)}`;
+                  const name =
+                    cand.name ||
+                    `${cand.firstName || ""} ${cand.lastName || ""}`.trim() ||
+                    "Candidate";
+                  const email = cand.email || "";
+                  const code =
+                    cand.candidateCode || `CAND-${id.toString().slice(-4)}`;
                   const isSelected = selectedCandidateIds.includes(id);
 
                   return (
                     <div
                       key={id}
-                      onClick={() => toggleItem(selectedCandidateIds, setSelectedCandidateIds, id)}
+                      onClick={() =>
+                        toggleItem(
+                          selectedCandidateIds,
+                          setSelectedCandidateIds,
+                          id,
+                        )
+                      }
                       className={`flex items-center justify-between p-2.5 px-3.5 hover:bg-accent-50 dark:hover:bg-accent-900/50 cursor-pointer transition-colors ${
-                        isSelected ? 'bg-primary-500/5 dark:bg-primary-500/10' : ''
+                        isSelected
+                          ? "bg-primary-500/5 dark:bg-primary-500/10"
+                          : ""
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
@@ -602,7 +729,10 @@ export function AssignAssessmentModal({
                           </p>
                         </div>
                       </div>
-                      <Badge variant="neutral" className="text-[10px] font-mono">
+                      <Badge
+                        variant="neutral"
+                        className="text-[10px] font-mono"
+                      >
                         {code}
                       </Badge>
                     </div>
@@ -614,11 +744,14 @@ export function AssignAssessmentModal({
         )}
 
         {/* Tab 2: Assign by Department */}
-        {assignmentScope === 'departments' && (
+        {assignmentScope === "departments" && (
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-2">
               <div className="relative flex-1">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-accent-400" />
+                <Search
+                  size={14}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-accent-400"
+                />
                 <input
                   type="text"
                   value={searchTerm}
@@ -631,29 +764,47 @@ export function AssignAssessmentModal({
                 variant="outline"
                 size="sm"
                 className="text-[11px] h-9"
-                onClick={() => toggleSelectAllForScope(filteredDepartments, selectedDepartmentIds, setSelectedDepartmentIds)}
+                onClick={() =>
+                  toggleSelectAllForScope(
+                    filteredDepartments,
+                    selectedDepartmentIds,
+                    setSelectedDepartmentIds,
+                  )
+                }
               >
-                {selectedDepartmentIds.length === filteredDepartments.length && filteredDepartments.length > 0
-                  ? 'Deselect All'
-                  : 'Select All'}
+                {selectedDepartmentIds.length === filteredDepartments.length &&
+                filteredDepartments.length > 0
+                  ? "Deselect All"
+                  : "Select All"}
               </Button>
             </div>
 
             <div className="max-h-52 overflow-y-auto border border-accent-200 dark:border-accent-800 rounded-xl divide-y divide-accent-100 dark:divide-accent-800/60 bg-accent-50/20 dark:bg-accent-950/20">
               {filteredDepartments.length === 0 ? (
-                <div className="p-6 text-center text-xs text-accent-400">No departments found.</div>
+                <div className="p-6 text-center text-xs text-accent-400">
+                  No departments found.
+                </div>
               ) : (
                 filteredDepartments.map((dept) => {
                   const id = dept._id || dept.id;
                   const isSelected = selectedDepartmentIds.includes(id);
-                  const count = dept.studentCount || dept.candidatesCount || 100;
+                  const count =
+                    dept.studentCount || dept.candidatesCount || 100;
 
                   return (
                     <div
                       key={id}
-                      onClick={() => toggleItem(selectedDepartmentIds, setSelectedDepartmentIds, id)}
+                      onClick={() =>
+                        toggleItem(
+                          selectedDepartmentIds,
+                          setSelectedDepartmentIds,
+                          id,
+                        )
+                      }
                       className={`flex items-center justify-between p-3 px-3.5 hover:bg-accent-50 dark:hover:bg-accent-900/50 cursor-pointer transition-colors ${
-                        isSelected ? 'bg-primary-500/5 dark:bg-primary-500/10' : ''
+                        isSelected
+                          ? "bg-primary-500/5 dark:bg-primary-500/10"
+                          : ""
                       }`}
                     >
                       <div className="flex items-center gap-3">
@@ -671,7 +822,10 @@ export function AssignAssessmentModal({
                             {dept.name}
                           </p>
                           <p className="text-[11px] text-accent-500 dark:text-accent-400">
-                            Code: <span className="font-mono font-medium">{dept.code || 'DEPT'}</span>
+                            Code:{" "}
+                            <span className="font-mono font-medium">
+                              {dept.code || "DEPT"}
+                            </span>
                           </p>
                         </div>
                       </div>
@@ -687,11 +841,14 @@ export function AssignAssessmentModal({
         )}
 
         {/* Tab 3: Assign by Subject / Course */}
-        {assignmentScope === 'subjects' && (
+        {assignmentScope === "subjects" && (
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-2">
               <div className="relative flex-1">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-accent-400" />
+                <Search
+                  size={14}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-accent-400"
+                />
                 <input
                   type="text"
                   value={searchTerm}
@@ -704,17 +861,26 @@ export function AssignAssessmentModal({
                 variant="outline"
                 size="sm"
                 className="text-[11px] h-9"
-                onClick={() => toggleSelectAllForScope(filteredSubjects, selectedSubjectIds, setSelectedSubjectIds)}
+                onClick={() =>
+                  toggleSelectAllForScope(
+                    filteredSubjects,
+                    selectedSubjectIds,
+                    setSelectedSubjectIds,
+                  )
+                }
               >
-                {selectedSubjectIds.length === filteredSubjects.length && filteredSubjects.length > 0
-                  ? 'Deselect All'
-                  : 'Select All'}
+                {selectedSubjectIds.length === filteredSubjects.length &&
+                filteredSubjects.length > 0
+                  ? "Deselect All"
+                  : "Select All"}
               </Button>
             </div>
 
             <div className="max-h-52 overflow-y-auto border border-accent-200 dark:border-accent-800 rounded-xl divide-y divide-accent-100 dark:divide-accent-800/60 bg-accent-50/20 dark:bg-accent-950/20">
               {filteredSubjects.length === 0 ? (
-                <div className="p-6 text-center text-xs text-accent-400">No subjects found.</div>
+                <div className="p-6 text-center text-xs text-accent-400">
+                  No subjects found.
+                </div>
               ) : (
                 filteredSubjects.map((subj) => {
                   const id = subj._id || subj.id;
@@ -723,9 +889,17 @@ export function AssignAssessmentModal({
                   return (
                     <div
                       key={id}
-                      onClick={() => toggleItem(selectedSubjectIds, setSelectedSubjectIds, id)}
+                      onClick={() =>
+                        toggleItem(
+                          selectedSubjectIds,
+                          setSelectedSubjectIds,
+                          id,
+                        )
+                      }
                       className={`flex items-center justify-between p-3 px-3.5 hover:bg-accent-50 dark:hover:bg-accent-900/50 cursor-pointer transition-colors ${
-                        isSelected ? 'bg-primary-500/5 dark:bg-primary-500/10' : ''
+                        isSelected
+                          ? "bg-primary-500/5 dark:bg-primary-500/10"
+                          : ""
                       }`}
                     >
                       <div className="flex items-center gap-3">
@@ -743,12 +917,19 @@ export function AssignAssessmentModal({
                             {subj.name}
                           </p>
                           <p className="text-[11px] text-accent-500 dark:text-accent-400">
-                            Course: <span className="font-mono font-medium">{subj.code || 'CS-101'}</span> {subj.credits ? `• ${subj.credits} Credits` : ''}
+                            Course:{" "}
+                            <span className="font-mono font-medium">
+                              {subj.code || "CS-101"}
+                            </span>{" "}
+                            {subj.credits ? `• ${subj.credits} Credits` : ""}
                           </p>
                         </div>
                       </div>
-                      <Badge variant="neutral" className="text-[10px] font-mono">
-                        {subj.programCode || 'Core'}
+                      <Badge
+                        variant="neutral"
+                        className="text-[10px] font-mono"
+                      >
+                        {subj.programCode || "Core"}
                       </Badge>
                     </div>
                   );
@@ -759,11 +940,14 @@ export function AssignAssessmentModal({
         )}
 
         {/* Tab 4: Assign by Degree Program */}
-        {assignmentScope === 'programs' && (
+        {assignmentScope === "programs" && (
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-2">
               <div className="relative flex-1">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-accent-400" />
+                <Search
+                  size={14}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-accent-400"
+                />
                 <input
                   type="text"
                   value={searchTerm}
@@ -776,17 +960,26 @@ export function AssignAssessmentModal({
                 variant="outline"
                 size="sm"
                 className="text-[11px] h-9"
-                onClick={() => toggleSelectAllForScope(filteredPrograms, selectedProgramIds, setSelectedProgramIds)}
+                onClick={() =>
+                  toggleSelectAllForScope(
+                    filteredPrograms,
+                    selectedProgramIds,
+                    setSelectedProgramIds,
+                  )
+                }
               >
-                {selectedProgramIds.length === filteredPrograms.length && filteredPrograms.length > 0
-                  ? 'Deselect All'
-                  : 'Select All'}
+                {selectedProgramIds.length === filteredPrograms.length &&
+                filteredPrograms.length > 0
+                  ? "Deselect All"
+                  : "Select All"}
               </Button>
             </div>
 
             <div className="max-h-52 overflow-y-auto border border-accent-200 dark:border-accent-800 rounded-xl divide-y divide-accent-100 dark:divide-accent-800/60 bg-accent-50/20 dark:bg-accent-950/20">
               {filteredPrograms.length === 0 ? (
-                <div className="p-6 text-center text-xs text-accent-400">No programs found.</div>
+                <div className="p-6 text-center text-xs text-accent-400">
+                  No programs found.
+                </div>
               ) : (
                 filteredPrograms.map((prog) => {
                   const id = prog._id || prog.id;
@@ -796,9 +989,17 @@ export function AssignAssessmentModal({
                   return (
                     <div
                       key={id}
-                      onClick={() => toggleItem(selectedProgramIds, setSelectedProgramIds, id)}
+                      onClick={() =>
+                        toggleItem(
+                          selectedProgramIds,
+                          setSelectedProgramIds,
+                          id,
+                        )
+                      }
                       className={`flex items-center justify-between p-3 px-3.5 hover:bg-accent-50 dark:hover:bg-accent-900/50 cursor-pointer transition-colors ${
-                        isSelected ? 'bg-primary-500/5 dark:bg-primary-500/10' : ''
+                        isSelected
+                          ? "bg-primary-500/5 dark:bg-primary-500/10"
+                          : ""
                       }`}
                     >
                       <div className="flex items-center gap-3">
@@ -816,7 +1017,10 @@ export function AssignAssessmentModal({
                             {prog.name}
                           </p>
                           <p className="text-[11px] text-accent-500 dark:text-accent-400">
-                            Degree: <span className="font-mono font-medium">{prog.code || 'BS'}</span>
+                            Degree:{" "}
+                            <span className="font-mono font-medium">
+                              {prog.code || "BS"}
+                            </span>
                           </p>
                         </div>
                       </div>
@@ -832,11 +1036,14 @@ export function AssignAssessmentModal({
         )}
 
         {/* Tab 5: Assign by Cohort / Candidate Group */}
-        {assignmentScope === 'groups' && (
+        {assignmentScope === "groups" && (
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-2">
               <div className="relative flex-1">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-accent-400" />
+                <Search
+                  size={14}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-accent-400"
+                />
                 <input
                   type="text"
                   value={searchTerm}
@@ -849,17 +1056,26 @@ export function AssignAssessmentModal({
                 variant="outline"
                 size="sm"
                 className="text-[11px] h-9"
-                onClick={() => toggleSelectAllForScope(filteredGroups, selectedGroupIds, setSelectedGroupIds)}
+                onClick={() =>
+                  toggleSelectAllForScope(
+                    filteredGroups,
+                    selectedGroupIds,
+                    setSelectedGroupIds,
+                  )
+                }
               >
-                {selectedGroupIds.length === filteredGroups.length && filteredGroups.length > 0
-                  ? 'Deselect All'
-                  : 'Select All'}
+                {selectedGroupIds.length === filteredGroups.length &&
+                filteredGroups.length > 0
+                  ? "Deselect All"
+                  : "Select All"}
               </Button>
             </div>
 
             <div className="max-h-52 overflow-y-auto border border-accent-200 dark:border-accent-800 rounded-xl divide-y divide-accent-100 dark:divide-accent-800/60 bg-accent-50/20 dark:bg-accent-950/20">
               {filteredGroups.length === 0 ? (
-                <div className="p-6 text-center text-xs text-accent-400">No cohorts found.</div>
+                <div className="p-6 text-center text-xs text-accent-400">
+                  No cohorts found.
+                </div>
               ) : (
                 filteredGroups.map((grp) => {
                   const id = grp._id || grp.id;
@@ -869,9 +1085,13 @@ export function AssignAssessmentModal({
                   return (
                     <div
                       key={id}
-                      onClick={() => toggleItem(selectedGroupIds, setSelectedGroupIds, id)}
+                      onClick={() =>
+                        toggleItem(selectedGroupIds, setSelectedGroupIds, id)
+                      }
                       className={`flex items-center justify-between p-3 px-3.5 hover:bg-accent-50 dark:hover:bg-accent-900/50 cursor-pointer transition-colors ${
-                        isSelected ? 'bg-primary-500/5 dark:bg-primary-500/10' : ''
+                        isSelected
+                          ? "bg-primary-500/5 dark:bg-primary-500/10"
+                          : ""
                       }`}
                     >
                       <div className="flex items-center gap-3">
@@ -889,7 +1109,10 @@ export function AssignAssessmentModal({
                             {grp.name}
                           </p>
                           <p className="text-[11px] text-accent-500 dark:text-accent-400">
-                            Batch Code: <span className="font-mono font-medium">{grp.code || 'COHORT'}</span>
+                            Batch Code:{" "}
+                            <span className="font-mono font-medium">
+                              {grp.code || "COHORT"}
+                            </span>
                           </p>
                         </div>
                       </div>
@@ -905,7 +1128,7 @@ export function AssignAssessmentModal({
         )}
 
         {/* Tab 6: Open Entry Link */}
-        {assignmentScope === 'open_entry' && (
+        {assignmentScope === "open_entry" && (
           <div className="p-4 rounded-xl bg-accent-50 dark:bg-accent-900/40 border border-accent-200 dark:border-accent-800 space-y-3">
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-lg bg-primary-100 dark:bg-primary-950/60 text-primary-600 dark:text-primary-400 flex items-center justify-center shrink-0 mt-0.5">
@@ -916,7 +1139,8 @@ export function AssignAssessmentModal({
                   Universal Candidate Admission Link
                 </h4>
                 <p className="text-[11px] text-accent-500 dark:text-accent-400 leading-relaxed mt-0.5">
-                  Anyone with this link and entry code can self-enroll and immediately start their proctored attempt.
+                  Anyone with this link and entry code can self-enroll and
+                  immediately start their proctored attempt.
                 </p>
               </div>
             </div>
@@ -925,17 +1149,23 @@ export function AssignAssessmentModal({
               <input
                 type="text"
                 readOnly
-                value={`${window.location.origin}/candidate/exam/entry?assessmentId=${targetAssessmentId || 'id'}&code=${currentAssessment?.code || 'SECURE-EXAM'}`}
+                value={`${window.location.origin}/candidate/exam/entry?assessmentId=${targetAssessmentId || "id"}&code=${currentAssessment?.code || "SECURE-EXAM"}`}
                 className="flex-1 h-9 px-3 text-xs bg-white dark:bg-accent-950 border border-accent-200 dark:border-accent-800 rounded-lg text-accent-700 dark:text-accent-300 font-mono select-all focus:outline-none"
               />
               <Button
                 variant="outline"
                 size="sm"
-                icon={copiedLink ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                icon={
+                  copiedLink ? (
+                    <Check size={14} className="text-emerald-500" />
+                  ) : (
+                    <Copy size={14} />
+                  )
+                }
                 onClick={handleCopyLink}
                 className="h-9 text-xs"
               >
-                {copiedLink ? 'Copied' : 'Copy'}
+                {copiedLink ? "Copied" : "Copy"}
               </Button>
             </div>
           </div>
@@ -944,7 +1174,8 @@ export function AssignAssessmentModal({
         {/* Scheduling & Rules Configuration */}
         <div className="p-4 rounded-xl bg-accent-50/50 dark:bg-accent-950/30 border border-accent-200 dark:border-accent-800 space-y-3">
           <h4 className="text-xs font-bold text-accent-900 dark:text-white flex items-center gap-1.5">
-            <Clock size={13} className="text-primary-500" /> Schedule & Assessment Window
+            <Clock size={13} className="text-primary-500" /> Schedule &
+            Assessment Window
           </h4>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

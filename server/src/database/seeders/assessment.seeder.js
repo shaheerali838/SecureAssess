@@ -17,6 +17,14 @@ export const seedAssessmentsAndQuestions = async () => {
     return;
   }
 
+  // Quick Idempotency Check
+  const existingAssessments = await Assessment.countDocuments({ organizationId: org._id });
+  const existingQB = await QuestionBank.countDocuments({ organizationId: org._id });
+  if (existingAssessments >= 4 && existingQB >= 1) {
+    logger.info(`[Seeder] Assessments (${existingAssessments}) & Question Banks (${existingQB}) already seeded, skipping.`);
+    return;
+  }
+
   const creator = await User.findOne({ email: "dean@stanford.edu" }) || await User.findOne();
   if (!creator) {
     logger.warn("[Seeder] Creator user not found, skipping assessment seeding.");

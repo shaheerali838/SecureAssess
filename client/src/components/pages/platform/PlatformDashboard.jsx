@@ -7,16 +7,60 @@ import {
   Card, CardHeader, CardBody, MetricCard, Badge, StatusBadge, Button,
   BarChart, LineChart, DonutChart, Avatar, PageHeader, SkeletonDashboard
 } from '@/components/ui';
-import { organizations } from '@/data';
+import { organizations as fallbackOrgs } from '@/data';
 import { useAuth } from '@/contexts/AuthContext';
+import organizationService from '@/services/organization.service';
+import reportService from '@/services/report.service';
 
 export function PlatformDashboard({ onNavigate }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [orgList, setOrgList] = useState([]);
+  const [platformMetrics, setPlatformMetrics] = useState({
+    totalOrganizations: 0,
+    totalUsers: 0,
+    activeAssessments: 0,
+    liveSessions: 0,
+    arrProgression: [],
+    planDistribution: [],
+  });
+
+  const fetchPlatformData = async () => {
+    setLoading(true);
+    try {
+      const [orgsRes, reportRes] = await Promise.allSettled([
+        organizationService.getOrganizations(),
+        reportService.getPlatformDashboard(),
+      ]);
+
+      if (orgsRes.status === 'fulfilled') {
+        const items = orgsRes.value?.items || orgsRes.value?.organizations || orgsRes.value?.data || orgsRes.value || [];
+        if (Array.isArray(items)) {
+          setOrgList(items);
+        }
+      }
+
+      if (reportRes.status === 'fulfilled') {
+        const resVal = reportRes.value;
+        const data = resVal?.data?.data || resVal?.data || resVal || {};
+        setPlatformMetrics({
+          totalOrganizations: data.totalOrganizations ?? (orgList.length || 1),
+          totalUsers: data.totalUsers ?? 0,
+          activeAssessments: data.totalAssessments ?? data.activeAssessments ?? 0,
+          liveSessions: data.liveSessions ?? 0,
+          arrProgression: Array.isArray(data.arrProgression) ? data.arrProgression : [],
+          planDistribution: Array.isArray(data.planDistribution) ? data.planDistribution : [],
+        });
+      }
+    } catch (err) {
+      console.warn('Platform dashboard live sync note:', err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 300);
-    return () => clearTimeout(timer);
+    fetchPlatformData();
   }, []);
 
   return (
@@ -50,30 +94,30 @@ export function PlatformDashboard({ onNavigate }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <MetricCard
               label="Total Tenant Organizations"
-              value="42"
+              value={String(platformMetrics.totalOrganizations || orgList.length || 0)}
               icon={<Building2 size={20} />}
-              trend={{ value: '12% MoM', up: true }}
+              trend={{ value: 'Live', up: true }}
               color="primary"
             />
             <MetricCard
               label="Total Managed Accounts"
-              value="18,420"
+              value={String(platformMetrics.totalUsers || 0)}
               icon={<Users size={20} />}
-              trend={{ value: '8%', up: true }}
+              trend={{ value: 'Active', up: true }}
               color="secondary"
             />
             <MetricCard
               label="Active Assessments"
-              value="6,284"
+              value={String(platformMetrics.activeAssessments || 0)}
               icon={<FileText size={20} />}
-              trend={{ value: '15%', up: true }}
+              trend={{ value: 'Synced', up: true }}
               color="info"
             />
             <MetricCard
               label="Live Examination Sessions"
-              value="312"
+              value={String(platformMetrics.liveSessions || 0)}
               icon={<MonitorPlay size={20} />}
-              trend={{ value: 'Peak load', up: true }}
+              trend={{ value: 'Operational', up: true }}
               color="success"
             />
           </div>
@@ -88,17 +132,9 @@ export function PlatformDashboard({ onNavigate }) {
               />
               <CardBody>
                 <LineChart
-                  data={[
-                    { label: 'Jan', value: 820 },
-                    { label: 'Feb', value: 940 },
-                    { label: 'Mar', value: 1100 },
-                    { label: 'Apr', value: 1280 },
-                    { label: 'May', value: 1420 },
-                    { label: 'Jun', value: 1680 },
-                    { label: 'Jul', value: 1890 },
-                    { label: 'Aug', value: 2150 },
-                  ]}
-                  color="#2563eb"
+                  data={platformMetrics.arrProgression}
+                  color="#3b82f6"
+                  formatValue={(v) => `$${v}k`}
                 />
               </CardBody>
             </Card>
@@ -111,13 +147,17 @@ export function PlatformDashboard({ onNavigate }) {
               />
               <CardBody>
                 <DonutChart
-                  centerValue="42"
+                  centerValue={String(platformMetrics.totalOrganizations || orgList.length || 0)}
                   centerLabel="Tenants"
-                  data={[
-                    { label: 'Enterprise', value: 14, color: '#2563eb' },
-                    { label: 'Professional', value: 18, color: '#0d9488' },
-                    { label: 'Growth', value: 10, color: '#f59e0b' },
-                  ]}
+                  data={
+                    platformMetrics.planDistribution && platformMetrics.planDistribution.length > 0
+                      ? platformMetrics.planDistribution
+                      : [
+                          { label: 'Enterprise', value: Math.max(orgList.length, 1), color: '#2563eb' },
+                          { label: 'Professional', value: 0, color: '#0d9488' },
+                          { label: 'Growth', value: 0, color: '#f59e0b' },
+                        ]
+                  }
                 />
               </CardBody>
             </Card>
@@ -137,28 +177,37 @@ export function PlatformDashboard({ onNavigate }) {
                 }
               />
               <CardBody className="p-0 divide-y divide-accent-100 dark:divide-accent-800">
-                {organizations.slice(0, 4).map((org) => (
-                  <div
-                    key={org.id}
-                    className="p-4 flex items-center justify-between hover:bg-accent-50/50 dark:hover:bg-accent-800/40 transition-colors cursor-pointer"
-                    onClick={() => onNavigate('platform-organizations')}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-primary-600 flex items-center justify-center text-white font-bold text-xs shadow-soft">
-                        {org.name.split(' ').map((n) => n[0]).slice(0, 2).join('')}
+                {(orgList.length > 0 ? orgList : fallbackOrgs).slice(0, 4).map((org) => {
+                  const orgId = org._id || org.id;
+                  const orgName = org.name || 'Organization';
+                  const orgDomain = org.domain || `${(org.code || org.slug || 'org').toLowerCase()}.secureassess.edu`;
+                  const memberCount = org.memberCount || org.members || 'Staff & Students';
+                  const tier = org.tier || org.plan || 'Enterprise';
+                  const status = org.status || 'ACTIVE';
+
+                  return (
+                    <div
+                      key={orgId}
+                      className="p-4 flex items-center justify-between hover:bg-accent-50/50 dark:hover:bg-accent-800/40 transition-colors cursor-pointer"
+                      onClick={() => onNavigate('platform-organizations')}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-primary-600 flex items-center justify-center text-white font-bold text-xs shadow-soft">
+                          {orgName.split(' ').map((n) => n[0]).slice(0, 2).join('')}
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-accent-900 dark:text-white">{orgName}</p>
+                          <p className="text-[11px] text-accent-500 dark:text-accent-400">{orgDomain} · {memberCount} active users</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-xs font-bold text-accent-900 dark:text-white">{org.name}</p>
-                        <p className="text-[11px] text-accent-500 dark:text-accent-400">{org.domain} · {org.members} active users</p>
+                      <div className="flex items-center gap-3">
+                        <Badge variant={tier === 'Enterprise' ? 'primary' : 'neutral'}>{tier}</Badge>
+                        <StatusBadge status={status} />
+                        <ChevronRight size={14} className="text-accent-400" />
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <Badge variant={org.tier === 'Enterprise' ? 'primary' : 'neutral'}>{org.tier}</Badge>
-                      <StatusBadge status={org.status} />
-                      <ChevronRight size={14} className="text-accent-400" />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </CardBody>
             </Card>
 
