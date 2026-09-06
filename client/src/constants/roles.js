@@ -36,3 +36,14 @@ export const ROLE_LABELS = Object.freeze({
   [ORGANIZATION_ROLES.PROCTOR]: 'Proctor / Invigilator',
   [ORGANIZATION_ROLES.CANDIDATE]: 'Candidate / Student',
 });
+
+export default {
+  ROLE_SCOPES,
+  PLATFORM_ROLES,
+  PLATFORM_ROLE_LIST,
+  ORGANIZATION_ROLES,
+  ORGANIZATION_ROLE_LIST,
+  ROLES,
+  ROLE_LIST,
+  ROLE_LABELS,
+};

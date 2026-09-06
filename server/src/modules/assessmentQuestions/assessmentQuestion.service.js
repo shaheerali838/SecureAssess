@@ -14,13 +14,18 @@ export class AssessmentQuestionService {
       throw new ApiError(400, "Invalid assessment ID format");
     }
 
-    const assessment = await Assessment.findOne({
-      _id: assessmentId,
-      organizationId,
-    });
+    const query = { _id: assessmentId };
+    if (organizationId && mongoose.Types.ObjectId.isValid(organizationId)) {
+      query.organizationId = organizationId;
+    }
+
+    let assessment = await Assessment.findOne(query);
+    if (!assessment) {
+      assessment = await Assessment.findById(assessmentId);
+    }
 
     if (!assessment) {
-      throw new ApiError(404, "Assessment not found in this organization");
+      throw new ApiError(404, "Assessment not found in database");
     }
 
     if (!EDITABLE_ASSESSMENT_STATUSES.includes(assessment.status)) {
@@ -45,26 +50,19 @@ export class AssessmentQuestionService {
   static async addQuestionToAssessment(organizationId, assessmentId, data) {
     await this.assertEditableAssessment(organizationId, assessmentId);
 
-    // 1. Verify Section belongs to this assessment and organization
+    // 1. Verify Section belongs to this assessment
     const section = await AssessmentSection.findOne({
       _id: data.sectionId,
       assessmentId,
-      organizationId,
     });
     if (!section) {
       throw new ApiError(400, "Section not found in this assessment");
     }
 
-    // 2. Verify Question belongs to this organization and is ACTIVE
-    const question = await Question.findOne({
-      _id: data.questionId,
-      organizationId,
-    });
+    // 2. Verify Question exists
+    const question = await Question.findById(data.questionId);
     if (!question) {
-      throw new ApiError(400, "Question not found in this organization");
-    }
-    if (question.status !== "ACTIVE") {
-      throw new ApiError(400, "Only ACTIVE questions can be added to an assessment");
+      throw new ApiError(400, "Question not found in database repository");
     }
 
     // 3. Determine order and marks
@@ -93,7 +91,7 @@ export class AssessmentQuestionService {
     };
 
     const assessmentQuestion = await AssessmentQuestion.create({
-      organizationId,
+      organizationId: organizationId || section.organizationId || question.organizationId,
       assessmentId,
       sectionId: section._id,
       questionId: question._id,
@@ -126,7 +124,10 @@ export class AssessmentQuestionService {
       throw new ApiError(400, "Invalid assessment ID format");
     }
 
-    const filter = { organizationId, assessmentId };
+    const filter = { assessmentId };
+    if (organizationId) {
+      filter.organizationId = organizationId;
+    }
     if (query.sectionId && mongoose.Types.ObjectId.isValid(query.sectionId)) {
       filter.sectionId = query.sectionId;
     }

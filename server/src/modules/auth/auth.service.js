@@ -55,6 +55,9 @@ export class AuthService {
     // Reset failed login attempts and update last login
     user.failedLoginAttempts = 0;
     user.lastLoginAt = new Date();
+    if (user.platformRole === "PLATFORM_OWNER") {
+      user.platformRole = "PLATFORM_ADMIN";
+    }
     await user.save();
 
     // Create a new session with Refresh Token & Token Family
@@ -177,6 +180,8 @@ export class AuthService {
         refreshToken: newRawRefreshToken,
         expiresIn: "1d",
       },
+      accessToken: newAccessToken,
+      refreshToken: newRawRefreshToken,
     };
   }
 

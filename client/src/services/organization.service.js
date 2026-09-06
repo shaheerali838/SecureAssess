@@ -93,7 +93,8 @@ export const organizationService = {
    * List staff members in organization
    */
   listMembers: async (organizationId, params = {}) => {
-    const response = await api.get(`/organizations/${organizationId}/members`, { params });
+    const orgId = organizationId || localStorage.getItem('secureassess_current_org_id');
+    const response = await api.get(`/organizations/${orgId}/members`, { params });
     return response.data || response;
   },
 
@@ -101,7 +102,8 @@ export const organizationService = {
    * Invite staff member to organization
    */
   inviteMember: async (organizationId, inviteData) => {
-    const response = await api.post(`/organizations/${organizationId}/members/invite`, inviteData);
+    const orgId = organizationId || localStorage.getItem('secureassess_current_org_id');
+    const response = await api.post(`/organizations/${orgId}/members/invite`, inviteData);
     return response.data || response;
   },
 
@@ -109,9 +111,22 @@ export const organizationService = {
    * Update staff member role or status
    */
   updateMember: async (organizationId, membershipId, updateData) => {
+    const orgId = organizationId || localStorage.getItem('secureassess_current_org_id');
     const response = await api.patch(
-      `/organizations/${organizationId}/members/${membershipId}/role`,
+      `/organizations/${orgId}/members/${membershipId}/role`,
       updateData
+    );
+    return response.data || response;
+  },
+
+  /**
+   * Update staff member status (ACTIVE / SUSPENDED / INACTIVE)
+   */
+  updateMemberStatus: async (organizationId, membershipId, status) => {
+    const orgId = organizationId || localStorage.getItem('secureassess_current_org_id');
+    const response = await api.patch(
+      `/organizations/${orgId}/members/${membershipId}/status`,
+      { status }
     );
     return response.data || response;
   },
@@ -120,7 +135,40 @@ export const organizationService = {
    * Remove member from organization
    */
   removeMember: async (organizationId, membershipId) => {
-    const response = await api.delete(`/organizations/${organizationId}/members/${membershipId}`);
+    const orgId = organizationId || localStorage.getItem('secureassess_current_org_id');
+    const response = await api.delete(`/organizations/${orgId}/members/${membershipId}`);
+    return response.data || response;
+  },
+
+  /**
+   * Departments
+   */
+  getDepartments: async (params = {}) => {
+    const response = await api.get('/departments', { params });
+    return response.data || response;
+  },
+
+  /**
+   * Programs
+   */
+  getPrograms: async (params = {}) => {
+    const response = await api.get('/programs', { params });
+    return response.data || response;
+  },
+
+  /**
+   * Subjects
+   */
+  getSubjects: async (params = {}) => {
+    const response = await api.get('/subjects', { params });
+    return response.data || response;
+  },
+
+  /**
+   * Candidate Groups / Cohorts
+   */
+  getCandidateGroups: async (params = {}) => {
+    const response = await api.get('/candidate-groups', { params });
     return response.data || response;
   },
 };

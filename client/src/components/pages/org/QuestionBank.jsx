@@ -1,21 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Library, Plus, Filter, Copy, Trash2, Pencil,
-  Tag, Star, RefreshCw, Check, FolderPlus, Tags,
-  Layers, CheckCircle2, ChevronRight, SlidersHorizontal,
-  Building2, Award, BookOpen, GraduationCap, AlertCircle, HelpCircle,
-  Search
+  Tag, Star, RefreshCw, Check
 } from 'lucide-react';
 import {
-  Card, CardHeader, CardBody, Badge, Button, SearchBar, PageHeader, Select, EmptyState,
+  Card, CardBody, Badge, Button, SearchBar, PageHeader, Select, EmptyState,
   Modal, Input, Textarea, Toast, SkeletonCards
 } from '@/components/ui';
 import questionBankService from '@/services/questionBank.service';
-import departmentService from '@/services/department.service';
-import programService from '@/services/program.service';
-import subjectService from '@/services/subject.service';
-import { useOrganization } from '@/contexts/OrganizationContext';
-import { useAuth } from '@/contexts/AuthContext';
 
 const difficultyColors = {
   Easy: 'success',
@@ -23,291 +15,92 @@ const difficultyColors = {
   Hard: 'danger',
 };
 
-const extractArray = (res) => {
-  if (!res) return [];
-  const val = res.status === 'fulfilled' ? res.value : res;
-  if (Array.isArray(val)) return val;
-  if (Array.isArray(val?.items)) return val.items;
-  if (Array.isArray(val?.data?.items)) return val.data.items;
-  if (Array.isArray(val?.questions)) return val.questions;
-  if (Array.isArray(val?.departments)) return val.departments;
-  if (Array.isArray(val?.programs)) return val.programs;
-  if (Array.isArray(val?.subjects)) return val.subjects;
-  if (Array.isArray(val?.data)) return val.data;
-  return [];
-};
-
-const getQuestionPrompt = (q) => {
-  if (!q) return '';
-  if (typeof q.prompt === 'string') return q.prompt;
-  if (typeof q.title === 'string') return q.title;
-  if (typeof q.stem === 'string') return q.stem;
-  if (typeof q.text === 'string') return q.text;
-  if (typeof q.content === 'string') return q.content;
-  if (typeof q.content?.text === 'string') return q.content.text;
-  return '';
-};
-
 export function QuestionBank({ onNavigate }) {
-  const { currentOrganization } = useOrganization();
-  const { user } = useAuth();
-  const orgId = currentOrganization?._id || currentOrganization?.id || user?.organizationId || null;
-
-  // Academic Structure State
-  const [departments, setDepartments] = useState([]);
-  const [programs, setPrograms] = useState([]);
-  const [subjects, setSubjects] = useState([]);
-
-  // Questions State
   const [questionsList, setQuestionsList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-
-  // Domain Filter States (Academic Structure cascading filters)
-  const [selectedDeptId, setSelectedDeptId] = useState('all');
-  const [selectedProgId, setSelectedProgId] = useState('all');
-  const [selectedSubjId, setSelectedSubjId] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [diffFilter, setDiffFilter] = useState('all');
 
-  // Modal State for Add/Edit Question
+  // Modal State for Adding Question
   const [modalOpen, setModalOpen] = useState(false);
-  const [editingQuestion, setEditingQuestion] = useState(null);
-  const [formDeptId, setFormDeptId] = useState('');
-  const [formProgId, setFormProgId] = useState('');
-  const [formSubjId, setFormSubjId] = useState('');
   const [newContent, setNewContent] = useState('');
   const [newType, setNewType] = useState('Multiple Choice');
   const [newDifficulty, setNewDifficulty] = useState('Medium');
+  const [newCategory, setNewCategory] = useState('Algorithms');
   const [newPoints, setNewPoints] = useState(1);
-  const [newOptions, setNewOptions] = useState(['', '', '', '']);
+  const [newOptions, setNewOptions] = useState(['Option A', 'Option B', 'Option C', 'Option D']);
   const [newCorrectAnswer, setNewCorrectAnswer] = useState(0);
-  const [newExplanation, setNewExplanation] = useState('');
-  const [newTags, setNewTags] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
 
-  // Fetch Academic Structure and Question Bank
-  const fetchBankData = useCallback(async () => {
+  const fetchQuestions = useCallback(async () => {
     setLoading(true);
     try {
-      const [deptRes, progRes, subjRes, qRes] = await Promise.allSettled([
-        departmentService.getDepartments({}, orgId),
-        programService.getPrograms({}, orgId),
-        subjectService.getSubjects({}, orgId),
-        questionBankService.getQuestions({}, orgId),
-      ]);
-
-      const loadedDepts = extractArray(deptRes);
-      const loadedProgs = extractArray(progRes);
-      const loadedSubjs = extractArray(subjRes);
-      const loadedQuestions = extractArray(qRes);
-
-      setDepartments(loadedDepts);
-      setPrograms(loadedProgs);
-      setSubjects(loadedSubjs);
-      setQuestionsList(loadedQuestions);
+      const data = await questionBankService.getQuestions();
+      const items = Array.isArray(data) ? data : (data?.items || data?.questions || data?.data || []);
+      setQuestionsList(items || []);
     } catch (err) {
-      console.warn('Questions/taxonomies fetch note:', err.message);
+      console.warn('Questions fetch error:', err.message);
+      setQuestionsList([]);
     } finally {
       setLoading(false);
     }
-  }, [orgId]);
+  }, []);
 
   useEffect(() => {
-    fetchBankData();
-  }, [fetchBankData]);
+    fetchQuestions();
+  }, [fetchQuestions]);
 
-  // Handle department change in Add Modal (auto-update cascaded programs and subjects)
-  const handleModalDeptChange = (deptId) => {
-    setFormDeptId(deptId);
-    const availableProgs = programs.filter(
-      (p) => p.departmentId === deptId || p.departmentId?._id === deptId
-    );
-    const firstProg = availableProgs[0]?._id || '';
-    setFormProgId(firstProg);
-
-    if (firstProg) {
-      const availableSubjs = subjects.filter(
-        (s) => s.programId === firstProg || s.programId?._id === firstProg
-      );
-      setFormSubjId(availableSubjs[0]?._id || '');
-    } else {
-      setFormSubjId('');
-    }
-  };
-
-  // Handle program change in Add Modal (auto-update cascaded subjects)
-  const handleModalProgChange = (progId) => {
-    setFormProgId(progId);
-    const availableSubjs = subjects.filter(
-      (s) => s.programId === progId || s.programId?._id === progId
-    );
-    setFormSubjId(availableSubjs[0]?._id || '');
-  };
-
-  // Open modal for creating a new question
-  const handleOpenCreateModal = () => {
-    setEditingQuestion(null);
-    const initDept = departments[0]?._id || '';
-    const availableProgs = programs.filter(
-      (p) => p.departmentId === initDept || p.departmentId?._id === initDept
-    );
-    const initProg = availableProgs[0]?._id || programs[0]?._id || '';
-    const availableSubjs = subjects.filter(
-      (s) => s.programId === initProg || s.programId?._id === initProg
-    );
-    const initSubj = availableSubjs[0]?._id || subjects[0]?._id || '';
-
-    setFormDeptId(initDept);
-    setFormProgId(initProg);
-    setFormSubjId(initSubj);
-    setNewContent('');
-    setNewType('Multiple Choice');
-    setNewDifficulty('Medium');
-    setNewPoints(1);
-    setNewOptions(['Option A', 'Option B', 'Option C', 'Option D']);
-    setNewCorrectAnswer(0);
-    setNewExplanation('');
-    setNewTags('');
-    setModalOpen(true);
-  };
-
-  // Open modal for editing existing question
-  const handleOpenEditModal = (q) => {
-    setEditingQuestion(q);
-    setFormDeptId(q.departmentId?._id || q.departmentId || '');
-    setFormProgId(q.programId?._id || q.programId || '');
-    setFormSubjId(q.subjectId?._id || q.subjectId || '');
-    setNewContent(q.content || q.text || '');
-    setNewType(q.type || 'Multiple Choice');
-    setNewDifficulty(q.difficulty || 'Medium');
-    setNewPoints(q.points || 1);
-    setNewOptions(Array.isArray(q.options) ? q.options.map((o) => (typeof o === 'string' ? o : o.text || '')) : ['', '', '', '']);
-    setNewCorrectAnswer(typeof q.correctAnswer === 'number' ? q.correctAnswer : 0);
-    setNewExplanation(q.explanation || '');
-    setNewTags(Array.isArray(q.tags) ? q.tags.join(', ') : '');
-    setModalOpen(true);
-  };
-
-  // Save / Update Question
-  const handleSaveQuestion = async (e) => {
-    e.preventDefault();
-    if (!newContent.trim()) {
-      setToastMessage({ type: 'error', text: 'Question content cannot be empty.' });
-      return;
-    }
-    if (!formSubjId && subjects.length > 0) {
-      setToastMessage({ type: 'error', text: 'Please associate this question with an academic subject.' });
-      return;
-    }
-
+  const handleCreateQuestion = async () => {
+    if (!newContent.trim()) return;
     setIsSubmitting(true);
     try {
-      const parentSubj = subjects.find((s) => s._id === formSubjId);
-      const parentProg = programs.find((p) => p._id === formProgId || p._id === parentSubj?.programId);
-      const parentDept = departments.find((d) => d._id === formDeptId || d._id === parentProg?.departmentId);
-
-      const parsedTags = newTags
-        .split(',')
-        .map((t) => t.trim().toLowerCase())
-        .filter(Boolean);
-
       const payload = {
-        prompt: newContent.trim(),
-        title: newContent.trim().slice(0, 80),
-        stem: newContent.trim(),
-        content: { text: newContent.trim() },
-        text: newContent.trim(),
+        content: newContent,
         type: newType,
-        difficulty: newDifficulty.toUpperCase(),
+        difficulty: newDifficulty,
+        category: newCategory,
         points: Number(newPoints) || 1,
-        marks: Number(newPoints) || 1,
-        options:
-          newType === 'Multiple Choice'
-            ? newOptions.map((text, idx) => ({
-                id: String.fromCharCode(65 + idx),
-                text: text.trim() || `Option ${String.fromCharCode(65 + idx)}`,
-              }))
-            : [],
+        options: newOptions,
         correctAnswer: newCorrectAnswer,
-        explanation: newExplanation,
-        tags: parsedTags,
-        subjectId: formSubjId || null,
-        programId: formProgId || parentSubj?.programId || null,
-        departmentId: formDeptId || parentProg?.departmentId || null,
-        subjectName: parentSubj ? `${parentSubj.code}: ${parentSubj.name}` : undefined,
-        programName: parentProg ? parentProg.name : undefined,
-        departmentName: parentDept ? parentDept.name : undefined,
+        tags: [newCategory.toLowerCase()],
       };
 
-      if (editingQuestion) {
-        await questionBankService.updateQuestion(editingQuestion._id || editingQuestion.id, payload, orgId);
-        setToastMessage({ type: 'success', text: 'Question updated in repository!' });
-      } else {
-        await questionBankService.createQuestion(payload, orgId);
-        setToastMessage({ type: 'success', text: 'Question created and mapped to curriculum!' });
-      }
-
+      const res = await questionBankService.createQuestion(payload);
+      const createdItem = res?.data || res || { id: Date.now(), ...payload };
+      setQuestionsList((prev) => [createdItem, ...prev]);
+      setToastMessage({ type: 'success', text: 'Question added to bank!' });
       setModalOpen(false);
-      await fetchBankData();
+      setNewContent('');
     } catch (err) {
-      const msg = err.response?.data?.message || err.message || 'Failed to save question.';
-      setToastMessage({ type: 'error', text: msg });
+      setToastMessage({ type: 'error', text: 'Failed to add question: ' + (err.response?.data?.message || err.message) });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Delete Question
   const handleDeleteQuestion = async (id) => {
-    if (!window.confirm('Are you sure you want to remove this question from the bank?')) return;
     try {
-      await questionBankService.deleteQuestion(id, orgId);
-      setToastMessage({ type: 'info', text: 'Question removed from question bank.' });
-      await fetchBankData();
+      await questionBankService.deleteQuestion(id);
+      setQuestionsList((prev) => prev.filter((q) => (q._id || q.id) !== id));
+      setToastMessage({ type: 'success', text: 'Question removed from bank.' });
     } catch (err) {
-      const msg = err.response?.data?.message || err.message || 'Failed to delete question.';
-      setToastMessage({ type: 'error', text: msg });
+      setToastMessage({ type: 'error', text: 'Failed to remove question: ' + (err.response?.data?.message || err.message) });
     }
   };
 
-  // Filter cascaded programs based on selected Department
-  const filteredProgramsForFilter = programs.filter((p) =>
-    selectedDeptId === 'all' ? true : (p.departmentId === selectedDeptId || p.departmentId?._id === selectedDeptId)
-  );
-
-  // Filter cascaded subjects based on selected Program
-  const filteredSubjectsForFilter = subjects.filter((s) => {
-    if (selectedProgId !== 'all') {
-      return s.programId === selectedProgId || s.programId?._id === selectedProgId;
-    }
-    if (selectedDeptId !== 'all') {
-      const deptProgIds = filteredProgramsForFilter.map((p) => p._id);
-      return deptProgIds.includes(s.programId) || deptProgIds.includes(s.programId?._id);
-    }
-    return true;
-  });
-
-  // Filter questions by Academic Domain hierarchy and metadata
-  const filteredQuestions = questionsList.filter((q) => {
-    const qContent = getQuestionPrompt(q).toLowerCase();
-    const qTags = Array.isArray(q.tags) ? q.tags.join(' ').toLowerCase() : '';
-    const matchesSearch = qContent.includes(search.toLowerCase()) || qTags.includes(search.toLowerCase());
-
-    const matchesType = typeFilter === 'all' || q.type === typeFilter;
-    const matchesDiff = diffFilter === 'all' || q.difficulty === diffFilter;
-
-    // Academic Domain matching
-    const matchesDept = selectedDeptId === 'all' || q.departmentId === selectedDeptId || q.departmentId?._id === selectedDeptId;
-    const matchesProg = selectedProgId === 'all' || q.programId === selectedProgId || q.programId?._id === selectedProgId;
-    const matchesSubj = selectedSubjId === 'all' || q.subjectId === selectedSubjId || q.subjectId?._id === selectedSubjId;
-
-    return matchesSearch && matchesType && matchesDiff && matchesDept && matchesProg && matchesSubj;
+  const filtered = questionsList.filter((q) => {
+    const content = (q.content || '').toLowerCase();
+    const category = (q.category || '').toLowerCase();
+    const matchesSearch = content.includes(search.toLowerCase()) || category.includes(search.toLowerCase());
+    const matchesDifficulty = diffFilter === 'all' || (q.difficulty || '').toLowerCase() === diffFilter.toLowerCase();
+    const matchesType = typeFilter === 'all' || (q.type || '').toLowerCase().includes(typeFilter.toLowerCase());
+    return matchesSearch && matchesDifficulty && matchesType;
   });
 
   return (
-    <div className="space-y-6 max-w-full overflow-hidden">
+    <div className="space-y-6">
       {toastMessage && (
         <Toast
           type={toastMessage.type}
@@ -316,593 +109,259 @@ export function QuestionBank({ onNavigate }) {
         />
       )}
 
-      {/* Page Header */}
       <PageHeader
         title="Question Bank"
-        subtitle="Central questions repository directly linked with academic curriculum, departments, and course subjects."
-        icon={<Library size={22} className="text-primary-600 dark:text-primary-400 shrink-0" />}
-        breadcrumbs={[
-          { label: 'Dashboard', onClick: () => onNavigate('org-dashboard') },
-          { label: 'Question Bank' },
-        ]}
+        subtitle="Reusable multi-format questions categorized by topic, difficulty, and skill tags."
+        icon={<Library size={22} className="text-primary-600 dark:text-primary-400" />}
+        breadcrumbs={[{ label: 'Dashboard', onClick: () => onNavigate('org-dashboard') }, { label: 'Question Bank' }]}
         actions={
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
               icon={<RefreshCw size={14} className={loading ? 'animate-spin' : ''} />}
-              onClick={fetchBankData}
-              disabled={loading}
+              onClick={fetchQuestions}
             >
-              Sync
+              Refresh
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              icon={<GraduationCap size={14} />}
-              onClick={() => onNavigate('org-academic-structure')}
-            >
-              Academic Structure
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              icon={<Plus size={14} />}
-              onClick={handleOpenCreateModal}
-            >
-              New Question
+            <Button variant="primary" size="sm" icon={<Plus size={15} />} onClick={() => setModalOpen(true)}>
+              Add Question
             </Button>
           </div>
         }
       />
 
-      {/* Academic Domain Coverage Highlights */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <Card className="p-4 bg-primary-50/20 dark:bg-primary-950/20 border-primary-200 dark:border-primary-900/50">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-primary-600 dark:text-primary-400">
-                Total Questions
-              </p>
-              <h3 className="text-2xl font-bold text-accent-900 dark:text-white mt-1">
-                {questionsList.length}
-              </h3>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-primary-100 dark:bg-primary-900/60 text-primary-600 flex items-center justify-center shrink-0">
-              <Library size={20} />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4 bg-secondary-50/20 dark:bg-secondary-950/20 border-secondary-200 dark:border-secondary-900/50">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-secondary-600 dark:text-secondary-400">
-                Departments Covered
-              </p>
-              <h3 className="text-2xl font-bold text-accent-900 dark:text-white mt-1">
-                {departments.length}
-              </h3>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-secondary-100 dark:bg-secondary-900/60 text-secondary-600 flex items-center justify-center shrink-0">
-              <Building2 size={20} />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4 bg-info-50/20 dark:bg-info-950/20 border-info-200 dark:border-info-900/50">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-info-600 dark:text-info-400">
-                Degree Programs
-              </p>
-              <h3 className="text-2xl font-bold text-accent-900 dark:text-white mt-1">
-                {programs.length}
-              </h3>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-info-100 dark:bg-info-900/60 text-info-600 flex items-center justify-center shrink-0">
-              <Award size={20} />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4 bg-success-50/20 dark:bg-success-950/20 border-success-200 dark:border-success-900/50">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-success-600 dark:text-success-400">
-                Course Subjects
-              </p>
-              <h3 className="text-2xl font-bold text-accent-900 dark:text-white mt-1">
-                {subjects.length}
-              </h3>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-success-100 dark:bg-success-900/60 text-success-600 flex items-center justify-center shrink-0">
-              <BookOpen size={20} />
-            </div>
-          </div>
-        </Card>
+      {/* Metrics Header */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: 'Total Questions', value: questionsList.length, color: 'text-primary-600 dark:text-primary-400' },
+          { label: 'Domain Categories', value: 8, color: 'text-secondary-600 dark:text-secondary-400' },
+          { label: 'Supported Formats', value: 9, color: 'text-info-600 dark:text-info-400' },
+          { label: 'Average Difficulty', value: 'Medium', color: 'text-warning-600 dark:text-warning-400' },
+        ].map((s, i) => (
+          <Card key={i} className="p-4">
+            <p className={`text-2xl font-bold font-display ${s.color}`}>{s.value}</p>
+            <p className="text-xs text-accent-500 dark:text-accent-400 mt-1 font-medium">{s.label}</p>
+          </Card>
+        ))}
       </div>
 
-      {/* Cascading Domain Filters & Search Bar */}
-      <Card className="p-4 space-y-3">
-        <div className="flex items-center gap-2 text-xs font-bold text-accent-900 dark:text-white mb-1">
-          <SlidersHorizontal size={14} className="text-primary-600 dark:text-primary-400" />
-          <span>Curriculum Domain & Classification Filters</span>
+      {/* Search and Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <SearchBar value={search} onChange={setSearch} placeholder="Search questions by keyword or tag..." className="flex-1" />
+        <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+          <Select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            options={[
+              { value: 'all', label: 'All Types' },
+              { value: 'multiple choice', label: 'Multiple Choice' },
+              { value: 'multiple select', label: 'Multiple Select' },
+              { value: 'true / false', label: 'True / False' },
+              { value: 'short answer', label: 'Short Answer' },
+              { value: 'coding', label: 'Coding Lab' },
+            ]}
+            className="w-36"
+          />
+          <Select
+            value={diffFilter}
+            onChange={(e) => setDiffFilter(e.target.value)}
+            options={[
+              { value: 'all', label: 'All Difficulty' },
+              { value: 'easy', label: 'Easy' },
+              { value: 'medium', label: 'Medium' },
+              { value: 'hard', label: 'Hard' },
+            ]}
+            className="w-36"
+          />
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5 text-xs">
-          {/* Department Domain Filter */}
-          <div>
-            <label className="block text-[11px] font-semibold text-accent-600 dark:text-accent-400 mb-1">
-              Department
-            </label>
-            <select
-              value={selectedDeptId}
-              onChange={(e) => {
-                setSelectedDeptId(e.target.value);
-                setSelectedProgId('all');
-                setSelectedSubjId('all');
-              }}
-              className="w-full h-8 px-2.5 rounded-lg border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white text-xs focus:ring-1 focus:ring-primary-500"
-            >
-              <option value="all">All Departments ({departments.length})</option>
-              {departments.map((d) => (
-                <option key={d._id} value={d._id}>
-                  {d.name} ({d.code})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Degree Program Domain Filter */}
-          <div>
-            <label className="block text-[11px] font-semibold text-accent-600 dark:text-accent-400 mb-1">
-              Degree Program
-            </label>
-            <select
-              value={selectedProgId}
-              onChange={(e) => {
-                setSelectedProgId(e.target.value);
-                setSelectedSubjId('all');
-              }}
-              className="w-full h-8 px-2.5 rounded-lg border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white text-xs focus:ring-1 focus:ring-primary-500"
-            >
-              <option value="all">All Programs ({filteredProgramsForFilter.length})</option>
-              {filteredProgramsForFilter.map((p) => (
-                <option key={p._id} value={p._id}>
-                  {p.name} ({p.code})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Subject Domain Filter */}
-          <div>
-            <label className="block text-[11px] font-semibold text-accent-600 dark:text-accent-400 mb-1">
-              Subject
-            </label>
-            <select
-              value={selectedSubjId}
-              onChange={(e) => setSelectedSubjId(e.target.value)}
-              className="w-full h-8 px-2.5 rounded-lg border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white text-xs focus:ring-1 focus:ring-primary-500"
-            >
-              <option value="all">All Subjects ({filteredSubjectsForFilter.length})</option>
-              {filteredSubjectsForFilter.map((s) => (
-                <option key={s._id} value={s._id}>
-                  {s.name} ({s.code})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Question Type Filter */}
-          <div>
-            <label className="block text-[11px] font-semibold text-accent-600 dark:text-accent-400 mb-1">
-              Question Type
-            </label>
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="w-full h-8 px-2.5 rounded-lg border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white text-xs focus:ring-1 focus:ring-primary-500"
-            >
-              <option value="all">All Types</option>
-              <option value="Multiple Choice">Multiple Choice</option>
-              <option value="True / False">True / False</option>
-              <option value="Short Answer">Short Answer</option>
-              <option value="Coding">Coding</option>
-              <option value="Essay">Essay</option>
-            </select>
-          </div>
-
-          {/* Difficulty Filter */}
-          <div>
-            <label className="block text-[11px] font-semibold text-accent-600 dark:text-accent-400 mb-1">
-              Difficulty
-            </label>
-            <select
-              value={diffFilter}
-              onChange={(e) => setDiffFilter(e.target.value)}
-              className="w-full h-8 px-2.5 rounded-lg border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white text-xs focus:ring-1 focus:ring-primary-500"
-            >
-              <option value="all">All Difficulties</option>
-              <option value="Easy">Easy</option>
-              <option value="Medium">Medium</option>
-              <option value="Hard">Hard</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Search Bar & Reset */}
-        <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-2.5">
-          <div className="relative w-full sm:w-80">
-            <Search size={14} className="absolute left-3 top-2.5 text-accent-400" />
-            <input
-              type="text"
-              placeholder="Search question text or tags..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full h-8 pl-8 pr-3 text-xs rounded-lg bg-accent-50 dark:bg-accent-900 border border-accent-200 dark:border-accent-800 text-accent-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500"
-            />
-          </div>
-
-          <div className="flex items-center gap-2 self-end">
-            {(selectedDeptId !== 'all' || selectedProgId !== 'all' || selectedSubjId !== 'all' || typeFilter !== 'all' || diffFilter !== 'all' || search) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setSelectedDeptId('all');
-                  setSelectedProgId('all');
-                  setSelectedSubjId('all');
-                  setTypeFilter('all');
-                  setDiffFilter('all');
-                  setSearch('');
-                }}
-              >
-                Clear Filters
-              </Button>
-            )}
-            <span className="text-xs text-accent-500 font-medium">
-              Showing <strong>{filteredQuestions.length}</strong> of {questionsList.length} questions
-            </span>
-          </div>
-        </div>
-      </Card>
-
-      {/* Questions Grid List */}
+      {/* Loading Skeleton or Question Items */}
       {loading ? (
-        <SkeletonCards count={6} />
-      ) : filteredQuestions.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredQuestions.map((q, idx) => {
-            const subjObj = subjects.find((s) => s._id === q.subjectId || s._id === q.subjectId?._id);
-            const progObj = programs.find((p) => p._id === q.programId || p._id === q.programId?._id || p._id === subjObj?.programId);
-            const deptObj = departments.find((d) => d._id === q.departmentId || d._id === q.departmentId?._id || d._id === progObj?.departmentId);
-
-            const subjectLabel = subjObj ? `${subjObj.code}: ${subjObj.name}` : q.subjectName || q.category || 'General';
-            const programLabel = progObj ? progObj.name : q.programName || deptObj?.name || 'Academic Core';
-
-            const opts = Array.isArray(q.options)
-              ? q.options.map((o) => (typeof o === 'string' ? o : o.text || ''))
-              : [];
+        <SkeletonCards count={4} />
+      ) : filtered.length === 0 ? (
+        <Card>
+          <EmptyState
+            icon={<Library size={28} />}
+            title="No questions found"
+            description="Build your reusable question library for fast examination authoring."
+            action={<Button variant="primary" icon={<Plus size={15} />} onClick={() => setModalOpen(true)}>Add Question</Button>}
+          />
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map((q, idx) => {
+            const id = q._id || q.id || idx + 1;
+            const content = q.content || 'Untitled question stem';
+            const difficulty = q.difficulty || 'Medium';
+            const category = q.category || 'General';
+            const points = q.points || 1;
+            const options = Array.isArray(q.options) ? q.options : [];
+            const correctAnswer = q.correctAnswer ?? 0;
+            const tags = Array.isArray(q.tags) ? q.tags : [category.toLowerCase()];
 
             return (
-              <Card key={q._id || q.id || idx} className="p-4 sm:p-5 flex flex-col justify-between hover:shadow-md transition-shadow min-w-0">
-                <div className="space-y-3">
-                  {/* Domain Badges */}
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-primary-50 dark:bg-primary-950 text-primary-700 dark:text-primary-300 border border-primary-200 dark:border-primary-800 shrink-0">
-                        <BookOpen size={11} />
-                        <span className="truncate max-w-[150px]">{subjectLabel}</span>
-                      </span>
-                      <span className="text-[10px] font-medium text-accent-500 truncate max-w-[120px]">
-                        {programLabel}
-                      </span>
+              <Card key={id} hover>
+                <CardBody className="p-4 sm:p-5">
+                  <div className="flex items-start gap-4">
+                    <div className="flex flex-col items-center gap-1.5 shrink-0">
+                      <span className="text-xs font-bold font-mono text-accent-400 dark:text-accent-500">#{idx + 1}</span>
+                      <Badge variant={difficultyColors[difficulty] || 'neutral'}>{difficulty}</Badge>
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <Badge variant={difficultyColors[q.difficulty] || 'secondary'} className="text-[10px]">
-                        {q.difficulty || 'Medium'}
-                      </Badge>
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-accent-100 dark:bg-accent-800 text-accent-700 dark:text-accent-300">
-                        {q.points || 1} pt{q.points !== 1 ? 's' : ''}
-                      </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-accent-900 dark:text-white mb-2 leading-relaxed">
+                        {content}
+                      </p>
+
+                      {options.length > 0 && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mb-3">
+                          {options.map((opt, oi) => {
+                            const isCorrect = typeof opt === 'object' && opt?.isCorrect !== undefined
+                              ? opt.isCorrect
+                              : (Array.isArray(correctAnswer)
+                                ? correctAnswer.includes(oi)
+                                : correctAnswer === oi);
+                            const optText = typeof opt === 'object' ? (opt?.text ?? opt?.label ?? opt?.value ?? '') : opt;
+                            return (
+                              <div
+                                key={oi}
+                                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                                  isCorrect
+                                    ? 'bg-success-50 dark:bg-success-950/40 text-success-700 dark:text-success-300 font-medium'
+                                    : 'text-accent-600 dark:text-accent-400'
+                                }`}
+                              >
+                                <span
+                                  className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${
+                                    isCorrect
+                                      ? 'border-success-500 bg-success-500'
+                                      : 'border-accent-300 dark:border-accent-600'
+                                  }`}
+                                >
+                                  {isCorrect && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                </span>
+                                <span className="truncate">{optText}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2 flex-wrap text-xs text-accent-500 dark:text-accent-400">
+                        <span className="font-semibold text-accent-700 dark:text-accent-300">{category}</span>
+                        <span>·</span>
+                        <span>{points} {points === 1 ? 'Point' : 'Points'}</span>
+                        {tags.map((t, i) => (
+                          <span key={i} className="inline-flex items-center gap-1 text-[11px] bg-accent-100 dark:bg-accent-800 text-accent-600 dark:text-accent-300 px-2 py-0.5 rounded-md">
+                            <Tag size={10} /> {t}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteQuestion(id)}
+                        className="p-1.5 text-accent-400 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950/40 rounded-lg transition-colors cursor-pointer"
+                        title="Delete Question"
+                      >
+                        <Trash2 size={15} />
+                      </button>
                     </div>
                   </div>
-
-                  {/* Question Content Prompt */}
-                  <h4 className="text-xs sm:text-sm font-bold text-accent-900 dark:text-white leading-snug break-words">
-                    {getQuestionPrompt(q) || 'Untitled Question'}
-                  </h4>
-
-                  {/* Multiple Choice Options Preview */}
-                  {opts.length > 0 && (
-                    <div className="space-y-1.5 pt-1">
-                      {opts.slice(0, 4).map((opt, oIdx) => {
-                        const isCorrect = oIdx === q.correctAnswer || (q.options && q.options[oIdx]?.isCorrect);
-                        return (
-                          <div
-                            key={oIdx}
-                            className={`p-2 rounded-lg text-xs flex items-center gap-2 border transition-colors ${
-                              isCorrect
-                                ? 'bg-success-50/60 dark:bg-success-950/40 border-success-300 dark:border-success-800 text-success-900 dark:text-success-200 font-semibold'
-                                : 'bg-accent-50/50 dark:bg-accent-900/40 border-accent-100 dark:border-accent-800 text-accent-700 dark:text-accent-300'
-                            }`}
-                          >
-                            <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] shrink-0 border border-current font-mono">
-                              {String.fromCharCode(65 + oIdx)}
-                            </span>
-                            <span className="truncate flex-1">{opt}</span>
-                            {isCorrect && <CheckCircle2 size={13} className="text-success-600 shrink-0" />}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Tags */}
-                  {Array.isArray(q.tags) && q.tags.length > 0 && (
-                    <div className="flex items-center gap-1 flex-wrap pt-1">
-                      {q.tags.map((tag, tIdx) => (
-                        <span key={tIdx} className="text-[10px] text-accent-400">
-                          #{tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Card Actions Footer */}
-                <div className="mt-4 pt-3 border-t border-accent-100 dark:border-accent-800/80 flex items-center justify-between text-xs">
-                  <span className="text-[11px] text-accent-400 font-medium">
-                    Type: {q.type || 'Multiple Choice'}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      icon={<Pencil size={13} />}
-                      onClick={() => handleOpenEditModal(q)}
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-danger-600 dark:text-danger-400"
-                      icon={<Trash2 size={13} />}
-                      onClick={() => handleDeleteQuestion(q._id || q.id)}
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                </div>
+                </CardBody>
               </Card>
             );
           })}
         </div>
-      ) : (
-        <Card className="p-8 sm:p-12 text-center">
-          <div className="w-12 h-12 rounded-full bg-primary-50 dark:bg-primary-950/60 text-primary-600 mx-auto flex items-center justify-center mb-3">
-            <Library size={24} />
-          </div>
-          <h4 className="text-sm font-bold text-accent-900 dark:text-white">No Questions in This Academic Domain</h4>
-          <p className="text-xs text-accent-500 max-w-sm mx-auto mt-1 mb-4">
-            {subjects.length === 0
-              ? 'Please configure your academic structure (departments and subjects) first to map your questions.'
-              : 'Add questions mapped to your subjects and degree programs to start building exams easily.'}
-          </p>
-          <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={handleOpenCreateModal}>
-            Add First Question
-          </Button>
-        </Card>
       )}
 
-      {/* Add / Edit Question Modal with Academic Structure Hierarchy */}
+      {/* Add Question Modal */}
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editingQuestion ? 'Edit Question' : 'Add Question to Question Bank'}
-        subtitle="Map question to curriculum subjects and configure options and difficulty."
+        title="Add Item to Question Bank"
+        subtitle="Author a reusable question to include in multiple assessments."
         size="lg"
+        footer={
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setModalOpen(false)}>Cancel</Button>
+            <Button variant="primary" size="sm" loading={isSubmitting} icon={<Check size={14} />} onClick={handleCreateQuestion}>
+              Save to Question Bank
+            </Button>
+          </div>
+        }
       >
-        <form onSubmit={handleSaveQuestion} className="space-y-4 text-xs">
-          {/* Academic Structure Domain Selectors */}
-          <div className="p-3.5 bg-accent-50/70 dark:bg-accent-950/50 rounded-xl border border-accent-200 dark:border-accent-800 space-y-2.5">
-            <div className="flex items-center gap-1.5 font-bold text-accent-900 dark:text-white text-xs">
-              <GraduationCap size={15} className="text-primary-600 dark:text-primary-400" />
-              <span>Academic Curriculum Domain (Department → Program → Subject)</span>
-            </div>
+        <div className="space-y-4">
+          <Textarea
+            label="Question Prompt"
+            rows={3}
+            placeholder="Type your question stem here..."
+            value={newContent}
+            onChange={(e) => setNewContent(e.target.value)}
+          />
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              {/* Department */}
-              <div>
-                <label className="block text-[11px] font-semibold text-accent-700 dark:text-accent-300 mb-1">
-                  Department *
-                </label>
-                <select
-                  required
-                  value={formDeptId}
-                  onChange={(e) => handleModalDeptChange(e.target.value)}
-                  className="w-full px-2.5 py-1.5 rounded-lg border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white text-xs focus:ring-1 focus:ring-primary-500"
-                >
-                  <option value="" disabled>Select Department</option>
-                  {departments.map((d) => (
-                    <option key={d._id} value={d._id}>
-                      {d.name} ({d.code})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Degree Program */}
-              <div>
-                <label className="block text-[11px] font-semibold text-accent-700 dark:text-accent-300 mb-1">
-                  Degree Program *
-                </label>
-                <select
-                  required
-                  value={formProgId}
-                  onChange={(e) => handleModalProgChange(e.target.value)}
-                  className="w-full px-2.5 py-1.5 rounded-lg border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white text-xs focus:ring-1 focus:ring-primary-500"
-                >
-                  <option value="" disabled>Select Program</option>
-                  {programs
-                    .filter((p) => !formDeptId || p.departmentId === formDeptId || p.departmentId?._id === formDeptId)
-                    .map((p) => (
-                      <option key={p._id} value={p._id}>
-                        {p.name} ({p.code})
-                      </option>
-                    ))}
-                </select>
-              </div>
-
-              {/* Subject */}
-              <div>
-                <label className="block text-[11px] font-semibold text-accent-700 dark:text-accent-300 mb-1">
-                  Subject *
-                </label>
-                <select
-                  required
-                  value={formSubjId}
-                  onChange={(e) => setFormSubjId(e.target.value)}
-                  className="w-full px-2.5 py-1.5 rounded-lg border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white text-xs focus:ring-1 focus:ring-primary-500"
-                >
-                  <option value="" disabled>Select Subject</option>
-                  {subjects
-                    .filter((s) => !formProgId || s.programId === formProgId || s.programId?._id === formProgId)
-                    .map((s) => (
-                      <option key={s._id} value={s._id}>
-                        {s.name} ({s.code})
-                      </option>
-                    ))}
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Question Type & Difficulty & Points */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <label className="block font-semibold text-accent-700 dark:text-accent-300 mb-1">
-                Question Type *
-              </label>
-              <select
-                value={newType}
-                onChange={(e) => setNewType(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white"
-              >
-                <option value="Multiple Choice">Multiple Choice</option>
-                <option value="True / False">True / False</option>
-                <option value="Short Answer">Short Answer</option>
-                <option value="Coding">Coding</option>
-                <option value="Essay">Essay</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block font-semibold text-accent-700 dark:text-accent-300 mb-1">
-                Difficulty *
-              </label>
-              <select
-                value={newDifficulty}
-                onChange={(e) => setNewDifficulty(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white"
-              >
-                <option value="Easy">Easy</option>
-                <option value="Medium">Medium</option>
-                <option value="Hard">Hard</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block font-semibold text-accent-700 dark:text-accent-300 mb-1">
-                Marks / Points *
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="100"
-                value={newPoints}
-                onChange={(e) => setNewPoints(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white"
-              />
-            </div>
-          </div>
-
-          {/* Question Text */}
-          <div>
-            <label className="block font-semibold text-accent-700 dark:text-accent-300 mb-1">
-              Question Content / Prompt *
-            </label>
-            <textarea
-              required
-              rows={3}
-              value={newContent}
-              onChange={(e) => setNewContent(e.target.value)}
-              placeholder="e.g. Which data structure operates on a First-In, First-Out (FIFO) basis?"
-              className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+            <Select
+              label="Format"
+              value={newType}
+              onChange={(e) => setNewType(e.target.value)}
+              options={[
+                { value: 'Multiple Choice', label: 'Multiple Choice' },
+                { value: 'Multiple Select', label: 'Multiple Select' },
+                { value: 'True / False', label: 'True / False' },
+                { value: 'Short Answer', label: 'Short Answer' },
+              ]}
+            />
+            <Select
+              label="Difficulty"
+              value={newDifficulty}
+              onChange={(e) => setNewDifficulty(e.target.value)}
+              options={[
+                { value: 'Easy', label: 'Easy' },
+                { value: 'Medium', label: 'Medium' },
+                { value: 'Hard', label: 'Hard' },
+              ]}
+            />
+            <Input
+              label="Domain Category"
+              value={newCategory}
+              onChange={(e) => setNewCategory(e.target.value)}
             />
           </div>
 
-          {/* Multiple Choice Options */}
-          {newType === 'Multiple Choice' && (
-            <div className="space-y-2 pt-1">
-              <label className="block font-semibold text-accent-700 dark:text-accent-300">
-                Answer Options & Correct Choice
-              </label>
-              {newOptions.map((opt, oIdx) => (
-                <div key={oIdx} className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="correctAnswerOption"
-                    checked={newCorrectAnswer === oIdx}
-                    onChange={() => setNewCorrectAnswer(oIdx)}
-                    className="w-4 h-4 text-primary-600 cursor-pointer"
-                    title="Mark as correct answer"
-                  />
-                  <span className="font-mono font-bold text-xs w-4">{String.fromCharCode(65 + oIdx)}</span>
-                  <input
-                    type="text"
-                    required
-                    value={opt}
-                    onChange={(e) => {
-                      const updated = [...newOptions];
-                      updated[oIdx] = e.target.value;
-                      setNewOptions(updated);
-                    }}
-                    placeholder={`Option ${String.fromCharCode(65 + oIdx)}`}
-                    className="flex-1 px-3 py-1.5 rounded-lg border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white text-xs"
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Tags */}
-          <div>
-            <label className="block font-semibold text-accent-700 dark:text-accent-300 mb-1">
-              Keywords & Tags (comma separated)
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold text-accent-700 dark:text-accent-300">
+              Answer Options (Select correct choice)
             </label>
-            <input
-              type="text"
-              value={newTags}
-              onChange={(e) => setNewTags(e.target.value)}
-              placeholder="e.g. queue, fifo, linear-data-structures, midterms"
-              className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white text-xs"
-            />
+            {newOptions.map((opt, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setNewCorrectAnswer(i)}
+                  className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                    newCorrectAnswer === i ? 'border-success-500 bg-success-500 text-white' : 'border-accent-300'
+                  }`}
+                >
+                  {newCorrectAnswer === i && <Check size={12} />}
+                </button>
+                <input
+                  type="text"
+                  value={opt}
+                  onChange={(e) => {
+                    const next = [...newOptions];
+                    next[i] = e.target.value;
+                    setNewOptions(next);
+                  }}
+                  className="flex-1 h-9 px-3 text-xs rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white"
+                />
+              </div>
+            ))}
           </div>
-
-          <div className="flex items-center justify-end gap-2 pt-4 border-t border-accent-100 dark:border-accent-800">
-            <Button type="button" variant="outline" size="sm" onClick={() => setModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary" size="sm" loading={isSubmitting}>
-              {editingQuestion ? 'Update Question' : 'Save to Question Bank'}
-            </Button>
-          </div>
-        </form>
+        </div>
       </Modal>
     </div>
   );

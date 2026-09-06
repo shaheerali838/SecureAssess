@@ -55,10 +55,12 @@ export const requirePlatformPermission = (...requiredPermissions) => {
         return next(new ApiError(403, "Forbidden. Platform Admin role configuration missing."));
       }
 
-      const assignedKeys = platformAdminRole.permissions.map((p) => p.key);
-      const hasAll = requiredPermissions.every((perm) => assignedKeys.includes(perm));
+      const assignedKeys = (platformAdminRole.permissions || []).map((p) => p.key || p);
+      const hasPermission =
+        requiredPermissions.length === 0 ||
+        requiredPermissions.some((perm) => assignedKeys.includes(perm));
 
-      if (!hasAll) {
+      if (!hasPermission) {
         AuditLogService.createSecurityAuditLog({
           actorId: req.user.id || req.user._id,
           action: AUDIT_ACTIONS.PERMISSION_DENIED,
@@ -164,7 +166,22 @@ export const requireOrganizationOrPlatformPermission = (platformPerm, orgPerm) =
         return next(new ApiError(403, "Forbidden. Membership role is missing or invalid."));
       }
 
-      const userOrgPerms = (role.permissions || []).map((p) => p.key);
+      // Organization Owners and Organization Admins have full access to organization endpoints
+      if (
+        role.name === "ORGANIZATION_OWNER" ||
+        role.name === "ORGANIZATION_ADMIN" ||
+        role.name === "ADMIN" ||
+        role.name === "OWNER"
+      ) {
+        req.membership = membership;
+        req.organizationId = targetOrgId;
+        return next();
+      }
+
+      const userOrgPerms = (role.permissions || []).map((p) =>
+        typeof p === "string" ? p : p.key || p.name || ""
+      );
+
       if (orgPerm && !userOrgPerms.includes(orgPerm)) {
         AuditLogService.createSecurityAuditLog({
           organizationId: targetOrgId,
@@ -199,3 +216,10 @@ export const requireOrganizationOrPlatformPermission = (platformPerm, orgPerm) =
  * Generic Permission Middleware
  */
 export const requirePermissions = requirePlatformPermission;
+export { requirePermission } from "../config/rbac.config.js";
+export default {
+  requirePlatformPermission,
+  requireOrganizationOrPlatformPermission,
+  requirePermissions,
+};
+

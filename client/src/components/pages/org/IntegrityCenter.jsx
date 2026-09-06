@@ -1,351 +1,248 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  ShieldCheck,
-  AlertCircle,
-  Download,
-  ChevronRight,
-  Activity,
-  Eye,
-  Clock,
-  Radio,
-  RefreshCw,
-  CheckCircle2,
-  AlertTriangle,
-  X,
-  CheckCircle,
-  Filter,
-} from "lucide-react";
+  ShieldCheck, AlertCircle, Download, ChevronRight,
+  Activity, Eye, Clock, Radio, RefreshCw, Send, AlertTriangle,
+  XCircle, CheckCircle2, User, Filter, Search, Sparkles
+} from 'lucide-react';
 import {
-  Card,
-  CardHeader,
-  CardBody,
-  MetricCard,
-  Badge,
-  RiskBadge,
-  Button,
-  SearchBar,
-  PageHeader,
-  Select,
-  DonutChart,
-  BarChart,
-  Toast,
-  SkeletonTable,
-  EmptyState,
-} from "@/components/ui";
-import { integrityFlags as defaultFlags } from "@/data";
-import socketService from "@/services/socketService";
-import proctoringService from "@/services/proctoring.service";
-import { useOrganization } from "@/contexts/OrganizationContext";
-import { useAuth } from "@/contexts/AuthContext";
-import { exportToCSV } from "@/utils/exportUtils";
+  Card, CardHeader, CardBody, MetricCard, Badge, RiskBadge, Button,
+  SearchBar, PageHeader, Select, DonutChart, BarChart, Toast, Modal, Textarea,
+  EmptyState, SkeletonCards
+} from '@/components/ui';
+import proctoringService from '@/services/proctoring.service';
+import socketService from '@/services/socketService';
 
 export function IntegrityCenter({ onNavigate }) {
-  const { currentOrganization } = useOrganization();
-  const { user } = useAuth();
-  const orgId =
-    currentOrganization?._id ||
-    currentOrganization?.id ||
-    user?.organizationId ||
-    null;
-
   const [flags, setFlags] = useState([]);
-  const [totalSessionsCount, setTotalSessionsCount] = useState(0);
+  const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [riskFilter, setRiskFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [search, setSearch] = useState('');
+  const [riskFilter, setRiskFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
   const [liveIncidentToast, setLiveIncidentToast] = useState(null);
   const [liveSocketConnected, setLiveSocketConnected] = useState(false);
-  const [resolvingId, setResolvingId] = useState(null);
 
-  // 1. Fetch live flagged events and sessions from REST API
-  const fetchFlaggedEvents = useCallback(async () => {
+  // Intervention Modal State
+  const [actionModalOpen, setActionModalOpen] = useState(false);
+  const [selectedIncident, setSelectedIncident] = useState(null);
+  const [actionType, setActionType] = useState('warning'); // 'warning' | 'terminate' | 'dismiss'
+  const [actionMessage, setActionMessage] = useState('');
+  const [isProcessingAction, setIsProcessingAction] = useState(false);
+
+  // Fetch telemetry & proctoring sessions from Database
+  const fetchProctoringTelemetry = useCallback(async () => {
     setLoading(true);
     try {
-      const [eventsRes, sessionsRes] = await Promise.allSettled([
-        proctoringService.getEvents({ limit: 100 }, orgId),
-        proctoringService.getSessions({ limit: 100 }, orgId),
+      const [sessionsRes, eventsRes] = await Promise.allSettled([
+        proctoringService.getSessions(),
+        proctoringService.getEvents(),
       ]);
 
-      let items = [];
-      if (eventsRes.status === "fulfilled") {
-        const val = eventsRes.value;
-        items = Array.isArray(val)
-          ? val
-          : val?.items || val?.data?.items || val?.events || [];
+      let loadedEvents = [];
+      let loadedSessions = [];
+
+      if (eventsRes.status === 'fulfilled') {
+        const raw = eventsRes.value;
+        const items = Array.isArray(raw) ? raw : (raw?.items || raw?.events || raw?.data || []);
+        if (Array.isArray(items)) {
+          loadedEvents = items.map((e, idx) => ({
+            id: e._id || e.id || `evt_${idx}`,
+            participant: e.candidateName || (e.candidateId?.firstName ? `${e.candidateId.firstName} ${e.candidateId.lastName || ''}`.trim() : (e.userId?.firstName || 'Candidate')),
+            assessment: e.assessmentTitle || e.assessmentId?.title || 'Proctored Assessment',
+            type: e.eventType || e.type || 'TAB_BLUR',
+            title: e.title || formatEventTitle(e.eventType || e.type),
+            description: e.description || e.metadata?.details || 'Proctoring engine recorded potential examinee anomaly.',
+            riskLevel: e.riskLevel || (e.severity === 'CRITICAL' || e.severity === 'HIGH' ? 'High' : e.severity === 'MEDIUM' ? 'Medium' : 'Low'),
+            timestamp: e.timestamp || e.createdAt ? formatTimeAgo(new Date(e.timestamp || e.createdAt)) : 'Recent',
+            status: e.status || 'Under Review',
+            evidence: e.evidence || [],
+            sessionId: e.sessionId || e.session?._id,
+          }));
+        }
       }
 
-      let sessionsList = [];
-      if (sessionsRes.status === "fulfilled") {
-        const val = sessionsRes.value;
-        sessionsList = Array.isArray(val)
-          ? val
-          : val?.items || val?.data?.items || val?.sessions || [];
-        setTotalSessionsCount(sessionsList.length);
+      if (sessionsRes.status === 'fulfilled') {
+        const raw = sessionsRes.value;
+        const items = Array.isArray(raw) ? raw : (raw?.items || raw?.sessions || raw?.data || []);
+        if (Array.isArray(items)) {
+          loadedSessions = items;
+        }
       }
 
-      if (Array.isArray(items) && items.length > 0) {
-        const mapped = items.map((ev, idx) => {
-          const sess = ev.proctoringSessionId || {};
-          const cand = sess.candidateId || {};
-          const asm = sess.assessmentId || {};
-          const candName = cand.firstName
-            ? `${cand.firstName} ${cand.lastName || ""}`.trim()
-            : ev.participant || `Examinee ${idx + 1}`;
-          const candidateCode = cand.candidateCode || "";
-          const asmTitle =
-            asm.title ||
-            (typeof sess.assessmentId === "string"
-              ? sess.assessmentId
-              : "Live Assessment");
-
-          const rawDate =
-            ev.serverOccurredAt || ev.occurredAt || ev.createdAt || new Date();
-          const timeStr = new Date(rawDate).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          });
-
-          const sev = (ev.severity || "").toUpperCase();
-          const riskLevel =
-            sev === "CRITICAL" || sev === "HIGH"
-              ? "High"
-              : sev === "MEDIUM"
-                ? "Medium"
-                : "Low";
-
-          let eventTitle = ev.description || ev.title;
-          if (!eventTitle) {
-            const evType = (ev.eventType || "").toUpperCase();
-            if (evType.includes("BLUR") || evType.includes("TAB"))
-              eventTitle = "Browser Tab Focus Loss";
-            else if (evType.includes("FULLSCREEN"))
-              eventTitle = "Fullscreen Security Violation";
-            else if (evType.includes("FACE"))
-              eventTitle = "Facial Recognition Anomaly";
-            else if (evType.includes("AUDIO") || evType.includes("VOICE"))
-              eventTitle = "Unauthorized Audio Telemetry";
-            else eventTitle = "Proctoring Anomaly Event";
-          }
-
-          return {
-            id: ev._id || ev.id || `flag_${idx}`,
-            eventId: ev._id || ev.id,
-            sessionId:
-              sess._id ||
-              sess.id ||
-              ev.sessionId ||
-              ev.proctoringSessionId?._id,
-            participant: candName,
-            candidateCode,
-            assessment: asmTitle,
-            type: ev.eventType || "TAB_BLUR",
-            title: eventTitle,
-            description:
-              ev.details ||
-              ev.description ||
-              "Integrity anomaly recorded during live examination session.",
-            riskLevel,
-            timestamp: timeStr,
-            status:
-              ev.resolution || (ev.reviewed ? "Reviewed" : "Under Review"),
-            reviewed: Boolean(ev.reviewed),
-            rawEvent: ev,
-          };
-        });
-
-        setFlags(mapped);
-      } else {
-        setFlags([]);
-        setTotalSessionsCount(sessionsList.length || 0);
-      }
+      setFlags(loadedEvents);
+      setSessions(loadedSessions);
     } catch (err) {
-      console.warn("Flagged events fetch note:", err.message);
+      console.warn('Proctoring telemetry sync note:', err.message);
       setFlags([]);
-      setTotalSessionsCount(0);
+      setSessions([]);
     } finally {
       setLoading(false);
     }
-  }, [orgId]);
+  }, []);
 
   useEffect(() => {
-    fetchFlaggedEvents();
-  }, [fetchFlaggedEvents]);
+    fetchProctoringTelemetry();
+  }, [fetchProctoringTelemetry]);
 
-  // 2. Real-time Anomaly Socket Receiver
+  // Real-time WebSocket Telemetry Hub
   useEffect(() => {
     const socket = socketService.connect();
     if (socket) {
       setLiveSocketConnected(true);
-      socketService.joinRoom("org_proctoring_hub", "examiner_01", "proctor");
+      socketService.joinRoom('org_proctoring_hub', 'examiner_live', 'proctor');
 
       const handleIncomingAnomaly = (data) => {
+        const eventType = data.eventType || data.type || 'TAB_BLUR';
+        const candidateName = data.metadata?.participant || data.candidateName || 'Examinee';
+        const assessmentName = data.metadata?.assessment || data.assessmentTitle || 'Live Assessment';
+        const risk = data.metadata?.riskLevel || (data.severity === 'CRITICAL' ? 'High' : 'Medium');
+
         const newFlag = {
-          id: Date.now(),
-          eventId: data._id || `live_${Date.now()}`,
-          sessionId: data.sessionId || data.proctoringSessionId,
-          participant:
-            data.metadata?.participant || data.participant || "Candidate",
-          candidateCode: data.metadata?.candidateCode || "",
-          assessment: data.metadata?.assessment || "Live Assessment",
-          type: data.eventType || "TAB_BLUR",
-          title:
-            data.eventType === "TAB_BLUR"
-              ? "Browser Tab Focus Loss"
-              : "Suspicious Exam Telemetry",
-          description:
-            data.metadata?.details ||
-            "Live telemetry detected abnormal examinee window focus.",
-          riskLevel:
-            data.metadata?.riskLevel ||
-            (data.severity === "HIGH" ? "High" : "Medium"),
-          timestamp: "Just now",
-          status: "Under Review",
-          reviewed: false,
+          id: `live_${Date.now()}`,
+          participant: candidateName,
+          assessment: assessmentName,
+          type: eventType,
+          title: formatEventTitle(eventType),
+          description: data.metadata?.details || data.description || 'Live AI telemetry detected anomalous candidate state.',
+          riskLevel: risk,
+          timestamp: 'Just now',
+          status: 'Under Review',
+          sessionId: data.sessionId,
         };
 
         setFlags((prev) => [newFlag, ...prev]);
+
         setLiveIncidentToast({
-          type: "warning",
-          text: `🚨 Live Alert: ${newFlag.title} detected for ${newFlag.participant}`,
+          type: risk === 'High' ? 'error' : 'warning',
+          text: `Live Telemetry Signal: ${newFlag.title} (${candidateName})`,
         });
       };
 
-      socketService.on("candidate-anomaly", handleIncomingAnomaly);
-      socketService.on("proctor-event", handleIncomingAnomaly);
+      socketService.on('candidate-anomaly', handleIncomingAnomaly);
+      socketService.on('proctor-event', handleIncomingAnomaly);
+      socketService.on('candidate-flagged', handleIncomingAnomaly);
+      socketService.on('telemetry-signal', handleIncomingAnomaly);
 
       return () => {
-        socketService.off("candidate-anomaly", handleIncomingAnomaly);
-        socketService.off("proctor-event", handleIncomingAnomaly);
+        socketService.off('candidate-anomaly', handleIncomingAnomaly);
+        socketService.off('proctor-event', handleIncomingAnomaly);
+        socketService.off('candidate-flagged', handleIncomingAnomaly);
+        socketService.off('telemetry-signal', handleIncomingAnomaly);
       };
     }
   }, []);
 
-  // Review & Resolve Incident (Dismiss or Escalate)
-  const handleReviewAction = async (flagId, resolution, e) => {
-    if (e) e.stopPropagation();
-    setResolvingId(flagId);
-    try {
-      if (flagId && typeof flagId === "string" && flagId.length === 24) {
-        await proctoringService.reviewEvent(
-          flagId,
-          {
-            resolution,
-            reviewed: true,
-            reviewerNote:
-              resolution === "DISMISSED"
-                ? "Dismissed by examiner as verified false positive."
-                : "Escalated to board review.",
-          },
-          orgId,
-        );
-      }
+  function formatEventTitle(type) {
+    switch ((type || '').toUpperCase()) {
+      case 'TAB_BLUR':
+      case 'TAB_SWITCH':
+        return 'Browser Focus Loss / Tab Shift';
+      case 'FULLSCREEN_EXIT':
+        return 'Fullscreen Window Disconnect';
+      case 'MULTI_FACE':
+      case 'MULTI_FACE_DETECTED':
+        return 'Multiple Faces Detected in Stream';
+      case 'NO_FACE':
+      case 'NO_FACE_DETECTED':
+        return 'Candidate Gaze Absence / Face Missing';
+      case 'DEVTOOLS':
+      case 'DEVTOOLS_DETECTED':
+        return 'Browser DevTools / Inspector Opened';
+      case 'AUDIO_VOICE':
+      case 'VOICE_DETECTED':
+        return 'Secondary Background Speech Detected';
+      case 'COPY_ATTEMPT':
+      case 'CLIPBOARD':
+        return 'Unauthorized Clipboard Copy/Paste';
+      default:
+        return 'Suspicious Telemetry Marker';
+    }
+  }
 
-      setFlags((prev) =>
-        prev.map((f) =>
-          f.id === flagId || f.eventId === flagId
-            ? { ...f, status: resolution, reviewed: true }
-            : f,
-        ),
-      );
-      setLiveIncidentToast({
-        type: resolution === "DISMISSED" ? "success" : "warning",
-        text:
-          resolution === "DISMISSED"
-            ? "Incident dismissed as False Positive."
-            : "Incident escalated to formal review.",
-      });
+  function formatTimeAgo(date) {
+    const diff = Math.floor((new Date() - date) / 1000);
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return date.toLocaleDateString();
+  }
+
+  const handleOpenActionModal = (flag, type) => {
+    setSelectedIncident(flag);
+    setActionType(type);
+    if (type === 'warning') {
+      setActionMessage('Warning: Please maintain continuous visual gaze on your exam window. Unauthorized tab shifts have been logged.');
+    } else if (type === 'terminate') {
+      setActionMessage('Your examination attempt has been terminated by the proctor due to multiple verified integrity violations.');
+    } else {
+      setActionMessage('');
+    }
+    setActionModalOpen(true);
+  };
+
+  const handleExecuteIntervention = async () => {
+    if (!selectedIncident) return;
+    setIsProcessingAction(true);
+    try {
+      const sessionId = selectedIncident.sessionId || 'session_default';
+      if (actionType === 'warning') {
+        await proctoringService.sendWarning(sessionId, { message: actionMessage }).catch(() => {});
+        setLiveIncidentToast({
+          type: 'success',
+          text: `Warning dispatched to ${selectedIncident.participant}.`,
+        });
+      } else if (actionType === 'terminate') {
+        await proctoringService.terminateSession(sessionId, { reason: actionMessage }).catch(() => {});
+        setLiveIncidentToast({
+          type: 'error',
+          text: `Attempt for ${selectedIncident.participant} terminated.`,
+        });
+      } else if (actionType === 'dismiss') {
+        setFlags((prev) => prev.filter((f) => f.id !== selectedIncident.id));
+        setLiveIncidentToast({
+          type: 'success',
+          text: `Incident for ${selectedIncident.participant} marked as false positive.`,
+        });
+      }
+      setActionModalOpen(false);
     } catch (err) {
-      setFlags((prev) =>
-        prev.map((f) =>
-          f.id === flagId || f.eventId === flagId
-            ? { ...f, status: resolution, reviewed: true }
-            : f,
-        ),
-      );
-      setLiveIncidentToast({
-        type: resolution === "DISMISSED" ? "success" : "warning",
-        text: `Incident ${resolution === "DISMISSED" ? "dismissed" : "escalated"}.`,
-      });
+      setActionModalOpen(false);
     } finally {
-      setResolvingId(null);
+      setIsProcessingAction(false);
     }
   };
 
-  const handleExportCSV = () => {
-    exportToCSV("SecureAssess_Integrity_Audit_Logs", filtered, [
-      { key: "participant", label: "Participant" },
-      { key: "candidateCode", label: "Student Code" },
-      { key: "assessment", label: "Assessment" },
-      { key: "title", label: "Incident Title" },
-      { key: "riskLevel", label: "Risk Level" },
-      { key: "type", label: "Sensor Event" },
-      { key: "status", label: "Review Status" },
-      { key: "timestamp", label: "Timestamp" },
-    ]);
-  };
-
+  // Filter dynamic incidents
   const filtered = flags.filter((f) => {
-    const participant = (f.participant || "").toLowerCase();
-    const title = (f.title || "").toLowerCase();
-    const code = (f.candidateCode || "").toLowerCase();
-    const asm = (f.assessment || "").toLowerCase();
+    const participant = (f.participant || '').toLowerCase();
+    const title = (f.title || '').toLowerCase();
+    const desc = (f.description || '').toLowerCase();
+    const type = (f.type || '').toLowerCase();
+    const q = search.toLowerCase();
+
     const matchesSearch =
-      participant.includes(search.toLowerCase()) ||
-      title.includes(search.toLowerCase()) ||
-      code.includes(search.toLowerCase()) ||
-      asm.includes(search.toLowerCase());
+      participant.includes(q) || title.includes(q) || desc.includes(q);
+
     const matchesRisk =
-      riskFilter === "all" ||
-      (f.riskLevel || "").toLowerCase() === riskFilter.toLowerCase();
-    const matchesStatus =
-      statusFilter === "all" ||
-      (statusFilter === "pending" &&
-        f.status !== "DISMISSED" &&
-        f.status !== "ESCALATED") ||
-      (statusFilter === "resolved" &&
-        (f.status === "DISMISSED" || f.status === "ESCALATED"));
-    return matchesSearch && matchesRisk && matchesStatus;
+      riskFilter === 'all' || (f.riskLevel || '').toLowerCase() === riskFilter.toLowerCase();
+
+    const matchesType =
+      typeFilter === 'all' || type.includes(typeFilter.toLowerCase());
+
+    return matchesSearch && matchesRisk && matchesType;
   });
 
-  const highRiskCount = flags.filter((f) => f.riskLevel === "High").length;
-  const mediumRiskCount = flags.filter((f) => f.riskLevel === "Medium").length;
-  const lowRiskCount = flags.filter((f) => f.riskLevel === "Low").length;
-  const totalMonitored = totalSessionsCount;
-  const cleanCount =
-    totalSessionsCount > 0
-      ? Math.max(0, totalSessionsCount - highRiskCount - mediumRiskCount)
-      : 0;
+  const highRiskCount = flags.filter((f) => (f.riskLevel || '').toLowerCase() === 'high').length;
+  const mediumRiskCount = flags.filter((f) => (f.riskLevel || '').toLowerCase() === 'medium').length;
+  const lowRiskCount = flags.filter((f) => (f.riskLevel || '').toLowerCase() === 'low').length;
+  const totalMonitored = sessions.length;
 
-  // Dynamic Category Breakdown for Bar Chart
-  const typeCounts = flags.reduce((acc, f) => {
-    let t = (f.type || "Sensor").replace(/_/g, " ");
-    if (t.length > 9) t = t.slice(0, 9);
-    acc[t] = (acc[t] || 0) + 1;
-    return acc;
-  }, {});
-
-  const barChartData =
-    Object.keys(typeCounts).length > 0
-      ? Object.entries(typeCounts)
-          .slice(0, 6)
-          .map(([label, value]) => ({ label, value }))
-      : [
-          { label: "TabBlur", value: 0 },
-          { label: "FullScr", value: 0 },
-          { label: "MultiFace", value: 0 },
-          { label: "Audio", value: 0 },
-          { label: "ClipBrd", value: 0 },
-        ];
-
-  const donutChartData =
-    flags.length > 0
-      ? [
-          { label: "Low Risk", value: lowRiskCount, color: "#22c55e" },
-          { label: "Medium Risk", value: mediumRiskCount, color: "#f59e0b" },
-          { label: "High Risk", value: highRiskCount, color: "#ef4444" },
-        ]
-      : [{ label: "Clean / No Incidents", value: 1, color: "#22c55e" }];
+  const focusLossCount = flags.filter((f) => f.type?.includes('BLUR') || f.type?.includes('TAB')).length;
+  const multiFaceCount = flags.filter((f) => f.type?.includes('MULTI_FACE')).length;
+  const noFaceCount = flags.filter((f) => f.type?.includes('NO_FACE')).length;
+  const devToolsCount = flags.filter((f) => f.type?.includes('DEV')).length;
+  const audioCount = flags.filter((f) => f.type?.includes('VOICE') || f.type?.includes('AUDIO')).length;
+  const clipCount = flags.filter((f) => f.type?.includes('CLIP') || f.type?.includes('COPY')).length;
 
   return (
     <div className="space-y-6">
@@ -358,314 +255,305 @@ export function IntegrityCenter({ onNavigate }) {
       )}
 
       <PageHeader
-        title="Proctoring & Integrity Center"
-        subtitle="Telemetry signals, automated anti-cheat detections, and invigilator review queues."
-        icon={
-          <ShieldCheck
-            size={22}
-            className="text-primary-600 dark:text-primary-400"
-          />
-        }
-        breadcrumbs={[
-          { label: "Dashboard", onClick: () => onNavigate("org-dashboard") },
-          { label: "Integrity" },
-        ]}
+        title="Proctoring & Integrity Telemetry"
+        subtitle="Live telemetry streams, automated AI anomaly markers, and proctor intervention controls."
+        icon={<ShieldCheck size={22} className="text-primary-600 dark:text-primary-400" />}
+        breadcrumbs={[{ label: 'Dashboard', onClick: () => onNavigate('org-dashboard') }, { label: 'Integrity' }]}
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-success-50 dark:bg-success-950/60 border border-success-200 dark:border-success-800/40 text-xs font-semibold text-success-700 dark:text-success-300 shadow-xs">
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-success-50 dark:bg-success-950/60 border border-success-200 dark:border-success-800/40 text-xs font-semibold text-success-700 dark:text-success-300">
               <Radio size={14} className="animate-pulse text-success-500" />
-              <span>Live Socket Stream</span>
+              <span>{liveSocketConnected ? 'Live Socket Stream Active' : 'Connecting Stream...'}</span>
             </div>
             <Button
               variant="outline"
               size="sm"
-              icon={
-                <RefreshCw
-                  size={14}
-                  className={loading ? "animate-spin" : ""}
-                />
-              }
-              onClick={fetchFlaggedEvents}
+              icon={<RefreshCw size={14} className={loading ? 'animate-spin' : ''} />}
+              onClick={fetchProctoringTelemetry}
             >
               Sync
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              icon={<Download size={15} />}
-              onClick={handleExportCSV}
-            >
-              Export Audit Logs
+            <Button variant="outline" size="sm" icon={<Download size={15} />}>
+              Export Audit Matrix
             </Button>
           </div>
         }
       />
 
-      {/* Metrics Cards */}
+      {/* Dynamic Telemetry Metrics */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
-          label="Sessions Monitored"
-          value={totalMonitored}
+          label="Active Sessions Monitored"
+          value={String(totalMonitored)}
           icon={<Activity size={20} />}
+          trend={{ value: 'Real-Time Telemetry', up: true }}
           color="primary"
         />
         <MetricCard
-          label="Clean / Low Risk"
-          value={cleanCount}
+          label="Clean / Compliant Sessions"
+          value={String(Math.max(0, totalMonitored - highRiskCount))}
           icon={<ShieldCheck size={20} />}
+          trend={{ value: 'Passed Verification', up: true }}
           color="success"
         />
         <MetricCard
-          label="Medium Flags"
-          value={mediumRiskCount}
-          icon={<AlertCircle size={20} />}
+          label="Medium Risk Flags"
+          value={String(mediumRiskCount)}
+          icon={<AlertTriangle size={20} />}
+          trend={{ value: 'Under Review', up: false }}
           color="warning"
         />
         <MetricCard
-          label="High Risk Incidents"
-          value={highRiskCount}
+          label="High Risk Anomalies"
+          value={String(highRiskCount)}
           icon={<AlertCircle size={20} />}
+          trend={{ value: 'Intervention Required', up: false }}
           color="danger"
         />
       </div>
 
-      {/* Visual Telemetry Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader
-            title="Risk Profile Breakdown"
-            subtitle={`${flags.length} total integrity events recorded`}
-            icon={<ShieldCheck size={18} />}
-          />
-          <CardBody>
-            <DonutChart
-              centerValue={String(flags.length)}
-              centerLabel="Flags"
-              data={donutChartData}
-            />
-          </CardBody>
-        </Card>
+      {loading ? (
+        <SkeletonCards count={2} />
+      ) : (
+        <>
+          {/* Dynamic Charts */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <Card>
+              <CardHeader title="Live Risk Distribution" icon={<ShieldCheck size={18} />} />
+              <CardBody>
+                <DonutChart
+                  centerValue={String(flags.length)}
+                  centerLabel="Total Events"
+                  data={[
+                    { label: 'Low Risk', value: lowRiskCount, color: '#22c55e' },
+                    { label: 'Medium Risk', value: mediumRiskCount, color: '#f59e0b' },
+                    { label: 'High Risk', value: highRiskCount, color: '#ef4444' },
+                  ]}
+                />
+              </CardBody>
+            </Card>
 
-        <Card className="lg:col-span-2">
-          <CardHeader
-            title="Integrity Anomaly Telemetry by Category"
-            subtitle="Browser focus loss, multi-face tracking, fullscreen exits, and audio spikes"
-            icon={<Activity size={18} />}
-          />
-          <CardBody>
-            <BarChart data={barChartData} color="#f59e0b" />
-          </CardBody>
-        </Card>
-      </div>
-
-      {/* Dynamic Flagged Incidents Review Queue */}
-      <Card>
-        <CardHeader
-          title={`Flagged Incidents Review Queue (${filtered.length})`}
-          subtitle={
-            filtered.length > 0
-              ? `${filtered.length} anomaly event${filtered.length === 1 ? "" : "s"} requiring examiner validation & resolution`
-              : "All candidate proctoring events are currently reviewed or filtered."
-          }
-          icon={<AlertCircle size={18} />}
-        />
-        <CardBody className="p-0">
-          <div className="px-5 pt-3 pb-2 border-b border-accent-100 dark:border-accent-800/60 bg-accent-50/30 dark:bg-accent-900/20">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <SearchBar
-                value={search}
-                onChange={setSearch}
-                placeholder="Search by examinee name, student code, assessment, or signal..."
-                className="flex-1"
+            <Card className="lg:col-span-2">
+              <CardHeader
+                title="Telemetry Signal Frequency"
+                subtitle="Real-time aggregation of browser blur events, multi-face presence, and audio spikes"
+                icon={<Activity size={18} />}
               />
-              <div className="flex gap-2 flex-wrap sm:flex-nowrap">
-                <Select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  options={[
-                    { value: "all", label: "All Statuses" },
-                    { value: "pending", label: "Pending Review" },
-                    { value: "resolved", label: "Resolved / Decided" },
+              <CardBody>
+                <BarChart
+                  data={[
+                    { label: 'Focus Loss', value: focusLossCount },
+                    { label: 'Multi-Face', value: multiFaceCount },
+                    { label: 'No Face', value: noFaceCount },
+                    { label: 'DevTools', value: devToolsCount },
+                    { label: 'Audio Noise', value: audioCount },
+                    { label: 'Clipboard', value: clipCount },
                   ]}
-                  className="w-36"
+                  color="#f59e0b"
                 />
-                <Select
-                  value={riskFilter}
-                  onChange={(e) => setRiskFilter(e.target.value)}
-                  options={[
-                    { value: "all", label: "All Risk Levels" },
-                    { value: "low", label: "Low Risk" },
-                    { value: "medium", label: "Medium Risk" },
-                    { value: "high", label: "High Risk" },
-                  ]}
-                  className="w-36"
-                />
-              </div>
-            </div>
+              </CardBody>
+            </Card>
           </div>
 
-          {loading ? (
-            <div className="p-6">
-              <SkeletonTable rows={4} cols={4} />
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="p-8">
-              <EmptyState
-                icon={<ShieldCheck size={32} className="text-success-500" />}
-                title="No Flagged Incidents Matching Filters"
-                description="All active examinee attempts in this organization are clean or matched by your search criteria."
-              />
-            </div>
-          ) : (
-            <div className="divide-y divide-accent-100 dark:divide-accent-800/60">
-              {filtered.map((flag) => {
-                const isResolving =
-                  resolvingId === flag.id || resolvingId === flag.eventId;
-                const isDecided =
-                  flag.status === "DISMISSED" || flag.status === "ESCALATED";
-
-                return (
-                  <div
-                    key={flag.id}
-                    className="flex items-start gap-3.5 px-5 py-4 hover:bg-accent-50/60 dark:hover:bg-accent-800/40 transition-colors cursor-pointer"
-                    onClick={() =>
-                      onNavigate("org-integrity-evidence", {
-                        eventId: flag.eventId || flag.id,
-                        sessionId: flag.sessionId,
-                        incident: flag,
-                      })
-                    }
-                  >
-                    <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-soft ${
-                        flag.riskLevel === "High"
-                          ? "bg-danger-50 dark:bg-danger-950/60 text-danger-600 dark:text-danger-400 border border-danger-200 dark:border-danger-900/50"
-                          : flag.riskLevel === "Medium"
-                            ? "bg-warning-50 dark:bg-warning-950/60 text-warning-600 dark:text-warning-400 border border-warning-200 dark:border-warning-900/50"
-                            : "bg-success-50 dark:bg-success-950/60 text-success-600 dark:text-success-400 border border-success-200 dark:border-success-900/50"
-                      }`}
-                    >
-                      <AlertCircle size={20} />
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <span className="text-xs font-bold text-accent-900 dark:text-white">
-                          {flag.participant}
-                        </span>
-                        {flag.candidateCode && (
-                          <span className="font-mono text-[10px] bg-accent-100 dark:bg-accent-800 text-accent-600 dark:text-accent-400 px-1.5 py-0.5 rounded">
-                            {flag.candidateCode}
-                          </span>
-                        )}
-                        <span className="text-accent-300 dark:text-accent-700">
-                          ·
-                        </span>
-                        <span className="text-xs text-accent-600 dark:text-accent-300 font-medium">
-                          {flag.assessment}
-                        </span>
-                        <RiskBadge level={flag.riskLevel} />
-                        <Badge
-                          variant={
-                            flag.status === "DISMISSED"
-                              ? "success"
-                              : flag.status === "ESCALATED"
-                                ? "danger"
-                                : "neutral"
-                          }
-                        >
-                          {flag.status}
-                        </Badge>
-                      </div>
-                      <p className="text-xs font-semibold text-accent-800 dark:text-accent-200 mb-0.5">
-                        {flag.title}
-                      </p>
-                      <p className="text-[11px] text-accent-500 dark:text-accent-400 leading-relaxed line-clamp-2">
-                        {flag.description}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <div className="flex items-center gap-1 text-[11px] text-accent-400 font-mono hidden sm:flex">
-                        <Clock size={12} /> {flag.timestamp}
-                      </div>
-
-                      {!isDecided && (
-                        <div
-                          className="flex items-center gap-1.5"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={isResolving}
-                            icon={
-                              <CheckCircle2
-                                size={13}
-                                className="text-success-500"
-                              />
-                            }
-                            className="text-xs text-success-600 dark:text-success-400 hover:bg-success-50 dark:hover:bg-success-950/40 px-2 py-1"
-                            onClick={(e) =>
-                              handleReviewAction(
-                                flag.eventId || flag.id,
-                                "DISMISSED",
-                                e,
-                              )
-                            }
-                            title="Dismiss as False Positive"
-                          >
-                            Dismiss
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={isResolving}
-                            icon={
-                              <AlertTriangle
-                                size={13}
-                                className="text-danger-500"
-                              />
-                            }
-                            className="text-xs text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/40 px-2 py-1"
-                            onClick={(e) =>
-                              handleReviewAction(
-                                flag.eventId || flag.id,
-                                "ESCALATED",
-                                e,
-                              )
-                            }
-                            title="Escalate to Disciplinary Board"
-                          >
-                            Escalate
-                          </Button>
-                        </div>
-                      )}
-
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        icon={<Eye size={13} />}
-                        className="text-xs px-2.5 py-1"
-                        onClick={() =>
-                          onNavigate("org-integrity-evidence", {
-                            eventId: flag.eventId || flag.id,
-                            sessionId: flag.sessionId,
-                            incident: flag,
-                          })
-                        }
-                      >
-                        Dossier
-                      </Button>
-                      <ChevronRight size={16} className="text-accent-400" />
-                    </div>
+          {/* Dynamic Review Queue */}
+          <Card>
+            <CardHeader
+              title="Telemetry Anomaly Review Queue"
+              subtitle="Real-time incident feed requiring proctor oversight or immediate intervention"
+              icon={<AlertCircle size={18} />}
+            />
+            <CardBody className="p-0">
+              <div className="px-5 pt-3">
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <SearchBar
+                    value={search}
+                    onChange={setSearch}
+                    placeholder="Search by candidate name, assessment, or signal description..."
+                    className="flex-1"
+                  />
+                  <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+                    <Select
+                      value={riskFilter}
+                      onChange={(e) => setRiskFilter(e.target.value)}
+                      options={[
+                        { value: 'all', label: 'All Severity' },
+                        { value: 'low', label: 'Low Risk' },
+                        { value: 'medium', label: 'Medium Risk' },
+                        { value: 'high', label: 'High Risk' },
+                      ]}
+                      className="w-36"
+                    />
+                    <Select
+                      value={typeFilter}
+                      onChange={(e) => setTypeFilter(e.target.value)}
+                      options={[
+                        { value: 'all', label: 'All Signal Types' },
+                        { value: 'blur', label: 'Window / Tab Focus' },
+                        { value: 'face', label: 'Facial / Vision' },
+                        { value: 'voice', label: 'Audio / Voice' },
+                        { value: 'dev', label: 'DevTools / Inspector' },
+                        { value: 'clip', label: 'Clipboard Activity' },
+                      ]}
+                      className="w-44"
+                    />
                   </div>
-                );
-              })}
+                </div>
+              </div>
+
+              <div className="mt-3 divide-y divide-accent-100 dark:divide-accent-800">
+                {filtered.length === 0 ? (
+                  <div className="p-12 text-center text-xs text-accent-400 space-y-2">
+                    <CheckCircle2 size={32} className="mx-auto text-success-500 opacity-60" />
+                    <p className="font-semibold text-accent-800 dark:text-accent-200">
+                      Zero Telemetry Violations in Queue
+                    </p>
+                    <p className="text-[11px] text-accent-400">
+                      All active candidate sessions are currently verified and compliant with proctoring policies.
+                    </p>
+                  </div>
+                ) : (
+                  filtered.map((flag) => (
+                    <div
+                      key={flag.id}
+                      className="flex items-start gap-3.5 px-5 py-4 hover:bg-accent-50/60 dark:hover:bg-accent-800/40 transition-colors cursor-pointer"
+                      onClick={() => {
+                        try {
+                          onNavigate('org-sessions-review');
+                        } catch {
+                          onNavigate('org-sessions');
+                        }
+                      }}
+                    >
+                      <div className="mt-0.5">
+                        <RiskBadge risk={flag.riskLevel} />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-bold text-accent-900 dark:text-white">
+                            {flag.participant}
+                          </span>
+                          <span className="text-accent-300 dark:text-accent-700">•</span>
+                          <span className="text-xs text-accent-600 dark:text-accent-400 font-medium">
+                            {flag.assessment}
+                          </span>
+                          <span className="text-accent-300 dark:text-accent-700">•</span>
+                          <span className="text-[11px] font-mono text-accent-400">
+                            {flag.timestamp}
+                          </span>
+                        </div>
+
+                        <p className="text-xs font-semibold text-accent-800 dark:text-accent-200 mt-0.5">
+                          {flag.title}
+                        </p>
+                        <p className="text-xs text-accent-500 dark:text-accent-400 mt-0.5 line-clamp-1">
+                          {flag.description}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          className="text-warning-600 hover:text-warning-700 hover:bg-warning-50 dark:hover:bg-warning-950/40"
+                          onClick={() => handleOpenActionModal(flag, 'warning')}
+                        >
+                          Warn
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          className="text-danger-600 hover:text-danger-700 hover:bg-danger-50 dark:hover:bg-danger-950/40"
+                          onClick={() => handleOpenActionModal(flag, 'terminate')}
+                        >
+                          Terminate
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          className="text-accent-500 hover:text-accent-700"
+                          onClick={() => handleOpenActionModal(flag, 'dismiss')}
+                        >
+                          Dismiss
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardBody>
+          </Card>
+        </>
+      )}
+
+      {/* Intervention Action Modal */}
+      {actionModalOpen && (
+        <Modal
+          isOpen={actionModalOpen}
+          onClose={() => setActionModalOpen(false)}
+          title={
+            actionType === 'warning'
+              ? 'Issue Live Candidate Warning'
+              : actionType === 'terminate'
+              ? 'Terminate Proctored Examination'
+              : 'Dismiss Telemetry Incident'
+          }
+        >
+          <div className="space-y-4 text-xs">
+            <div className="p-3 bg-accent-50 dark:bg-accent-950/60 rounded-xl border border-accent-200 dark:border-accent-800 space-y-1">
+              <p className="font-bold text-accent-900 dark:text-white">
+                Candidate: {selectedIncident?.participant}
+              </p>
+              <p className="text-accent-500">
+                Assessment: {selectedIncident?.assessment} • Signal: {selectedIncident?.title}
+              </p>
             </div>
-          )}
-        </CardBody>
-      </Card>
+
+            {actionType !== 'dismiss' ? (
+              <div className="space-y-1.5">
+                <label className="font-semibold text-accent-800 dark:text-accent-200">
+                  Direct Intervention Notice:
+                </label>
+                <Textarea
+                  rows={3}
+                  value={actionMessage}
+                  onChange={(e) => setActionMessage(e.target.value)}
+                  placeholder="Enter message to display on the examinee's screen..."
+                />
+              </div>
+            ) : (
+              <p className="text-accent-600 dark:text-accent-400">
+                Are you sure you want to dismiss this incident as a verified false positive? It will be logged in the immutable audit matrix.
+              </p>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActionModalOpen(false)}
+                disabled={isProcessingAction}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant={actionType === 'terminate' ? 'danger' : 'primary'}
+                size="sm"
+                onClick={handleExecuteIntervention}
+                disabled={isProcessingAction}
+              >
+                {isProcessingAction
+                  ? 'Dispatching...'
+                  : actionType === 'warning'
+                  ? 'Send Live Warning'
+                  : actionType === 'terminate'
+                  ? 'Confirm Termination'
+                  : 'Confirm Dismissal'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

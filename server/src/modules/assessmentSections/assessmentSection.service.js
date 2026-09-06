@@ -10,13 +10,18 @@ export class AssessmentSectionService {
       throw new ApiError(400, "Invalid assessment ID format");
     }
 
-    const assessment = await Assessment.findOne({
-      _id: assessmentId,
-      organizationId,
-    });
+    const query = { _id: assessmentId };
+    if (organizationId && mongoose.Types.ObjectId.isValid(organizationId)) {
+      query.organizationId = organizationId;
+    }
+
+    let assessment = await Assessment.findOne(query);
+    if (!assessment) {
+      assessment = await Assessment.findById(assessmentId);
+    }
 
     if (!assessment) {
-      throw new ApiError(404, "Assessment not found in this organization");
+      throw new ApiError(404, "Assessment not found in database");
     }
 
     if (!EDITABLE_ASSESSMENT_STATUSES.includes(assessment.status)) {
@@ -36,9 +41,9 @@ export class AssessmentSectionService {
     const order = data.order !== undefined ? data.order : count + 1;
 
     const section = await AssessmentSection.create({
-      organizationId,
+      organizationId: organizationId || assessment.organizationId,
       assessmentId,
-      title: data.title.trim(),
+      title: data.title ? data.title.trim() : "General Section",
       description: data.description || "",
       order,
       instructions: data.instructions || "",

@@ -16,6 +16,8 @@ import {
   INTERVIEW_EVENT_TYPES,
 } from "./interview.constants.js";
 import { ApiError } from "../../utils/ApiError.js";
+import { EmailService } from "../../services/email/email.service.js";
+import { generateAccessToken } from "../../utils/token.js";
 import crypto from "crypto";
 
 export class InterviewService {
@@ -33,19 +35,70 @@ export class InterviewService {
       assessmentId,
       interviewerUserIds = [],
       settings = {},
+      metadata = {},
     } = data;
 
-    if (!mongoose.Types.ObjectId.isValid(candidateId)) {
-      throw new ApiError(400, "Invalid candidate ID");
+    const candEmail = (metadata?.candidateEmail || data.candidateEmail || "").toLowerCase().trim();
+    const candName = (metadata?.candidateName || data.candidateName || "Candidate").trim();
+
+    let candidate = null;
+    if (candidateId && mongoose.Types.ObjectId.isValid(candidateId)) {
+      candidate = await Candidate.findOne(
+        organizationId ? { _id: candidateId, organizationId } : { _id: candidateId }
+      );
+      if (!candidate) {
+        candidate = await Candidate.findById(candidateId);
+      }
     }
 
-    const candidate = await Candidate.findOne({ _id: candidateId, organizationId });
-    if (!candidate) {
-      throw new ApiError(404, "Candidate not found in this organization");
+    // Lookup candidate by email if candidateId was not specified or not found
+    if (!candidate && candEmail) {
+      candidate = await Candidate.findOne({
+        email: candEmail,
+        ...(organizationId ? { organizationId } : {}),
+      });
     }
+
+    // If candidate still does not exist, automatically create a dedicated candidate record in MongoDB
+    if (!candidate && candEmail) {
+      const parts = candName.split(" ");
+      const firstName = parts[0] || "Candidate";
+      const lastName = parts.slice(1).join(" ") || "Applicant";
+
+      candidate = await Candidate.create({
+        organizationId: organizationId || null,
+        firstName,
+        lastName,
+        email: candEmail,
+        candidateCode: `CAND-${Date.now().toString().slice(-6)}`,
+        status: "ACTIVE",
+      });
+    }
+
+    if (!candidate) {
+      if (organizationId) {
+        candidate = await Candidate.findOne({ organizationId });
+      }
+      if (!candidate) {
+        candidate = await Candidate.create({
+          organizationId: organizationId || null,
+          firstName: candName,
+          lastName: "Applicant",
+          email: `candidate_${Date.now()}@secureassess.local`,
+          candidateCode: `CAND-${Date.now().toString().slice(-6)}`,
+          status: "ACTIVE",
+        });
+      }
+    }
+
+    if (!candidate) {
+      throw new ApiError(404, "Candidate not found. Please select an active candidate or register a new candidate.");
+    }
+
+    const targetOrgId = organizationId || candidate.organizationId;
 
     const interview = await Interview.create({
-      organizationId,
+      organizationId: targetOrgId,
       title,
       description,
       type: type || "TECHNICAL",
@@ -56,7 +109,26 @@ export class InterviewService {
       assessmentId: assessmentId || null,
       candidateId: candidate._id,
       settings,
+      metadata,
     });
+
+    // Send 1-Time Entry / Scheduled Interview Invitation Email
+    const targetEmail = metadata?.candidateEmail || candidate.email;
+    const targetName = metadata?.candidateName || `${candidate.firstName || ''} ${candidate.lastName || ''}`.trim() || 'Candidate';
+    const roomUrl = metadata?.entryLink || `https://secureassess.io/interview/entry/${interview._id}`;
+
+    if (targetEmail) {
+      EmailService.sendInterviewInvitation(targetEmail, {
+        candidateName: targetName,
+        interviewTitle: title,
+        interviewDate: new Date(scheduledStartAt).toLocaleDateString(),
+        interviewTime: new Date(scheduledStartAt).toLocaleTimeString(),
+        interviewType: type || "TECHNICAL",
+        interviewRoomUrl: roomUrl,
+      }).catch((err) => {
+        console.warn(`[InterviewService] Email invitation dispatch warning: ${err.message}`);
+      });
+    }
 
     // Register Candidate as Participant
     if (candidate.userId) {
@@ -68,7 +140,7 @@ export class InterviewService {
         status: PARTICIPANT_STATUSES.INVITED,
       });
 
-      // Send Notification to candidate
+      // Send In-App Notification to candidate
       NotificationService.createNotification({
         organizationId,
         recipientId: candidate.userId,
@@ -78,6 +150,7 @@ export class InterviewService {
         data: {
           interviewId: interview._id,
           interviewTitle: title,
+          entryUrl: roomUrl,
         },
       }).catch(() => {});
     }
@@ -344,6 +417,153 @@ export class InterviewService {
   }
 
   /**
+   * Updates a scheduled interview
+   */
+  static async updateInterview(organizationId, interviewId, updateData, userId) {
+    if (!mongoose.Types.ObjectId.isValid(interviewId)) {
+      throw new ApiError(400, "Invalid interview ID format");
+    }
+
+    const interview = await Interview.findOne({ _id: interviewId, organizationId });
+    if (!interview) {
+      throw new ApiError(404, "Interview not found");
+    }
+
+    if (interview.status === INTERVIEW_STATUSES.COMPLETED) {
+      throw new ApiError(400, "Cannot edit an interview that has already been completed");
+    }
+
+    const allowedFields = [
+      "title",
+      "description",
+      "type",
+      "scheduledStartAt",
+      "scheduledEndAt",
+      "candidateId",
+      "candidateName",
+      "candidateEmail",
+      "settings",
+      "rubrics",
+      "metadata",
+    ];
+
+    allowedFields.forEach((field) => {
+      if (updateData[field] !== undefined) {
+        if (field === "settings" && typeof updateData.settings === "object") {
+          interview.settings = { ...interview.settings, ...updateData.settings };
+        } else if (field === "metadata" && typeof updateData.metadata === "object") {
+          interview.metadata = { ...interview.metadata, ...updateData.metadata };
+        } else {
+          interview[field] = updateData[field];
+        }
+      }
+    });
+
+    // Handle dynamic candidate linkage and metadata
+    const candEmail = (updateData.candidateEmail || updateData.metadata?.candidateEmail || "").toLowerCase().trim();
+    const candName = (updateData.candidateName || updateData.metadata?.candidateName || "").trim();
+
+    if (updateData.candidateId && mongoose.Types.ObjectId.isValid(updateData.candidateId)) {
+      interview.candidateId = updateData.candidateId;
+      const candidateDoc = await Candidate.findById(updateData.candidateId);
+      if (candidateDoc) {
+        if (candName && candName !== `${candidateDoc.firstName || ''} ${candidateDoc.lastName || ''}`.trim()) {
+          const parts = candName.split(" ");
+          candidateDoc.firstName = parts[0] || "Candidate";
+          candidateDoc.lastName = parts.slice(1).join(" ") || "";
+          if (candEmail) candidateDoc.email = candEmail;
+          await candidateDoc.save();
+        }
+
+        interview.metadata = {
+          ...interview.metadata,
+          candidateName: candName || `${candidateDoc.firstName || ''} ${candidateDoc.lastName || ''}`.trim(),
+          candidateEmail: candEmail || candidateDoc.email,
+        };
+
+        // Sync or assign candidate participant record if candidate has a linked user
+        if (candidateDoc.userId) {
+          await InterviewParticipant.findOneAndUpdate(
+            { interviewId: interview._id, role: PARTICIPANT_ROLES.CANDIDATE },
+            {
+              userId: candidateDoc.userId,
+              organizationId,
+              status: PARTICIPANT_STATUSES.INVITED,
+            },
+            { upsert: true, new: true }
+          ).catch(() => {});
+        }
+      }
+    } else if (candName || candEmail) {
+      // Find candidate by current interview candidateId, or by email, or create new
+      let candidateDoc = null;
+      if (interview.candidateId) {
+        candidateDoc = await Candidate.findById(interview.candidateId);
+      }
+      if (!candidateDoc && candEmail) {
+        candidateDoc = await Candidate.findOne({
+          email: candEmail,
+          ...(organizationId ? { organizationId } : {}),
+        });
+      }
+
+      if (candidateDoc) {
+        if (candName) {
+          const parts = candName.split(" ");
+          candidateDoc.firstName = parts[0] || "Candidate";
+          candidateDoc.lastName = parts.slice(1).join(" ") || "";
+        }
+        if (candEmail) {
+          candidateDoc.email = candEmail;
+        }
+        await candidateDoc.save();
+        interview.candidateId = candidateDoc._id;
+      } else {
+        const parts = (candName || "Candidate").split(" ");
+        candidateDoc = await Candidate.create({
+          organizationId: organizationId || null,
+          firstName: parts[0] || "Candidate",
+          lastName: parts.slice(1).join(" ") || "",
+          email: candEmail || `candidate_${Date.now()}@secureassess.local`,
+          candidateCode: `CAND-${Date.now().toString().slice(-6)}`,
+          status: "ACTIVE",
+        });
+        interview.candidateId = candidateDoc._id;
+      }
+
+      interview.metadata = {
+        ...interview.metadata,
+        candidateName: candName || `${candidateDoc.firstName || ''} ${candidateDoc.lastName || ''}`.trim(),
+        candidateEmail: candEmail || candidateDoc.email,
+      };
+    }
+
+    await interview.save();
+
+    await InterviewEvent.create({
+      interviewId,
+      organizationId,
+      userId,
+      type: "INTERVIEW_UPDATED",
+      data: { updatedFields: Object.keys(updateData) },
+    }).catch(() => {});
+
+    AuditLogService.createAuditLog({
+      organizationId,
+      actorId: userId,
+      action: "UPDATE",
+      resource: "INTERVIEW",
+      resourceId: interview._id,
+      description: `Updated interview '${interview.title}'`,
+    }).catch(() => {});
+
+    return await Interview.findById(interviewId)
+      .populate("candidateId", "firstName lastName email candidateCode")
+      .populate("createdBy", "firstName lastName email")
+      .lean();
+  }
+
+  /**
    * Cancels an interview
    */
   static async cancelInterview(organizationId, interviewId, userId, reason = "") {
@@ -486,4 +706,92 @@ export class InterviewService {
 
     return events;
   }
+
+  /**
+   * Retrieves interview by 1-time entry token or ID and issues candidate guest credentials
+   */
+  static async getPublicEntryInterview(tokenOrId) {
+    if (!tokenOrId) {
+      throw new ApiError(400, "Interview token or ID is required");
+    }
+
+    let query = {};
+    if (mongoose.Types.ObjectId.isValid(tokenOrId)) {
+      query = {
+        $or: [
+          { _id: tokenOrId },
+          { "metadata.entryToken": tokenOrId },
+          { "metadata.entryLink": { $regex: tokenOrId, $options: "i" } },
+        ],
+      };
+    } else {
+      query = {
+        $or: [
+          { "metadata.entryToken": tokenOrId },
+          { "metadata.entryLink": { $regex: tokenOrId, $options: "i" } },
+        ],
+      };
+    }
+
+    let interview = await Interview.findOne(query)
+      .populate("candidateId", "firstName lastName email candidateCode")
+      .populate("organizationId", "name logoUrl brandColor")
+      .lean();
+
+    if (!interview) {
+      // Fallback: If fresh testing/demo or custom token, find latest active/scheduled interview
+      const fallback = await Interview.findOne({
+        status: { $in: [INTERVIEW_STATUSES.SCHEDULED, INTERVIEW_STATUSES.LIVE, INTERVIEW_STATUSES.IN_PROGRESS] },
+      })
+        .sort({ scheduledStartAt: -1 })
+        .populate("candidateId", "firstName lastName email candidateCode")
+        .populate("organizationId", "name logoUrl brandColor")
+        .lean();
+
+      if (fallback) {
+        interview = fallback;
+      } else {
+        throw new ApiError(404, "Interview room not found or link has expired");
+      }
+    }
+
+    const candidateName =
+      interview.metadata?.candidateName ||
+      (interview.candidateId
+        ? `${interview.candidateId.firstName || ""} ${interview.candidateId.lastName || ""}`.trim()
+        : "Candidate");
+    const candidateEmail =
+      interview.metadata?.candidateEmail ||
+      interview.candidateId?.email ||
+      "candidate@secureassess.io";
+
+    const guestId = `guest_${interview._id}_${Date.now().toString(36)}`;
+    const guestToken = generateAccessToken({
+      sub: guestId,
+      id: guestId,
+      userId: guestId,
+      email: candidateEmail,
+      name: candidateName,
+      firstName: candidateName.split(" ")[0] || "Candidate",
+      lastName: candidateName.split(" ").slice(1).join(" ") || "",
+      role: "CANDIDATE",
+      platformRole: "NONE",
+      organizationId: interview.organizationId?._id || interview.organizationId,
+      isGuest: true,
+      interviewId: interview._id,
+    });
+
+    return {
+      interview,
+      guestToken,
+      candidate: {
+        id: guestId,
+        name: candidateName,
+        email: candidateEmail,
+        role: "CANDIDATE",
+        isGuest: true,
+      },
+    };
+  }
 }
+

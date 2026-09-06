@@ -9,6 +9,27 @@ import { logger } from "../../config/logger.js";
 export const seedDemoAccounts = async () => {
   logger.info("[Seeder] Seeding Demo Organization & Multi-Tenant Persona Accounts...");
 
+  // Quick Idempotency Check
+  const existingOrg = await Organization.findOne({ slug: "stanford-engineering" });
+  if (existingOrg) {
+    const existingDemoUsers = await User.countDocuments({
+      email: {
+        $in: [
+          "owner@stanford.edu",
+          "dean@stanford.edu",
+          "professor@stanford.edu",
+          "proctor@stanford.edu",
+          "student@stanford.edu",
+        ],
+      },
+    });
+    const existingMemberships = await UserMembership.countDocuments({ organizationId: existingOrg._id });
+    if (existingDemoUsers === 5 && existingMemberships >= 5) {
+      logger.info("[Seeder] Demo organization & all 5 persona accounts already seeded, skipping.");
+      return;
+    }
+  }
+
   // Find Platform Owner user to set as creator
   const owner = await User.findOne({ email: "shaheer838838@gmail.com" });
 
@@ -43,6 +64,13 @@ export const seedDemoAccounts = async () => {
 
   const demoAccounts = [
     {
+      email: "owner@stanford.edu",
+      password: "Owner@123",
+      firstName: "Dr. Arthur",
+      lastName: "Provost",
+      roleName: ORGANIZATION_ROLES.ORGANIZATION_OWNER,
+    },
+    {
       email: "dean@stanford.edu",
       password: "OrgAdmin@123",
       firstName: "Dr. Sarah",
@@ -55,6 +83,13 @@ export const seedDemoAccounts = async () => {
       firstName: "Prof. Alan",
       lastName: "Turing",
       roleName: ORGANIZATION_ROLES.EXAMINER,
+    },
+    {
+      email: "proctor@stanford.edu",
+      password: "Proctor@123",
+      firstName: "James",
+      lastName: "Proctor",
+      roleName: ORGANIZATION_ROLES.PROCTOR,
     },
     {
       email: "student@stanford.edu",

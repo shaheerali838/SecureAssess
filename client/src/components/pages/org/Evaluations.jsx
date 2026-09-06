@@ -19,18 +19,10 @@ export function Evaluations({ onNavigate }) {
     try {
       const data = await evaluationService.getEvaluations();
       const items = Array.isArray(data) ? data : (data?.items || data?.evaluations || data?.data || []);
-      if (items && items.length > 0) {
-        setEvaluations(items);
-      } else {
-        setEvaluations([
-          { _id: 'e1', participant: 'Sarah Williams', assessment: 'Flight Technical Test', interviewer: 'Captain Lara Hassan', overall: 84, recommendation: 'Strong', completed: true },
-          { _id: 'e2', participant: 'Maria Johnson', assessment: 'Full-Stack JavaScript Screening', interviewer: 'Hassan Raza', overall: 70, recommendation: 'Consider', completed: true },
-          { _id: 'e3', participant: 'Fatima Zahra', assessment: 'Algorithm Optimization Lab', interviewer: 'Captain Lara Hassan', overall: 75, recommendation: 'Consider', completed: true },
-          { _id: 'e4', participant: 'Ahmed Khan', assessment: 'Data Structures Midterm', interviewer: '—', overall: 78, recommendation: 'Positive', completed: false },
-        ]);
-      }
+      setEvaluations(items || []);
     } catch (err) {
-      console.warn('Evaluations API fallback note:', err.message);
+      console.warn('Evaluations fetch error:', err.message);
+      setEvaluations([]);
     } finally {
       setLoading(false);
     }

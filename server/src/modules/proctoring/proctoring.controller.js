@@ -1,15 +1,43 @@
+import mongoose from "mongoose";
 import { ProctoringService } from "./proctoring.service.js";
+import Organization from "../organizations/organization.model.js";
+import UserMembership from "../users/userMembership.model.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 
+const getOrgId = async (req) => {
+  const rawOrgId =
+    req.params.organizationId ||
+    req.headers["x-organization-id"] ||
+    req.headers["x-tenant-id"] ||
+    req.query?.organizationId ||
+    req.organizationId ||
+    req.tenantId ||
+    req.user?.activeOrganizationId ||
+    req.user?.organizationId;
+
+  if (rawOrgId && mongoose.Types.ObjectId.isValid(rawOrgId)) {
+    return rawOrgId;
+  }
+
+  const uId = req.user?._id || req.user?.id;
+  if (uId) {
+    const membership = await UserMembership.findOne({
+      userId: uId,
+      status: "ACTIVE",
+    }).lean();
+    if (membership?.organizationId) {
+      return membership.organizationId;
+    }
+  }
+
+  const firstOrg = await Organization.findOne({ status: { $ne: "DELETED" } }).select("_id").lean();
+  return firstOrg?._id || null;
+};
+
 export const startProctoring = asyncHandler(async (req, res) => {
   const userId = req.user?.id || req.user?._id;
-  const organizationId =
-    req.params.organizationId ||
-    req.organizationId ||
-    req.query.organizationId ||
-    req.headers["x-organization-id"] ||
-    req.user?.activeOrganizationId;
+  const organizationId = await getOrgId(req);
   const clientIp = req.ip || req.headers["x-forwarded-for"] || "";
 
   const payload = {
@@ -31,12 +59,7 @@ export const startProctoring = asyncHandler(async (req, res) => {
 
 export const recordEvent = asyncHandler(async (req, res) => {
   const userId = req.user?.id || req.user?._id;
-  const organizationId =
-    req.params.organizationId ||
-    req.organizationId ||
-    req.query.organizationId ||
-    req.headers["x-organization-id"] ||
-    req.user?.activeOrganizationId;
+  const organizationId = await getOrgId(req);
 
   const payload = {
     ...req.body,
@@ -65,12 +88,7 @@ export const recordEvent = asyncHandler(async (req, res) => {
 
 export const sendHeartbeat = asyncHandler(async (req, res) => {
   const userId = req.user?.id || req.user?._id;
-  const organizationId =
-    req.params.organizationId ||
-    req.organizationId ||
-    req.query.organizationId ||
-    req.headers["x-organization-id"] ||
-    req.user?.activeOrganizationId;
+  const organizationId = await getOrgId(req);
   const { sessionId } = req.params;
 
   const result = await ProctoringService.sendHeartbeat(
@@ -86,12 +104,7 @@ export const sendHeartbeat = asyncHandler(async (req, res) => {
 
 export const endProctoring = asyncHandler(async (req, res) => {
   const userId = req.user?.id || req.user?._id;
-  const organizationId =
-    req.params.organizationId ||
-    req.organizationId ||
-    req.query.organizationId ||
-    req.headers["x-organization-id"] ||
-    req.user?.activeOrganizationId;
+  const organizationId = await getOrgId(req);
   const { sessionId } = req.params;
   const { reason } = req.body;
 
@@ -108,12 +121,7 @@ export const endProctoring = asyncHandler(async (req, res) => {
 });
 
 export const getSessionDetails = asyncHandler(async (req, res) => {
-  const organizationId =
-    req.params.organizationId ||
-    req.organizationId ||
-    req.query.organizationId ||
-    req.headers["x-organization-id"] ||
-    req.user?.activeOrganizationId;
+  const organizationId = await getOrgId(req);
   const { sessionId } = req.params;
 
   const result = await ProctoringService.getSessionDetails(
@@ -127,12 +135,7 @@ export const getSessionDetails = asyncHandler(async (req, res) => {
 });
 
 export const getSessionEvents = asyncHandler(async (req, res) => {
-  const organizationId =
-    req.params.organizationId ||
-    req.organizationId ||
-    req.query.organizationId ||
-    req.headers["x-organization-id"] ||
-    req.user?.activeOrganizationId;
+  const organizationId = await getOrgId(req);
   const { sessionId } = req.params;
 
   const result = await ProctoringService.getSessionEvents(
@@ -147,12 +150,7 @@ export const getSessionEvents = asyncHandler(async (req, res) => {
 });
 
 export const getSessionTimeline = asyncHandler(async (req, res) => {
-  const organizationId =
-    req.params.organizationId ||
-    req.organizationId ||
-    req.query.organizationId ||
-    req.headers["x-organization-id"] ||
-    req.user?.activeOrganizationId;
+  const organizationId = await getOrgId(req);
   const { sessionId } = req.params;
 
   const result = await ProctoringService.getSessionTimeline(
@@ -166,12 +164,7 @@ export const getSessionTimeline = asyncHandler(async (req, res) => {
 });
 
 export const sendWarning = asyncHandler(async (req, res) => {
-  const organizationId =
-    req.params.organizationId ||
-    req.organizationId ||
-    req.query.organizationId ||
-    req.headers["x-organization-id"] ||
-    req.user?.activeOrganizationId;
+  const organizationId = await getOrgId(req);
   const { sessionId } = req.params;
   const userId = req.user?.id || req.user?._id;
   const warningMessage = req.body.warningMessage || req.body.message;
@@ -189,12 +182,7 @@ export const sendWarning = asyncHandler(async (req, res) => {
 });
 
 export const pauseSession = asyncHandler(async (req, res) => {
-  const organizationId =
-    req.params.organizationId ||
-    req.organizationId ||
-    req.query.organizationId ||
-    req.headers["x-organization-id"] ||
-    req.user?.activeOrganizationId;
+  const organizationId = await getOrgId(req);
   const { sessionId } = req.params;
   const userId = req.user?.id || req.user?._id;
   const { reason } = req.body;
@@ -212,12 +200,7 @@ export const pauseSession = asyncHandler(async (req, res) => {
 });
 
 export const terminateSession = asyncHandler(async (req, res) => {
-  const organizationId =
-    req.params.organizationId ||
-    req.organizationId ||
-    req.query.organizationId ||
-    req.headers["x-organization-id"] ||
-    req.user?.activeOrganizationId;
+  const organizationId = await getOrgId(req);
   const { sessionId } = req.params;
   const userId = req.user?.id || req.user?._id;
   const { reason } = req.body;
@@ -235,12 +218,7 @@ export const terminateSession = asyncHandler(async (req, res) => {
 });
 
 export const createEvidence = asyncHandler(async (req, res) => {
-  const organizationId =
-    req.params.organizationId ||
-    req.organizationId ||
-    req.query.organizationId ||
-    req.headers["x-organization-id"] ||
-    req.user?.activeOrganizationId;
+  const organizationId = await getOrgId(req);
   const { sessionId } = req.params;
 
   const result = await ProctoringService.createEvidence(
@@ -255,12 +233,7 @@ export const createEvidence = asyncHandler(async (req, res) => {
 });
 
 export const getSessionEvidence = asyncHandler(async (req, res) => {
-  const organizationId =
-    req.params.organizationId ||
-    req.organizationId ||
-    req.query.organizationId ||
-    req.headers["x-organization-id"] ||
-    req.user?.activeOrganizationId;
+  const organizationId = await getOrgId(req);
   const { sessionId } = req.params;
 
   const result = await ProctoringService.getSessionEvidence(
@@ -274,12 +247,7 @@ export const getSessionEvidence = asyncHandler(async (req, res) => {
 });
 
 export const getEvidenceById = asyncHandler(async (req, res) => {
-  const organizationId =
-    req.params.organizationId ||
-    req.organizationId ||
-    req.query.organizationId ||
-    req.headers["x-organization-id"] ||
-    req.user?.activeOrganizationId;
+  const organizationId = await getOrgId(req);
   const { evidenceId } = req.params;
 
   const result = await ProctoringService.getEvidenceById(
@@ -294,12 +262,7 @@ export const getEvidenceById = asyncHandler(async (req, res) => {
 
 export const reviewEvent = asyncHandler(async (req, res) => {
   const userId = req.user?.id || req.user?._id;
-  const organizationId =
-    req.params.organizationId ||
-    req.organizationId ||
-    req.query.organizationId ||
-    req.headers["x-organization-id"] ||
-    req.user?.activeOrganizationId;
+  const organizationId = await getOrgId(req);
   const { eventId } = req.params;
 
   const result = await ProctoringService.reviewEvent(
@@ -315,12 +278,7 @@ export const reviewEvent = asyncHandler(async (req, res) => {
 });
 
 export const getSessions = asyncHandler(async (req, res) => {
-  const organizationId =
-    req.params.organizationId ||
-    req.organizationId ||
-    req.query.organizationId ||
-    req.headers["x-organization-id"] ||
-    req.user?.activeOrganizationId;
+  const organizationId = await getOrgId(req);
 
   const result = await ProctoringService.getSessions(organizationId, req.query);
   return res
@@ -329,12 +287,7 @@ export const getSessions = asyncHandler(async (req, res) => {
 });
 
 export const getEvents = asyncHandler(async (req, res) => {
-  const organizationId =
-    req.params.organizationId ||
-    req.organizationId ||
-    req.query.organizationId ||
-    req.headers["x-organization-id"] ||
-    req.user?.activeOrganizationId;
+  const organizationId = await getOrgId(req);
 
   const result = await ProctoringService.getEvents(organizationId, req.query);
   return res
@@ -343,12 +296,7 @@ export const getEvents = asyncHandler(async (req, res) => {
 });
 
 export const setIntegrityDecision = asyncHandler(async (req, res) => {
-  const organizationId =
-    req.params.organizationId ||
-    req.organizationId ||
-    req.query.organizationId ||
-    req.headers["x-organization-id"] ||
-    req.user?.activeOrganizationId;
+  const organizationId = await getOrgId(req);
   const targetId = req.params.sessionId || req.params.attemptId;
   const userId = req.user?.id || req.user?._id;
   const { decision, note } = req.body;

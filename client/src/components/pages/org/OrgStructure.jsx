@@ -3,14 +3,15 @@ import {
   GraduationCap, Building2, BookOpen, Layers, Plus, Search, Filter,
   MoreVertical, Edit2, Trash2, CheckCircle2, XCircle, ChevronRight,
   RefreshCw, Award, Users, BookMarked, Calendar, AlertCircle, Info,
-  FolderPlus, FileCode
+  FolderPlus, FileCode, UserCheck, UserPlus
 } from 'lucide-react';
 import {
-  Card, CardHeader, CardBody, Badge, Button, Input, Select, PageHeader, Modal, Toast
+  Card, CardHeader, CardBody, Badge, Button, Input, Select, PageHeader, Modal, Toast, Avatar
 } from '@/components/ui';
 import departmentService from '@/services/department.service';
 import programService from '@/services/program.service';
 import subjectService from '@/services/subject.service';
+import organizationService from '@/services/organization.service';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -37,6 +38,7 @@ export function OrgStructure({ onNavigate }) {
   const [departments, setDepartments] = useState([]);
   const [programs, setPrograms] = useState([]);
   const [subjects, setSubjects] = useState([]);
+  const [examiners, setExaminers] = useState([]);
 
   // Modal States
   const [deptModalOpen, setDeptModalOpen] = useState(false);
@@ -62,6 +64,7 @@ export function OrgStructure({ onNavigate }) {
     code: '',
     programId: '',
     credits: 3,
+    examinerId: '',
     description: '',
     status: 'ACTIVE',
   });
@@ -80,6 +83,7 @@ export function OrgStructure({ onNavigate }) {
     if (Array.isArray(val?.departments)) return val.departments;
     if (Array.isArray(val?.programs)) return val.programs;
     if (Array.isArray(val?.subjects)) return val.subjects;
+    if (Array.isArray(val?.members)) return val.members;
     if (Array.isArray(val?.data)) return val.data;
     return [];
   };
@@ -88,19 +92,65 @@ export function OrgStructure({ onNavigate }) {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [deptRes, progRes, subjRes] = await Promise.allSettled([
-        departmentService.getDepartments({}, orgId),
-        programService.getPrograms({}, orgId),
-        subjectService.getSubjects({}, orgId),
+      const [deptRes, progRes, subjRes, staffRes] = await Promise.allSettled([
+        departmentService.getDepartments({ limit: 200 }, orgId),
+        programService.getPrograms({ limit: 200 }, orgId),
+        subjectService.getSubjects({ limit: 200 }, orgId),
+        organizationService.listMembers(orgId),
       ]);
 
       const loadedDepts = extractItems(deptRes);
       const loadedProgs = extractItems(progRes);
       const loadedSubjs = extractItems(subjRes);
+      const loadedStaff = extractItems(staffRes);
+
+      const parsedExaminers = loadedStaff
+        .map((m) => {
+          const u =
+            m.userId && typeof m.userId === 'object'
+              ? m.userId
+              : m.user && typeof m.user === 'object'
+              ? m.user
+              : m;
+
+          const roleName = (
+            (typeof m.roleId === 'object' && m.roleId !== null ? m.roleId.name : null) ||
+            (typeof m.role === 'object' && m.role !== null ? m.role.name : null) ||
+            m.roleName ||
+            u.role ||
+            m.role ||
+            ''
+          ).toUpperCase();
+
+          // STRICT FILTER: Only show users with the EXAMINER role
+          if (roleName !== 'EXAMINER') {
+            return null;
+          }
+
+          const id = u._id || u.id || (typeof m.userId === 'string' ? m.userId : null) || m._id;
+          if (!id) return null;
+
+          const firstName = u.firstName || m.firstName || '';
+          const lastName = u.lastName || m.lastName || '';
+          const fullName =
+            firstName || lastName
+              ? `${firstName} ${lastName}`.trim()
+              : u.name || m.name || u.email || m.email || 'Examiner';
+          const email = u.email || m.email || '';
+
+          return {
+            _id: id,
+            name: fullName,
+            email,
+            role: 'EXAMINER',
+          };
+        })
+        .filter(Boolean);
 
       setDepartments(loadedDepts);
       setPrograms(loadedProgs);
       setSubjects(loadedSubjs);
+      setExaminers(parsedExaminers);
     } catch (err) {
       console.warn('Structure load note:', err.message);
     } finally {
@@ -142,6 +192,7 @@ export function OrgStructure({ onNavigate }) {
       code: '',
       programId: programs[0]?._id || '',
       credits: 3,
+      examinerId: '',
       description: '',
       status: 'ACTIVE',
     });
@@ -764,6 +815,7 @@ export function OrgStructure({ onNavigate }) {
                       <tr>
                         <th className="py-3 px-4">{subjSingular} Name & Code</th>
                         <th className="py-3 px-4">Associated {progSingular}</th>
+                        <th className="py-3 px-4">Assigned Examiner</th>
                         <th className="py-3 px-4">{creditsLabel}</th>
                         <th className="py-3 px-4">Status</th>
                         <th className="py-3 px-4 text-right">Actions</th>
@@ -774,6 +826,9 @@ export function OrgStructure({ onNavigate }) {
                         const parentProg = programs.find(
                           (p) => p._id === subj.programId || p._id === subj.programId?._id
                         );
+                        const examinerObj = subj.examinerId && typeof subj.examinerId === 'object'
+                          ? subj.examinerId
+                          : examiners.find((e) => e._id === subj.examinerId);
 
                         return (
                           <tr key={subj._id} className="hover:bg-accent-50/50 dark:hover:bg-accent-800/40 transition-colors">
@@ -798,6 +853,29 @@ export function OrgStructure({ onNavigate }) {
                             <td className="py-3 px-4 text-accent-700 dark:text-accent-300 font-medium truncate max-w-xs">
                               {parentProg ? parentProg.name : 'Global / Unassigned'}
                             </td>
+                            <td className="py-3 px-4">
+                              {examinerObj ? (
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <Avatar
+                                    name={examinerObj.name || `${examinerObj.firstName || ''} ${examinerObj.lastName || ''}`}
+                                    size="xs"
+                                    color="#6366f1"
+                                  />
+                                  <div className="min-w-0">
+                                    <p className="font-bold text-accent-900 dark:text-white truncate leading-tight">
+                                      {examinerObj.name || `${examinerObj.firstName || ''} ${examinerObj.lastName || ''}`.trim() || examinerObj.email}
+                                    </p>
+                                    <p className="text-[10px] text-accent-400 truncate leading-tight">
+                                      {examinerObj.email}
+                                    </p>
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-accent-400 dark:text-accent-500 bg-accent-100 dark:bg-accent-800/60 px-2 py-0.5 rounded-md border border-dashed border-accent-300 dark:border-accent-700">
+                                  Unassigned
+                                </span>
+                              )}
+                            </td>
                             <td className="py-3 px-4 font-semibold text-accent-900 dark:text-white">
                               {subj.credits || 3}
                             </td>
@@ -816,6 +894,7 @@ export function OrgStructure({ onNavigate }) {
                                       code: subj.code,
                                       programId: subj.programId?._id || subj.programId || '',
                                       credits: subj.credits || 3,
+                                      examinerId: subj.examinerId?._id || subj.examinerId || '',
                                       description: subj.description || '',
                                       status: subj.status || 'ACTIVE',
                                     });
@@ -849,6 +928,10 @@ export function OrgStructure({ onNavigate }) {
                   const parentProg = programs.find(
                     (p) => p._id === subj.programId || p._id === subj.programId?._id
                   );
+                  const examinerObj = subj.examinerId && typeof subj.examinerId === 'object'
+                    ? subj.examinerId
+                    : examiners.find((e) => e._id === subj.examinerId);
+
                   return (
                     <Card key={subj._id} className="p-4 space-y-3 min-w-0">
                       <div className="flex items-start justify-between gap-2.5">
@@ -870,9 +953,13 @@ export function OrgStructure({ onNavigate }) {
                         </div>
                       </div>
 
-                      <p className="text-xs text-accent-500 dark:text-accent-400">
-                        {parentProg ? parentProg.name : 'Global / Unassigned'} · <strong>{subj.credits || 3} Credits</strong>
-                      </p>
+                      <div className="space-y-1 text-xs text-accent-500 dark:text-accent-400">
+                        <p>{parentProg ? parentProg.name : 'Global / Unassigned'} • <strong>{subj.credits || 3} Credits</strong></p>
+                        <p className="flex items-center gap-1.5 text-accent-700 dark:text-accent-300">
+                          <UserCheck size={13} className="text-primary-500 shrink-0" />
+                          <span>Examiner: <strong>{examinerObj ? (examinerObj.name || examinerObj.email) : 'Unassigned'}</strong></span>
+                        </p>
+                      </div>
 
                       <div className="pt-2 border-t border-accent-100 dark:border-accent-800/80 flex items-center justify-end gap-2">
                         <Button
@@ -886,6 +973,7 @@ export function OrgStructure({ onNavigate }) {
                               code: subj.code,
                               programId: subj.programId?._id || subj.programId || '',
                               credits: subj.credits || 3,
+                              examinerId: subj.examinerId?._id || subj.examinerId || '',
                               description: subj.description || '',
                               status: subj.status || 'ACTIVE',
                             });
@@ -1218,6 +1306,32 @@ export function OrgStructure({ onNavigate }) {
                   </option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label className="block font-semibold text-accent-700 dark:text-accent-300 mb-1">
+                Assigned Examiner
+              </label>
+              <select
+                value={subjForm.examinerId}
+                onChange={(e) => setSubjForm({ ...subjForm, examinerId: e.target.value })}
+                className="w-full px-3 py-2 rounded-xl border border-accent-200 dark:border-accent-700 bg-white dark:bg-accent-800 text-accent-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="">-- None (Unassigned) --</option>
+                {examiners.map((ex) => (
+                  <option key={ex._id} value={ex._id}>
+                    {ex.name} {ex.email ? `(${ex.email})` : ''}
+                  </option>
+                ))}
+              </select>
+              {examiners.length === 0 && (
+                <p className="text-[11px] text-accent-500 dark:text-accent-400 mt-1">
+                  No organization members with the Examiner role were found.
+                </p>
+              )}
+              <p className="text-[11px] text-accent-500 dark:text-accent-400 mt-1 flex items-start gap-1">
+                <Info size={13} className="text-primary-500 shrink-0 mt-0.5" />
+                <span>Only examiners assigned to this subject are authorized to build assessments, create question banks, and conduct candidate evaluations.</span>
+              </p>
             </div>
             <div>
               <label className="block font-semibold text-accent-700 dark:text-accent-300 mb-1">

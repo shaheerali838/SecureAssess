@@ -186,19 +186,33 @@ export class QuestionBankService {
    * Question Item Operations
    */
   static async createQuestion(organizationId, questionBankId, data, userId) {
-    if (!mongoose.Types.ObjectId.isValid(questionBankId)) {
-      throw new ApiError(400, "Invalid questionBank ID format");
+    let targetQbId = questionBankId;
+    if (!targetQbId || !mongoose.Types.ObjectId.isValid(targetQbId)) {
+      let defaultQb = await QuestionBank.findOne({ organizationId, status: { $ne: "DELETED" } });
+      if (!defaultQb) {
+        defaultQb = await QuestionBank.create({
+          organizationId,
+          name: "General Question Bank",
+          code: `QB-${Date.now().toString(36).toUpperCase()}`,
+          description: "Default question bank repository",
+          ownerId: userId,
+          createdBy: userId,
+          status: "ACTIVE",
+          visibility: "ORGANIZATION",
+        });
+      }
+      targetQbId = defaultQb._id;
     }
 
     const questionBank = await QuestionBank.findOne({
-      _id: questionBankId,
+      _id: targetQbId,
       organizationId,
     });
     if (!questionBank) {
       throw new ApiError(404, "Question bank not found in this organization");
     }
 
-    if (data.categoryId) {
+    if (data.categoryId && mongoose.Types.ObjectId.isValid(data.categoryId)) {
       const category = await QuestionCategory.findOne({
         _id: data.categoryId,
         organizationId,
@@ -208,7 +222,7 @@ export class QuestionBankService {
       }
     }
 
-    if (data.subjectId) {
+    if (data.subjectId && mongoose.Types.ObjectId.isValid(data.subjectId)) {
       const subject = await Subject.findOne({
         _id: data.subjectId,
         organizationId,
@@ -218,22 +232,41 @@ export class QuestionBankService {
       }
     }
 
+    // Normalize options
+    const rawOptions = Array.isArray(data.options) ? data.options : [];
+    const normalizedOptions = rawOptions.map((opt, idx) => {
+      if (typeof opt === "string") {
+        return { id: String.fromCharCode(65 + idx), text: opt };
+      }
+      return {
+        id: opt.id || String.fromCharCode(65 + idx),
+        text: opt.text || opt.content || opt.label || "",
+      };
+    });
+
+    let qType = data.type || "SINGLE_CHOICE";
+    if (qType === "MCQ" || qType === "Multiple Choice") qType = "SINGLE_CHOICE";
+    if (qType === "Coding") qType = "CODING";
+    if (qType === "True / False" || qType === "TRUE_FALSE") qType = "TRUE_FALSE";
+
     const question = await Question.create({
       organizationId,
-      questionBankId,
+      questionBankId: targetQbId,
       categoryId: data.categoryId || questionBank.categoryId || null,
       subjectId: data.subjectId || questionBank.subjectId || null,
+      departmentId: data.departmentId || questionBank.departmentId || null,
+      programId: data.programId || questionBank.programId || null,
       createdBy: userId,
-      type: data.type || "SINGLE_CHOICE",
+      type: qType,
       title: data.title || "",
-      prompt: data.prompt?.trim() || data.title || "Question",
+      prompt: data.prompt?.trim() || data.title || data.stem || "Question",
       description: data.description || "",
       content: data.content || {},
-      options: data.options || [],
+      options: normalizedOptions,
       answer: data.answer || null,
       correctAnswer: data.correctAnswer !== undefined ? data.correctAnswer : (data.answer || null),
       explanation: data.explanation || "",
-      difficulty: data.difficulty || "MEDIUM",
+      difficulty: (data.difficulty || "MEDIUM").toUpperCase(),
       marks: data.marks !== undefined ? data.marks : (data.points || 1),
       points: data.points !== undefined ? data.points : (data.marks || 1),
       negativeMarks: data.negativeMarks || 0,
@@ -246,7 +279,7 @@ export class QuestionBankService {
       metadata: data.metadata || {},
     });
 
-    await QuestionBank.findByIdAndUpdate(questionBankId, { $inc: { questionCount: 1 } });
+    await QuestionBank.findByIdAndUpdate(targetQbId, { $inc: { questionCount: 1 } });
 
     // 3. Create initial QuestionVersion (v1) snapshot
     await QuestionVersion.create({

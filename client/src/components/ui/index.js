@@ -9,3 +9,4 @@ export {
 } from './Misc';
 export { Breadcrumbs, PageHeader, SearchBar } from './Layout';
 export { BarChart, LineChart, DonutChart, StackedBar } from './Charts';
+export { ConfirmModal } from './ConfirmModal';

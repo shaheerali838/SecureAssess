@@ -4,107 +4,97 @@ export const proctoringService = {
   /**
    * List proctoring sessions for organization
    */
-  async getSessions(params = {}, orgId = null) {
-    const url = orgId ? `/organizations/${orgId}/proctoring/sessions` : '/proctoring/sessions';
-    const response = await api.get(url, { params });
+  async getSessions(params = {}) {
+    const response = await api.get('/proctoring/sessions', { params });
     return response.data || response;
   },
 
   /**
-   * Get single proctoring session details
+   * Get single proctoring session
    */
-  async getSessionById(sessionId, orgId = null) {
-    const url = orgId ? `/organizations/${orgId}/proctoring/sessions/${sessionId}` : `/proctoring/sessions/${sessionId}`;
-    const response = await api.get(url);
-    return response.data || response;
-  },
-
-  /**
-   * Get events for a specific session
-   */
-  async getSessionEvents(sessionId, params = {}, orgId = null) {
-    const url = orgId ? `/organizations/${orgId}/proctoring/sessions/${sessionId}/events` : `/proctoring/sessions/${sessionId}/events`;
-    const response = await api.get(url, { params });
-    return response.data || response;
-  },
-
-  /**
-   * Get chronological timeline for a session
-   */
-  async getSessionTimeline(sessionId, orgId = null) {
-    const url = orgId ? `/organizations/${orgId}/proctoring/sessions/${sessionId}/timeline` : `/proctoring/sessions/${sessionId}/timeline`;
-    const response = await api.get(url);
-    return response.data || response;
-  },
-
-  /**
-   * Query proctoring events / flags across sessions
-   */
-  async getEvents(params = {}, orgId = null) {
-    const url = orgId ? `/organizations/${orgId}/proctoring/events` : '/proctoring/events';
-    const response = await api.get(url, { params });
+  async getSessionById(sessionId) {
+    const response = await api.get(`/proctoring/sessions/${sessionId}`);
     return response.data || response;
   },
 
   /**
    * Log proctoring telemetry / violation event
    */
-  async logEvent(sessionId, eventData, orgId = null) {
-    const url = orgId ? `/organizations/${orgId}/proctoring/sessions/${sessionId}/events` : `/proctoring/sessions/${sessionId}/events`;
-    const response = await api.post(url, eventData);
+  async logEvent(sessionId, eventData) {
+    const response = await api.post(`/proctoring/sessions/${sessionId}/events`, eventData);
     return response.data || response;
   },
 
   /**
-   * Review / dismiss / escalate a proctoring event
+   * Send examiner warning or termination action
    */
-  async reviewEvent(eventId, payload = {}, orgId = null) {
-    const url = orgId ? `/organizations/${orgId}/proctoring/events/${eventId}/review` : `/proctoring/events/${eventId}/review`;
-    const response = await api.patch(url, payload);
-    return response.data || response;
-  },
-
-  /**
-   * Send warning message to candidate
-   */
-  async sendWarning(sessionId, message, orgId = null) {
-    const url = orgId ? `/organizations/${orgId}/proctoring/sessions/${sessionId}/warning` : `/proctoring/sessions/${sessionId}/warning`;
-    const response = await api.post(url, { warningMessage: message });
-    return response.data || response;
-  },
-
-  /**
-   * Pause candidate session
-   */
-  async pauseSession(sessionId, reason = 'Examiner intervention', orgId = null) {
-    const url = orgId ? `/organizations/${orgId}/proctoring/sessions/${sessionId}/pause` : `/proctoring/sessions/${sessionId}/pause`;
-    const response = await api.post(url, { reason });
-    return response.data || response;
-  },
-
-  /**
-   * Terminate candidate session
-   */
-  async terminateSession(sessionId, reason = 'Integrity policy violation', orgId = null) {
-    const url = orgId ? `/organizations/${orgId}/proctoring/sessions/${sessionId}/terminate` : `/proctoring/sessions/${sessionId}/terminate`;
-    const response = await api.post(url, { reason });
+  async takeAction(sessionId, actionData) {
+    const response = await api.post(`/proctoring/sessions/${sessionId}/actions`, actionData);
     return response.data || response;
   },
 
   /**
    * Fetch proctoring evidence and media recordings
    */
-  async getSessionEvidence(sessionId, orgId = null) {
-    const url = orgId ? `/organizations/${orgId}/proctoring/sessions/${sessionId}/evidence` : `/proctoring/sessions/${sessionId}/evidence`;
-    const response = await api.get(url);
+  async getEvidence(sessionId) {
+    const response = await api.get(`/proctoring/sessions/${sessionId}/evidence`);
     return response.data || response;
   },
 
   /**
-   * Fetch proctoring evidence alias
+   * Fetch all proctoring & telemetry events
    */
-  async getEvidence(sessionId, orgId = null) {
-    return this.getSessionEvidence(sessionId, orgId);
+  async getEvents(params = {}) {
+    const response = await api.get('/proctoring/events', { params });
+    return response.data || response;
+  },
+
+  /**
+   * Fetch events for a single proctoring session
+   */
+  async getSessionEvents(sessionId, params = {}) {
+    const response = await api.get(`/proctoring/sessions/${sessionId}/events`, { params });
+    return response.data || response;
+  },
+
+  /**
+   * Fetch timeline telemetry for a session
+   */
+  async getSessionTimeline(sessionId) {
+    const response = await api.get(`/proctoring/sessions/${sessionId}/timeline`);
+    return response.data || response;
+  },
+
+  /**
+   * Send warning to candidate
+   */
+  async sendWarning(sessionId, data) {
+    const response = await api.post(`/proctoring/sessions/${sessionId}/warning`, data);
+    return response.data || response;
+  },
+
+  /**
+   * Pause candidate session
+   */
+  async pauseSession(sessionId, data) {
+    const response = await api.post(`/proctoring/sessions/${sessionId}/pause`, data);
+    return response.data || response;
+  },
+
+  /**
+   * Terminate candidate session for integrity violation
+   */
+  async terminateSession(sessionId, data) {
+    const response = await api.post(`/proctoring/sessions/${sessionId}/terminate`, data);
+    return response.data || response;
+  },
+
+  /**
+   * Submit integrity review decision
+   */
+  async setIntegrityDecision(sessionId, data) {
+    const response = await api.post(`/proctoring/sessions/${sessionId}/decision`, data);
+    return response.data || response;
   },
 };
 

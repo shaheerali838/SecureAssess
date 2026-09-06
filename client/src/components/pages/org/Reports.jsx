@@ -1,141 +1,74 @@
 import React, { useState, useEffect } from 'react';
 import {
   BarChart3, Download, FileText, TrendingUp, Award, ShieldCheck,
-  Users, Video, Check, Layers, RefreshCw
+  Users, Video, Check, RefreshCw
 } from 'lucide-react';
 import {
   Card, CardHeader, CardBody, Badge, Button, PageHeader,
-  LineChart, BarChart, Select, Toast, MetricCard
+  LineChart, BarChart, Select, Toast, SkeletonTable, EmptyState
 } from '@/components/ui';
 import { exportToCSV, printPDFCertificate } from '@/utils/exportUtils';
-import reportService from '@/services/report.service';
-import assessmentService from '@/services/assessment.service';
 import attemptService from '@/services/attempt.service';
-
-const defaultGradebookData = [
-  { name: 'Ahmed Khan', assessment: 'Data Structures Midterm', aScore: 78, iScore: 'N/A', overall: 78, integrity: 'Low', rec: 'Positive' },
-  { name: 'Sarah Williams', assessment: 'Flight Technical Test', aScore: 85, iScore: 82, overall: 84, integrity: 'Low', rec: 'Strong' },
-  { name: 'Maria Johnson', assessment: 'Full-Stack JavaScript Screening', aScore: 72, iScore: 68, overall: 70, integrity: 'Medium', rec: 'Consider' },
-  { name: 'Daniel Smith', assessment: 'Clinical Competency Exam', aScore: 81, iScore: 'N/A', overall: 81, integrity: 'Low', rec: 'Positive' },
-  { name: 'Zainab Tariq', assessment: 'University Admissions Exam', aScore: 88, iScore: 'N/A', overall: 88, integrity: 'Low', rec: 'Strong' },
-];
+import candidateService from '@/services/candidate.service';
+import reportService from '@/services/report.service';
 
 export function Reports({ onNavigate }) {
   const [toastMessage, setToastMessage] = useState(null);
+  const [gradebookList, setGradebookList] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [dashboardMetrics, setDashboardMetrics] = useState(null);
-  const [assessments, setAssessments] = useState([]);
-  const [selectedAssessmentId, setSelectedAssessmentId] = useState('');
-  const [assessmentSummary, setAssessmentSummary] = useState(null);
-  const [itemAnalysis, setItemAnalysis] = useState([]);
-  const [gradebookData, setGradebookData] = useState(defaultGradebookData);
+
+  const fetchReportsData = async () => {
+    setLoading(true);
+    try {
+      const [attemptsRes, candidatesRes] = await Promise.allSettled([
+        attemptService.getAttempts({ limit: 50 }),
+        candidateService.getCandidates({ limit: 50 }),
+      ]);
+
+      let items = [];
+      if (attemptsRes.status === 'fulfilled') {
+        const raw = attemptsRes.value;
+        const attempts = Array.isArray(raw) ? raw : (raw?.items || raw?.attempts || raw?.data || []);
+        if (attempts.length > 0) {
+          items = attempts.map((a, idx) => {
+            const candidateName = a.candidateName || (a.candidateId?.firstName ? `${a.candidateId.firstName} ${a.candidateId.lastName || ''}`.trim() : `Candidate #${idx + 1}`);
+            const assessmentName = a.assessmentTitle || a.assessmentId?.title || 'Examination Test';
+            const score = Math.round(a.scorePercentage || a.score || 0);
+            const risk = a.integrityScore < 70 ? 'High' : a.integrityScore < 90 ? 'Medium' : 'Low';
+            return {
+              name: candidateName,
+              assessment: assessmentName,
+              aScore: score,
+              iScore: a.interviewScore || 'N/A',
+              overall: score,
+              integrity: risk,
+              rec: score >= 75 ? 'Strong' : score >= 60 ? 'Positive' : 'Review',
+            };
+          });
+        }
+      }
+
+      setGradebookList(items);
+    } catch (err) {
+      console.warn('Reports dynamic data fetch error:', err.message);
+      setGradebookList([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let isMounted = true;
-
-    const loadDashboardAndAssessments = async () => {
-      setLoading(true);
-      try {
-        // 1. Fetch live dashboard metrics
-        try {
-          const dashRes = await reportService.getDashboard();
-          const dData = dashRes?.data || dashRes;
-          if (isMounted && dData) {
-            setDashboardMetrics(dData);
-          }
-        } catch (dErr) {
-          console.warn('Dashboard metrics fetch note:', dErr.message);
-        }
-
-        // 2. Fetch assessments list for picker
-        try {
-          const asmRes = await assessmentService.getAssessments({ limit: 50 });
-          const asmList = Array.isArray(asmRes) ? asmRes : (asmRes?.items || asmRes?.data?.items || asmRes?.data || []);
-          if (isMounted && Array.isArray(asmList) && asmList.length > 0) {
-            setAssessments(asmList);
-            setSelectedAssessmentId(asmList[0]._id || asmList[0].id);
-          }
-        } catch (aErr) {
-          console.warn('Assessments query note:', aErr.message);
-        }
-
-        // 3. Fetch recent attempts for gradebook
-        try {
-          const attemptsRes = await attemptService.getAttempts({ limit: 20 });
-          const attList = Array.isArray(attemptsRes) ? attemptsRes : (attemptsRes?.items || attemptsRes?.data?.items || []);
-          if (isMounted && Array.isArray(attList) && attList.length > 0) {
-            const mappedGradebook = attList.map((att, i) => {
-              const cand = att.candidateId || {};
-              const asm = att.assessmentId || {};
-              const candName = cand.firstName ? `${cand.firstName} ${cand.lastName || ''}` : `Candidate ${i + 1}`;
-              const score = typeof att.earnedScore === 'number' ? Math.round(att.earnedScore) : (att.score || 75);
-              return {
-                name: candName,
-                assessment: asm.title || 'Examination',
-                aScore: score,
-                iScore: 'N/A',
-                overall: score,
-                integrity: att.proctoringSessionId?.riskLevel || 'Low',
-                rec: score >= 80 ? 'Strong' : score >= 60 ? 'Positive' : 'Consider',
-              };
-            });
-            setGradebookData(mappedGradebook);
-          }
-        } catch (attErr) {
-          console.warn('Gradebook fetch note:', attErr.message);
-        }
-      } catch (err) {
-        console.warn('Reports hydration note:', err.message);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-
-    loadDashboardAndAssessments();
-
-    return () => {
-      isMounted = false;
-    };
+    fetchReportsData();
   }, []);
 
-  // Fetch assessment-specific summary & item analysis when selected assessment changes
-  useEffect(() => {
-    if (!selectedAssessmentId) return;
-    let isMounted = true;
-
-    const loadAssessmentDetails = async () => {
-      try {
-        const [sumRes, qRes] = await Promise.allSettled([
-          reportService.getAssessmentSummary(selectedAssessmentId),
-          reportService.getAssessmentQuestions(selectedAssessmentId),
-        ]);
-
-        if (isMounted) {
-          if (sumRes.status === 'fulfilled') {
-            setAssessmentSummary(sumRes.value?.data || sumRes.value);
-          }
-          if (qRes.status === 'fulfilled') {
-            const qData = qRes.value?.data || qRes.value;
-            const qItems = Array.isArray(qData) ? qData : (qData?.questions || qData?.items || []);
-            setItemAnalysis(qItems);
-          }
-        }
-      } catch (err) {
-        console.warn('Assessment details fetch note:', err.message);
-      }
-    };
-
-    loadAssessmentDetails();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [selectedAssessmentId]);
-
   const handleExportGradebookCSV = () => {
+    if (gradebookList.length === 0) {
+      setToastMessage({ type: 'warning', text: 'No candidate attempt data available to export.' });
+      return;
+    }
     exportToCSV(
       'SecureAssess_Cohort_Gradebook',
-      gradebookData,
+      gradebookList,
       [
         { key: 'name', label: 'Candidate Name' },
         { key: 'assessment', label: 'Assessment' },
@@ -155,9 +88,9 @@ export function Reports({ onNavigate }) {
       assessmentTitle,
       score,
       passingScore: 60,
-      organizationName: 'Institutional Examination Board',
+      organizationName: 'Institutional Examination Authority',
     });
-    setToastMessage({ type: 'success', text: `Opening certified transcript for ${candidateName}...` });
+    setToastMessage({ type: 'success', text: `Opening certified PDF for ${candidateName}...` });
   };
 
   const reportTypes = [
@@ -201,58 +134,6 @@ export function Reports({ onNavigate }) {
         }
       />
 
-      {/* Assessment Selector & Live Performance Overview */}
-      {assessments.length > 0 && (
-        <Card className="p-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <Layers size={18} className="text-primary-600 dark:text-primary-400" />
-              <div>
-                <p className="text-xs font-bold text-accent-900 dark:text-white">Active Assessment Target</p>
-                <p className="text-[11px] text-accent-500">Select an assessment to view live psychometric & score distribution data</p>
-              </div>
-            </div>
-            <div className="w-full sm:w-72">
-              <Select
-                value={selectedAssessmentId}
-                onChange={(e) => setSelectedAssessmentId(e.target.value)}
-                options={assessments.map((a) => ({ value: a._id || a.id, label: a.title || 'Untitled Assessment' }))}
-              />
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* Live Item Analysis & Assessment Metrics */}
-      {assessmentSummary && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <MetricCard
-            label="Total Exam Attempts"
-            value={assessmentSummary.totalAttempts ?? assessmentSummary.attemptsCount ?? gradebookData.length}
-            icon={<Users size={20} />}
-            color="primary"
-          />
-          <MetricCard
-            label="Average Score"
-            value={`${Math.round(assessmentSummary.averageScore ?? 78)}%`}
-            icon={<Award size={20} />}
-            color="info"
-          />
-          <MetricCard
-            label="Passing Rate"
-            value={`${Math.round(assessmentSummary.passRate ?? 86)}%`}
-            icon={<TrendingUp size={20} />}
-            color="success"
-          />
-          <MetricCard
-            label="Integrity Risk Flags"
-            value={assessmentSummary.flaggedCount ?? assessmentSummary.highRiskSessions ?? 2}
-            icon={<ShieldCheck size={20} />}
-            color="warning"
-          />
-        </div>
-      )}
-
       {/* Report Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {reportTypes.map((r, i) => (
@@ -268,7 +149,14 @@ export function Reports({ onNavigate }) {
                   variant="outline"
                   size="sm"
                   icon={<Download size={13} />}
-                  onClick={() => handleDownloadSamplePDF(gradebookData[0]?.name || 'Sarah Williams', r.title, 88)}
+                  onClick={() => {
+                    if (gradebookList.length > 0) {
+                      const top = gradebookList[0];
+                      handleDownloadSamplePDF(top.name, top.assessment, top.overall);
+                    } else {
+                      handleDownloadSamplePDF('Candidate', r.title, 85);
+                    }
+                  }}
                 >
                   PDF
                 </Button>
@@ -286,58 +174,77 @@ export function Reports({ onNavigate }) {
         ))}
       </div>
 
-      {/* Candidate Performance Gradebook Table */}
+      {/* Candidate Performance Preview */}
       <Card>
         <CardHeader
           title="Candidate Performance Gradebook"
-          subtitle={`${gradebookData.length} total examinee records loaded`}
+          subtitle="Recent examination scoring summary and proctoring ratings"
           icon={<FileText size={18} />}
           action={
-            <Button variant="outline" size="sm" icon={<Download size={15} />} onClick={handleExportGradebookCSV}>
-              Export Gradebook CSV
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" icon={<RefreshCw size={14} className={loading ? 'animate-spin' : ''} />} onClick={fetchReportsData}>
+                Refresh
+              </Button>
+              <Button variant="outline" size="sm" icon={<Download size={15} />} onClick={handleExportGradebookCSV}>
+                Export Gradebook CSV
+              </Button>
+            </div>
           }
         />
         <CardBody className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-accent-100 dark:border-accent-800 bg-accent-50/50 dark:bg-accent-900/50">
-                  <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-5 py-3">Candidate</th>
-                  <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 hidden sm:table-cell">Assessment</th>
-                  <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3">Test Score</th>
-                  <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 hidden md:table-cell">Interview Score</th>
-                  <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3">Overall</th>
-                  <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 hidden lg:table-cell">Integrity</th>
-                  <th className="text-right text-xs font-semibold text-accent-600 dark:text-accent-400 px-5 py-3">Certificate</th>
-                </tr>
-              </thead>
-              <tbody>
-                {gradebookData.map((r, i) => (
-                  <tr key={i} className="border-b border-accent-50 dark:border-accent-800/40 hover:bg-accent-50/50 dark:hover:bg-accent-800/40 transition-colors">
-                    <td className="px-5 py-3.5 text-xs font-semibold text-accent-900 dark:text-white">{r.name}</td>
-                    <td className="px-3 py-3.5 hidden sm:table-cell text-xs text-accent-700 dark:text-accent-300">{r.assessment}</td>
-                    <td className="px-3 py-3.5 text-xs font-mono font-bold text-accent-900 dark:text-white">{r.aScore}%</td>
-                    <td className="px-3 py-3.5 hidden md:table-cell text-xs font-mono text-accent-500">{r.iScore !== 'N/A' ? `${r.iScore}%` : '—'}</td>
-                    <td className="px-3 py-3.5 text-xs font-mono font-bold text-primary-600 dark:text-primary-400">{r.overall}%</td>
-                    <td className="px-3 py-3.5 hidden lg:table-cell">
-                      <Badge variant={r.integrity === 'Low' ? 'success' : 'warning'}>{r.integrity} Risk</Badge>
-                    </td>
-                    <td className="px-5 py-3.5 text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        icon={<Award size={14} />}
-                        onClick={() => handleDownloadSamplePDF(r.name, r.assessment, r.overall)}
-                      >
-                        PDF Transcript
-                      </Button>
-                    </td>
+          {loading ? (
+            <div className="p-5">
+              <SkeletonTable rows={5} columns={6} />
+            </div>
+          ) : gradebookList.length === 0 ? (
+            <div className="p-6">
+              <EmptyState
+                icon={<FileText size={28} />}
+                title="No assessment attempts recorded"
+                description="When candidates submit completed exams and proctored sessions, verified gradebook logs and certificates will appear here."
+              />
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-accent-100 dark:border-accent-800 bg-accent-50/50 dark:bg-accent-900/50">
+                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-5 py-3">Candidate</th>
+                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 hidden sm:table-cell">Assessment</th>
+                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3">Test Score</th>
+                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 hidden md:table-cell">Interview Score</th>
+                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3">Overall</th>
+                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 hidden lg:table-cell">Integrity</th>
+                    <th className="text-right text-xs font-semibold text-accent-600 dark:text-accent-400 px-5 py-3">Certificate</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {gradebookList.map((r, i) => (
+                    <tr key={i} className="border-b border-accent-50 dark:border-accent-800/40 hover:bg-accent-50/50 dark:hover:bg-accent-800/40 transition-colors">
+                      <td className="px-5 py-3.5 text-xs font-semibold text-accent-900 dark:text-white">{r.name}</td>
+                      <td className="px-3 py-3.5 hidden sm:table-cell text-xs text-accent-700 dark:text-accent-300">{r.assessment}</td>
+                      <td className="px-3 py-3.5 text-xs font-mono font-bold text-accent-900 dark:text-white">{r.aScore}%</td>
+                      <td className="px-3 py-3.5 hidden md:table-cell text-xs font-mono text-accent-500">{r.iScore !== 'N/A' ? `${r.iScore}%` : '—'}</td>
+                      <td className="px-3 py-3.5 text-xs font-mono font-bold text-primary-600 dark:text-primary-400">{r.overall}%</td>
+                      <td className="px-3 py-3.5 hidden lg:table-cell">
+                        <Badge variant={r.integrity === 'Low' ? 'success' : 'warning'}>{r.integrity} Risk</Badge>
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          icon={<Award size={14} />}
+                          onClick={() => handleDownloadSamplePDF(r.name, r.assessment, r.overall)}
+                        >
+                          PDF Transcript
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardBody>
       </Card>
     </div>

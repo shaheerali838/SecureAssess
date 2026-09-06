@@ -34,18 +34,21 @@ export class QuestionBankValidator {
       return { isValid: false, errors: ["Request body is required"] };
     }
 
-    const promptText = body.prompt || body.title || body.content?.text;
+    const promptText = body.prompt || body.title || body.stem || body.content?.text;
     if (!promptText || typeof promptText !== "string" || promptText.trim().length < 1) {
       errors.push("Question prompt or title is required");
     }
 
-    const type = body.type || QUESTION_TYPES.SINGLE_CHOICE;
-    if (!QUESTION_TYPE_LIST.includes(type)) {
-      errors.push(`Invalid question type. Must be one of: ${QUESTION_TYPE_LIST.join(", ")}`);
-    }
+    let type = body.type || QUESTION_TYPES.SINGLE_CHOICE;
+    if (type === "MCQ" || type === "Multiple Choice") type = QUESTION_TYPES.SINGLE_CHOICE;
+    if (type === "Coding") type = QUESTION_TYPES.CODING;
+    if (type === "True / False" || type === "TRUE_FALSE") type = QUESTION_TYPES.TRUE_FALSE;
 
-    if (body.difficulty && !["EASY", "MEDIUM", "HARD", "EXPERT"].includes(body.difficulty)) {
-      errors.push("Difficulty must be one of: EASY, MEDIUM, HARD, EXPERT");
+    if (body.difficulty) {
+      const diff = body.difficulty.toUpperCase();
+      if (!["EASY", "MEDIUM", "HARD", "EXPERT"].includes(diff)) {
+        errors.push("Difficulty must be one of: EASY, MEDIUM, HARD, EXPERT");
+      }
     }
 
     if (body.points !== undefined && (typeof body.points !== "number" || body.points < 0)) {
@@ -60,20 +63,10 @@ export class QuestionBankValidator {
       errors.push("Invalid subjectId format");
     }
 
-    // Type-specific field validations (Step 35.9)
-    if (type === QUESTION_TYPES.SINGLE_CHOICE) {
+    // Type-specific field validations
+    if (type === QUESTION_TYPES.SINGLE_CHOICE || type === QUESTION_TYPES.MULTIPLE_CHOICE) {
       if (!Array.isArray(body.options) || body.options.length < 2) {
-        errors.push("SINGLE_CHOICE questions require at least 2 options");
-      } else {
-        const optionIds = body.options.map((opt) => opt.id);
-        const uniqueIds = new Set(optionIds);
-        if (uniqueIds.size !== optionIds.length) {
-          errors.push("Option IDs must be unique (e.g. A, B, C, D)");
-        }
-      }
-    } else if (type === QUESTION_TYPES.MULTIPLE_CHOICE) {
-      if (!Array.isArray(body.options) || body.options.length < 2) {
-        errors.push("MULTIPLE_CHOICE questions require at least 2 options");
+        errors.push("Choice questions require at least 2 options");
       }
     } else if (type === QUESTION_TYPES.TRUE_FALSE) {
       if (body.correctAnswer === undefined && body.answer === undefined && (!body.options || body.options.length === 0)) {

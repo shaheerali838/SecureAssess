@@ -5,55 +5,23 @@ export const reportService = {
    * Get organization overview analytics dashboard metrics
    */
   async getOverviewMetrics() {
-    const response = await api.get('/reports/dashboard');
+    const response = await api.get('/reports/overview');
     return response.data || response;
   },
 
   /**
-   * Get organization overview analytics dashboard metrics alias
+   * Get organization dashboard statistics
    */
-  async getDashboard() {
-    const response = await api.get('/reports/dashboard');
+  async getOrganizationDashboard(params = {}) {
+    const response = await api.get('/reports/dashboard', { params });
     return response.data || response;
   },
 
   /**
-   * Get assessment-specific summary & score distribution
-   */
-  async getAssessmentSummary(assessmentId) {
-    const response = await api.get(`/reports/assessments/${assessmentId}/summary`);
-    return response.data || response;
-  },
-
-  /**
-   * Get assessment question item analysis
-   */
-  async getAssessmentQuestions(assessmentId) {
-    const response = await api.get(`/reports/assessments/${assessmentId}/questions`);
-    return response.data || response;
-  },
-
-  /**
-   * Get assessment-specific analytics report alias
+   * Get assessment-specific analytics report
    */
   async getAssessmentReport(assessmentId) {
-    const response = await api.get(`/reports/assessments/${assessmentId}/summary`);
-    return response.data || response;
-  },
-
-  /**
-   * Get candidate performance report
-   */
-  async getCandidateReport(candidateId) {
-    const response = await api.get(`/reports/candidates/${candidateId}/performance`);
-    return response.data || response;
-  },
-
-  /**
-   * Get platform-wide overview analytics
-   */
-  async getPlatformOverview() {
-    const response = await api.get('/reports/platform/overview');
+    const response = await api.get(`/reports/assessments/${assessmentId}`);
     return response.data || response;
   },
 
@@ -61,7 +29,15 @@ export const reportService = {
    * Get integrity & proctoring risk analytics
    */
   async getIntegrityReport() {
-    const response = await api.get('/reports/proctoring');
+    const response = await api.get('/reports/integrity');
+    return response.data || response;
+  },
+
+  /**
+   * Get platform-wide overview metrics (Super Admin)
+   */
+  async getPlatformDashboard() {
+    const response = await api.get('/platform/reports/dashboard');
     return response.data || response;
   },
 };

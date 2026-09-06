@@ -24,6 +24,7 @@ import departmentsRoutes from "../../modules/departments/index.js";
 import programsRoutes from "../../modules/programs/index.js";
 import subjectsRoutes from "../../modules/subjects/index.js";
 import candidateGroupsRoutes from "../../modules/candidateGroups/index.js";
+import rubricsRoutes from "../../modules/rubrics/index.js";
 import { verifyPublicCertificate } from "../../modules/certificates/certificate.controller.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 
@@ -99,6 +100,7 @@ router.use("/departments", departmentsRoutes);
 router.use("/programs", programsRoutes);
 router.use("/subjects", subjectsRoutes);
 router.use("/candidate-groups", candidateGroupsRoutes);
+router.use("/rubrics", rubricsRoutes);
 router.use("/interviews", interviewsRoutes);
 router.use("/notifications", notificationsRoutes);
 router.use("/subscriptions", subscriptionsRoutes);

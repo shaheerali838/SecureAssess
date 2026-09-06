@@ -1,8 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import organizationService from '../services/organization.service';
-import { organizations as staticOrganizations } from '@/data';
-import { translateTerm, getTerminology } from '@/utils/terminology';
 
 const OrganizationContext = createContext(null);
 
@@ -12,15 +10,6 @@ export const OrganizationProvider = ({ children }) => {
   const [currentOrganization, setCurrentOrganization] = useState(null);
   const [currentMembership, setCurrentMembership] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-
-  // On mount: purge any previously-stored non-ObjectId value (e.g. 'org-stanford')
-  // that would cause requireTenantContext to return 400 Invalid ID format
-  useEffect(() => {
-    const stored = localStorage.getItem('secureassess_current_org_id');
-    if (stored && !/^[0-9a-fA-F]{24}$/.test(stored)) {
-      localStorage.removeItem('secureassess_current_org_id');
-    }
-  }, []);
 
   // Fetch memberships / organizations for authenticated user
   const fetchMemberships = useCallback(async () => {
@@ -34,44 +23,45 @@ export const OrganizationProvider = ({ children }) => {
     setIsLoading(true);
     try {
       let orgs = [];
-      try {
-        const res = await organizationService.getOrganizations();
-        if (Array.isArray(res)) {
-          orgs = res;
-        } else if (Array.isArray(res?.items)) {
-          orgs = res.items;
-        } else if (Array.isArray(res?.organizations)) {
-          orgs = res.organizations;
-        } else if (Array.isArray(res?.memberships)) {
-          orgs = res.memberships;
-        } else if (res?.data && Array.isArray(res.data)) {
-          orgs = res.data;
-        } else if (res?.data?.items && Array.isArray(res.data.items)) {
-          orgs = res.data.items;
-        }
-      } catch (err) {
-        console.warn('Could not fetch organizations from backend, using fallback:', err.message);
+
+      // 1. If user object already has verified memberships from login/me, load them first
+      if (user?.memberships && Array.isArray(user.memberships) && user.memberships.length > 0) {
+        orgs = user.memberships.map((m) => m.organization || m.organizationId).filter(Boolean);
       }
 
-      // If backend returned no orgs or failed, merge with default Stanford Engineering fallback
+      // 2. Query organization service for latest tenant list
+      try {
+        const res = await organizationService.getOrganizations();
+        let fetchedList = [];
+        if (Array.isArray(res)) {
+          fetchedList = res;
+        } else if (Array.isArray(res?.items)) {
+          fetchedList = res.items;
+        } else if (Array.isArray(res?.organizations)) {
+          fetchedList = res.organizations;
+        } else if (Array.isArray(res?.memberships)) {
+          fetchedList = res.memberships;
+        } else if (res?.data && Array.isArray(res.data)) {
+          fetchedList = res.data;
+        } else if (res?.data?.items && Array.isArray(res.data.items)) {
+          fetchedList = res.data.items;
+        }
+
+        if (fetchedList.length > 0) {
+          orgs = fetchedList;
+        }
+      } catch (err) {
+        console.warn('Could not fetch organizations from backend:', err.message);
+      }
+
+      // 3. Fallback only if absolutely no organizations exist
       if (!orgs || orgs.length === 0) {
-        orgs = staticOrganizations || [
-          {
-            _id: 'org-stanford',
-            id: 'org-stanford',
-            name: 'Stanford Engineering',
-            slug: 'stanford-engineering',
-            code: 'STANFORD',
-            tenantIndustry: 'academic',
-            brandColor: '#4f46e5',
-            status: 'ACTIVE',
-          },
-        ];
+        orgs = user?.memberships || [];
       }
 
       setOrganizations(orgs);
 
-      // Restore stored current organization or default to first
+      // Resolve active organization
       const storedOrgId = localStorage.getItem('secureassess_current_org_id');
       let active = null;
 
@@ -87,23 +77,26 @@ export const OrganizationProvider = ({ children }) => {
 
       if (active) {
         const orgData = active.organization || active;
+        const orgId = orgData._id || orgData.id;
         setCurrentOrganization(orgData);
-        setCurrentMembership(active.organization ? active : null);
-        const orgIdToStore = orgData._id || orgData.id;
-        // Only persist real MongoDB ObjectIds — never store mock/fallback strings
-        if (orgIdToStore && /^[0-9a-fA-F]{24}$/.test(String(orgIdToStore))) {
-          localStorage.setItem('secureassess_current_org_id', orgIdToStore);
+        setCurrentMembership(active.organization ? active : user?.memberships?.[0] || null);
+
+        if (orgId && typeof orgId === 'string' && !orgId.startsWith('org-') && !isPlatformStaff) {
+          localStorage.setItem('secureassess_current_org_id', orgId);
+        }
+      } else {
+        setCurrentOrganization(null);
+        setCurrentMembership(null);
+        if (isPlatformStaff) {
+          localStorage.removeItem('secureassess_current_org_id');
         }
       }
     } catch (err) {
       console.warn('Failed to load organization context:', err.message);
-      if (staticOrganizations && staticOrganizations.length > 0) {
-        setCurrentOrganization(staticOrganizations[0]);
-      }
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated, isPlatformStaff]);
+  }, [isAuthenticated, isPlatformStaff, user]);
 
   useEffect(() => {
     fetchMemberships();
@@ -131,7 +124,7 @@ export const OrganizationProvider = ({ children }) => {
       setCurrentOrganization(orgData);
       setCurrentMembership(selected.organization ? selected : null);
       const idToStore = orgData._id || orgData.id;
-      if (idToStore) {
+      if (idToStore && typeof idToStore === 'string' && !idToStore.startsWith('org-')) {
         localStorage.setItem('secureassess_current_org_id', idToStore);
       }
       return orgData;
@@ -140,41 +133,67 @@ export const OrganizationProvider = ({ children }) => {
   };
 
   const userRole =
+    (isPlatformStaff ? user?.platformRole : null) ||
     currentMembership?.roleId?.name ||
+    currentMembership?.role?.name ||
+    (typeof currentMembership?.roleId === 'string' ? currentMembership.roleId : null) ||
     currentMembership?.roleName ||
-    (isPlatformStaff ? user?.platformRole : 'ORGANIZATION_ADMIN');
-  const permissions = currentMembership?.roleId?.permissions || [];
+    user?.memberships?.[0]?.roleId?.name ||
+    user?.memberships?.[0]?.role?.name ||
+    user?.memberships?.[0]?.roleName ||
+    user?.role ||
+    user?.platformRole;
+
+  const normalizedUserRole = (userRole || '').toUpperCase();
+
+  const isPlatformAdminUser =
+    isPlatformStaff ||
+    user?.platformRole === 'PLATFORM_OWNER' ||
+    user?.platformRole === 'PLATFORM_ADMIN';
+
+  const isOrgAdminUser =
+    normalizedUserRole === 'ORGANIZATION_OWNER' ||
+    normalizedUserRole === 'ORGANIZATION_ADMIN' ||
+    normalizedUserRole === 'OWNER' ||
+    normalizedUserRole === 'ADMIN';
+
+  const permissions =
+    currentMembership?.roleId?.permissions ||
+    currentMembership?.role?.permissions ||
+    user?.permissions ||
+    [];
 
   const hasPermission = (permissionKey) => {
-    if (isPlatformStaff) return true;
+    if (isPlatformAdminUser || isOrgAdminUser) return true;
+    if (!permissions || permissions.length === 0) {
+      if (normalizedUserRole === 'EXAMINER') {
+        const examinerDefaults = [
+          'assessments.view',
+          'assessments.create',
+          'question_banks.view',
+          'candidates.view',
+          'evaluations.view',
+          'interviews.view',
+          'reports.view',
+        ];
+        return examinerDefaults.includes(permissionKey);
+      }
+      if (normalizedUserRole === 'PROCTOR') {
+        const proctorDefaults = ['proctoring.view', 'interviews.view'];
+        return proctorDefaults.includes(permissionKey);
+      }
+      return true;
+    }
     return permissions.some((p) =>
-      typeof p === 'string' ? p === permissionKey : p.key === permissionKey
+      typeof p === 'string' ? p === permissionKey : p.key === permissionKey || p.name === permissionKey
     );
   };
 
-  // Dynamic Terminology Mapping based on active Tenant Industry
-  const tenantIndustry = currentOrganization?.tenantIndustry || 'academic';
-
-  const t = useCallback(
-    (entityKey, isPlural = false) => {
-      const industry = currentOrganization?.tenantIndustry || 'academic';
-      return translateTerm(industry, entityKey, isPlural);
-    },
-    [currentOrganization?.tenantIndustry]
-  );
-
-  const terminology = useMemo(() => {
-    return getTerminology(tenantIndustry);
-  }, [tenantIndustry]);
-
   const value = {
     organizations,
-    currentOrganization: currentOrganization || staticOrganizations?.[0] || null,
+    currentOrganization: currentOrganization || organizations?.[0] || null,
     currentMembership,
     currentOrgId: currentOrganization?._id || currentOrganization?.id || null,
-    tenantIndustry,
-    t,
-    terminology,
     userRole,
     permissions,
     hasPermission,

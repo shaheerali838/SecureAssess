@@ -1,169 +1,86 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Shield, Clock, Wifi, Lock, ChevronLeft, ChevronRight, Flag,
-  CheckCircle2, AlertCircle, Save, Check, AlertTriangle, RefreshCw
+  CheckCircle2, AlertCircle, Save, Check, AlertTriangle, ArrowLeft, LogOut
 } from 'lucide-react';
-import { Button, Badge, ProgressBar, Modal, Card, SkeletonCards } from '@/components/ui';
+import { Button, Badge, ProgressBar, Modal, Card } from '@/components/ui';
 import attemptService from '@/services/attempt.service';
-import candidatePortalService from '@/services/candidatePortal.service';
+import assessmentService from '@/services/assessment.service';
 import socketService from '@/services/socketService';
+import { useAuth } from '@/contexts/AuthContext';
 
-const fallbackQuestions = [
-  { id: 'q1', content: 'What is the time complexity of binary search on a sorted array of n elements?', options: ['O(n)', 'O(log n)', 'O(n log n)', 'O(1)'], points: 2, type: 'Multiple Choice' },
-  { id: 'q2', content: 'Which data structure uses LIFO (Last In, First Out) ordering?', options: ['Queue', 'Stack', 'Linked List', 'Tree'], points: 1, type: 'Multiple Choice' },
-  { id: 'q3', content: 'What does ACID stand for in database transactions?', options: ['Atomic, Consistent, Isolated, Durable', 'Accurate, Correct, Isolated, Direct', 'Atomic, Correct, Indexed, Durable', 'Automated, Consistent, Isolated, Dynamic'], points: 2, type: 'Multiple Choice' },
-  { id: 'q4', content: 'Which sorting algorithm has the best average-case time complexity?', options: ['Bubble Sort', 'Selection Sort', 'Quick Sort', 'Insertion Sort'], points: 2, type: 'Multiple Choice' },
-  { id: 'q5', content: 'Which HTTP status code signifies that a resource was successfully created?', options: ['200 OK', '201 Created', '204 No Content', '304 Not Modified'], points: 1, type: 'Multiple Choice' },
-  { id: 'q6', content: 'In Public Key Cryptography, which key is utilized by the sender to encrypt a private message for the recipient?', options: ['Sender Private Key', 'Recipient Public Key', 'Recipient Private Key', 'Shared Ephemeral Secret'], points: 3, type: 'Multiple Choice' },
+const defaultCurriculumQuestions = [
+  { id: 1, content: 'What is the time complexity of binary search on a sorted array of n elements?', options: ['O(n)', 'O(log n)', 'O(n log n)', 'O(1)'], points: 2 },
+  { id: 2, content: 'Which data structure uses LIFO (Last In, First Out) ordering?', options: ['Queue', 'Stack', 'Linked List', 'Tree'], points: 1 },
+  { id: 3, content: 'What does ACID stand for in database transactions?', options: ['Atomic, Consistent, Isolated, Durable', 'Accurate, Correct, Isolated, Direct', 'Atomic, Correct, Indexed, Durable', 'Automated, Consistent, Isolated, Dynamic'], points: 2 },
+  { id: 4, content: 'Which sorting algorithm has the best average-case time complexity?', options: ['Bubble Sort', 'Selection Sort', 'Quick Sort', 'Insertion Sort'], points: 2 },
+  { id: 5, content: 'Which HTTP status code signifies that a resource was successfully created?', options: ['200 OK', '201 Created', '204 No Content', '304 Not Modified'], points: 1 },
+  { id: 6, content: 'In Public Key Cryptography, which key is utilized by the sender to encrypt a private message for the recipient?', options: ['Sender Private Key', 'Recipient Public Key', 'Recipient Private Key', 'Shared Ephemeral Secret'], points: 3 },
+  { id: 7, content: 'In distributed systems, according to the CAP theorem, which property must be sacrificed during a network partition?', options: ['Either Consistency or Availability', 'Durability', 'Partition Tolerance', 'Scalability'], points: 3 },
+  { id: 8, content: 'Which cryptographic hash function family is widely used in Ethereum proof-of-stake and contract signatures?', options: ['Keccak-256 (SHA-3)', 'MD5', 'SHA-1', 'DES'], points: 2 },
 ];
 
 export function AssessmentExperience({ onNavigate }) {
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const [activeAssessment, setActiveAssessment] = useState({
+    title: 'CS301: Advanced Data Structures & Algorithms',
+    code: 'CS301-MID',
+    durationMinutes: 90,
+    proctoringMode: 'AI + Live Video',
+  });
+  const [questions, setQuestions] = useState(defaultCurriculumQuestions);
   const [currentQ, setCurrentQ] = useState(0);
-  const [questions, setQuestions] = useState(fallbackQuestions);
   const [answers, setAnswers] = useState({});
-  const [flaggedMap, setFlaggedMap] = useState({});
   const [timeLeft, setTimeLeft] = useState(90 * 60);
   const [saved, setSaved] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
-  const [attemptId, setAttemptId] = useState('att_live_01');
-  const [assessmentTitle, setAssessmentTitle] = useState('Computer Science 101 · Final Evaluation');
+  const [confirmExitOpen, setConfirmExitOpen] = useState(false);
+  const [attemptId, setAttemptId] = useState(`att_${Date.now()}`);
   const [warningBanner, setWarningBanner] = useState(null);
-  const heartbeatIntervalRef = useRef(null);
 
-  // Initialize Attempt & Questions
+  // Initialize selected assessment from session storage
   useEffect(() => {
-    let isMounted = true;
+    try {
+      const rawStored = sessionStorage.getItem('secureassess_active_assessment');
+      if (rawStored) {
+        const parsed = JSON.parse(rawStored);
+        setActiveAssessment(parsed);
+        const durationSec = (Number(parsed.durationMinutes) || 90) * 60;
+        setTimeLeft(durationSec);
 
-    const loadAttemptData = async () => {
-      setLoading(true);
-      try {
-        // 1. Try to find active or pending attempts / assignments
-        let activeAttemptId = null;
-        let attemptData = null;
-
-        try {
-          const attemptsRes = await attemptService.getAttempts({ status: 'IN_PROGRESS' });
-          const attemptList = Array.isArray(attemptsRes) ? attemptsRes : (attemptsRes?.items || attemptsRes?.data?.items || []);
-          if (attemptList.length > 0) {
-            activeAttemptId = attemptList[0]._id || attemptList[0].id;
-            attemptData = attemptList[0];
-          }
-        } catch (e) {
-          console.warn('Could not fetch active attempts list:', e.message);
-        }
-
-        // If no active attempt, check candidate assignments to start one
-        if (!activeAttemptId) {
-          try {
-            const assignRes = await candidatePortalService.getAssignments({ status: 'PENDING' });
-            const assignments = Array.isArray(assignRes) ? assignRes : (assignRes?.items || assignRes?.data?.items || []);
-            if (assignments.length > 0) {
-              const started = await attemptService.startAttempt(assignments[0]._id || assignments[0].id);
-              activeAttemptId = started?._id || started?.data?._id || started?.id;
-              attemptData = started?.data || started;
+        // If parsed assessment has sections/questions, load them
+        if (Array.isArray(parsed.questions) && parsed.questions.length > 0) {
+          setQuestions(parsed.questions);
+        } else if (parsed._id) {
+          // Attempt fetch full assessment details
+          assessmentService.getAssessmentById(parsed._id).then((res) => {
+            const full = res?.data || res;
+            if (full?.questions && full.questions.length > 0) {
+              setQuestions(full.questions);
             }
-          } catch (e) {
-            console.warn('Could not auto-start from assignments:', e.message);
-          }
+          }).catch((e) => console.warn('Assessment detail fetch notice:', e));
         }
-
-        if (activeAttemptId && isMounted) {
-          setAttemptId(activeAttemptId);
-
-          if (attemptData?.assessmentId?.title || attemptData?.assessmentTitle) {
-            setAssessmentTitle(attemptData.assessmentId?.title || attemptData.assessmentTitle);
-          }
-
-          // Calculate remaining time from expiresAt if available
-          if (attemptData?.expiresAt) {
-            const msRemaining = new Date(attemptData.expiresAt).getTime() - Date.now();
-            if (msRemaining > 0) {
-              setTimeLeft(Math.floor(msRemaining / 1000));
-            }
-          }
-
-          // 2. Fetch Questions for this attempt
-          try {
-            const qRes = await attemptService.getAttemptQuestions(activeAttemptId);
-            const rawQs = Array.isArray(qRes) ? qRes : (qRes?.items || qRes?.data?.items || qRes?.data || []);
-            
-            if (Array.isArray(rawQs) && rawQs.length > 0) {
-              const mapped = rawQs.map((q, idx) => {
-                const optList = Array.isArray(q.options)
-                  ? q.options.map(o => (typeof o === 'string' ? o : (o.text || o.content || o.label || JSON.stringify(o))))
-                  : ['Option A', 'Option B', 'Option C', 'Option D'];
-
-                return {
-                  id: q._id || q.id || `q_${idx}`,
-                  content: q.prompt?.text || q.prompt || q.content || q.text || `Question ${idx + 1}`,
-                  options: optList,
-                  points: q.points || q.marks || 1,
-                  type: q.type || 'Multiple Choice',
-                  flagged: Boolean(q.flagged),
-                  savedAnswer: q.savedAnswer,
-                };
-              });
-
-              setQuestions(mapped);
-
-              // Pre-populate already saved answers
-              const initialAnswers = {};
-              const initialFlags = {};
-              mapped.forEach((q, idx) => {
-                if (q.savedAnswer !== null && q.savedAnswer !== undefined) {
-                  initialAnswers[idx] = q.savedAnswer;
-                }
-                if (q.flagged) {
-                  initialFlags[idx] = true;
-                }
-              });
-              setAnswers(initialAnswers);
-              setFlaggedMap(initialFlags);
-            }
-          } catch (e) {
-            console.warn('Questions fetch error, using template:', e.message);
-          }
-        }
-      } catch (err) {
-        console.warn('Attempt initialization note:', err.message);
-      } finally {
-        if (isMounted) setLoading(false);
       }
-    };
-
-    loadAttemptData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  // Heartbeat periodic dispatcher
-  useEffect(() => {
-    if (attemptId && attemptId !== 'att_live_01') {
-      heartbeatIntervalRef.current = setInterval(() => {
-        attemptService.sendHeartbeat(attemptId).catch(() => {});
-      }, 30000);
+    } catch (e) {
+      console.warn('Could not parse stored assessment:', e);
     }
-    return () => {
-      if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
-    };
-  }, [attemptId]);
+  }, []);
 
   const totalQuestions = questions.length;
 
   // Real-Time Anti-Cheat Sockets & Telemetry Watchers
   useEffect(() => {
     socketService.connect();
-    socketService.joinRoom(attemptId, 'candidate_user_01', 'candidate');
+    const candidateId = user?._id || user?.id || 'candidate_user_01';
+    const candidateName = user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'Candidate';
+    socketService.joinRoom(attemptId, candidateId, 'candidate');
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
         socketService.emitProctorEvent(attemptId, 'TAB_BLUR', {
-          participant: 'Alex Morgan',
-          assessment: 'Computer Science 101',
+          participant: candidateName,
+          assessment: activeAssessment.title || 'Online Assessment',
           riskLevel: 'Medium',
           details: 'Candidate navigated away from examination window or switched browser tabs.',
         });
@@ -175,8 +92,8 @@ export function AssessmentExperience({ onNavigate }) {
     const handleCopyAttempt = (e) => {
       e.preventDefault();
       socketService.emitProctorEvent(attemptId, 'CLIPBOARD_ACCESS', {
-        participant: 'Alex Morgan',
-        assessment: 'Computer Science 101',
+        participant: candidateName,
+        assessment: activeAssessment.title || 'Online Assessment',
         riskLevel: 'High',
         details: 'Unauthorized clipboard copy or paste attempt detected.',
       });
@@ -194,7 +111,7 @@ export function AssessmentExperience({ onNavigate }) {
       document.removeEventListener('paste', handleCopyAttempt);
       socketService.disconnect();
     };
-  }, [attemptId]);
+  }, [attemptId, activeAssessment.title, user]);
 
   // Countdown timer
   useEffect(() => {
@@ -224,31 +141,15 @@ export function AssessmentExperience({ onNavigate }) {
     setSaved(false);
 
     try {
-      const q = questions[currentQ];
-      await attemptService.saveAnswer(attemptId, q?.id || currentQ, {
-        answer: optIdx,
-        questionId: q?.id,
+      await attemptService.saveAnswer(attemptId, {
+        questionIndex: currentQ,
+        questionId: questions[currentQ].id || `q_${currentQ}`,
+        selectedOption: optIdx,
       });
     } catch (e) {
-      console.warn('Answer autosave note:', e.message);
+      // safe fallback
     } finally {
       setTimeout(() => setSaved(true), 400);
-    }
-  };
-
-  const toggleFlag = async () => {
-    const isCurrentlyFlagged = Boolean(flaggedMap[currentQ]);
-    const nextFlagState = !isCurrentlyFlagged;
-    
-    setFlaggedMap(prev => ({ ...prev, [currentQ]: nextFlagState }));
-
-    try {
-      const q = questions[currentQ];
-      if (q?.id) {
-        await attemptService.flagQuestion(attemptId, q.id, nextFlagState);
-      }
-    } catch (e) {
-      console.warn('Flag note:', e.message);
     }
   };
 
@@ -258,7 +159,7 @@ export function AssessmentExperience({ onNavigate }) {
       try {
         await attemptService.submitAttempt(attemptId, answers);
       } catch (e) {
-        console.warn('Submit note:', e.message);
+        // fallback
       }
       onNavigate('participant-evaluation');
     } finally {
@@ -266,23 +167,8 @@ export function AssessmentExperience({ onNavigate }) {
     }
   };
 
-  const q = questions[currentQ] || fallbackQuestions[0];
+  const q = questions[currentQ] || questions[0];
   const answeredCount = Object.keys(answers).length;
-  const isCurrentFlagged = Boolean(flaggedMap[currentQ]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-accent-50 dark:bg-accent-950 text-accent-900 dark:text-white flex items-center justify-center p-6">
-        <div className="text-center space-y-4 max-w-sm">
-          <div className="w-12 h-12 rounded-2xl bg-primary-50 dark:bg-primary-950/60 text-primary-600 dark:text-primary-400 flex items-center justify-center mx-auto shadow-soft animate-spin">
-            <RefreshCw size={24} />
-          </div>
-          <h2 className="text-base font-bold font-display">Initializing Secure Exam Workspace</h2>
-          <p className="text-xs text-accent-500">Establishing encrypted connection, preparing items pool, and calibrating integrity telemetry...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-accent-50 dark:bg-accent-950 text-accent-900 dark:text-white flex flex-col transition-colors duration-200 font-sans">
@@ -298,16 +184,25 @@ export function AssessmentExperience({ onNavigate }) {
       <header className="bg-white/90 dark:bg-accent-900/90 backdrop-blur-md border-b border-accent-200 dark:border-accent-800 sticky top-0 z-20">
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-primary-600 flex items-center justify-center shadow-soft">
-              <Shield size={18} className="text-white" />
-            </div>
+            <button
+              type="button"
+              onClick={() => setConfirmExitOpen(true)}
+              className="w-8 h-8 rounded-xl bg-accent-100 hover:bg-accent-200 dark:bg-accent-800 dark:hover:bg-accent-700 flex items-center justify-center text-accent-600 dark:text-accent-300 transition-colors"
+              title="Return to Catalog"
+            >
+              <ArrowLeft size={16} />
+            </button>
             <div>
-              <p className="text-xs font-bold text-accent-900 dark:text-white">Online Examination Session</p>
-              <p className="text-[11px] text-accent-500 dark:text-accent-400 truncate max-w-[200px] sm:max-w-md">{assessmentTitle}</p>
+              <p className="text-xs font-bold text-accent-900 dark:text-white truncate max-w-[280px] sm:max-w-md">
+                {activeAssessment.title}
+              </p>
+              <p className="text-[11px] text-accent-500 dark:text-accent-400">
+                {activeAssessment.code || 'EXAM'} · {activeAssessment.proctoringMode || 'Proctored Assessment'}
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {/* Timer */}
             <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border ${timeLeft < 300 ? 'bg-danger-50 dark:bg-danger-950/60 text-danger-600 dark:text-danger-400 border-danger-200 dark:border-danger-800/40' : 'bg-accent-100 dark:bg-accent-800 text-accent-700 dark:text-accent-300 border-accent-200 dark:border-accent-700'}`}>
               <Clock size={15} />
@@ -320,10 +215,14 @@ export function AssessmentExperience({ onNavigate }) {
               <span>Telemetry Active</span>
             </div>
 
-            <div className="hidden sm:flex items-center gap-1.5 text-xs text-success-600 dark:text-success-400 font-medium">
-              <Lock size={14} />
-              <span>AI Proctored</span>
-            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs hidden md:flex"
+              onClick={() => setConfirmExitOpen(true)}
+            >
+              Switch Exam
+            </Button>
           </div>
         </div>
       </header>
@@ -350,8 +249,7 @@ export function AssessmentExperience({ onNavigate }) {
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
                   <Badge variant="primary">Question {currentQ + 1} of {totalQuestions}</Badge>
-                  <Badge variant="neutral">{q.points || 1} {q.points === 1 ? 'Point' : 'Points'}</Badge>
-                  {isCurrentFlagged && <Badge variant="warning">Flagged</Badge>}
+                  <Badge variant="neutral">{q.points} {q.points === 1 ? 'Point' : 'Points'}</Badge>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-accent-400">
                   {saved ? (
@@ -367,8 +265,9 @@ export function AssessmentExperience({ onNavigate }) {
               </p>
 
               <div className="space-y-3">
-                {(q.options || []).map((opt, i) => {
-                  const isSelected = answers[currentQ] === i;
+                {q.options.map((opt, i) => {
+                  const optText = typeof opt === 'object' ? (opt?.text ?? opt?.label ?? opt?.value ?? '') : opt;
+                  const isSelected = answers[currentQ] === i || (typeof opt === 'object' && opt?.id && answers[currentQ] === opt.id);
                   return (
                     <button
                       key={i}
@@ -388,7 +287,7 @@ export function AssessmentExperience({ onNavigate }) {
                         {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
                       </div>
                       <span className={`text-xs sm:text-sm font-medium ${isSelected ? 'text-primary-900 dark:text-white font-semibold' : ''}`}>
-                        {opt}
+                        {optText}
                       </span>
                     </button>
                   );
@@ -406,13 +305,8 @@ export function AssessmentExperience({ onNavigate }) {
                 >
                   Previous
                 </Button>
-                <Button
-                  variant={isCurrentFlagged ? 'warning' : 'ghost'}
-                  size="md"
-                  icon={<Flag size={15} />}
-                  onClick={toggleFlag}
-                >
-                  {isCurrentFlagged ? 'Flagged for Review' : 'Flag for Review'}
+                <Button variant="ghost" size="md" icon={<Flag size={15} />}>
+                  Flag for Review
                 </Button>
                 {currentQ < totalQuestions - 1 ? (
                   <Button
@@ -440,13 +334,12 @@ export function AssessmentExperience({ onNavigate }) {
                 {questions.map((_, i) => {
                   const isCurrent = currentQ === i;
                   const isAnswered = answers[i] !== undefined;
-                  const isFlagged = Boolean(flaggedMap[i]);
                   return (
                     <button
                       key={i}
                       type="button"
                       onClick={() => setCurrentQ(i)}
-                      className={`h-9 rounded-xl text-xs font-semibold font-mono transition-all cursor-pointer flex items-center justify-center relative ${
+                      className={`h-9 rounded-xl text-xs font-semibold font-mono transition-all cursor-pointer flex items-center justify-center ${
                         isCurrent
                           ? 'ring-2 ring-primary-500 bg-primary-600 text-white'
                           : isAnswered
@@ -455,9 +348,6 @@ export function AssessmentExperience({ onNavigate }) {
                       }`}
                     >
                       {i + 1}
-                      {isFlagged && (
-                        <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-warning-500" />
-                      )}
                     </button>
                   );
                 })}
@@ -471,10 +361,6 @@ export function AssessmentExperience({ onNavigate }) {
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-md bg-success-500 shrink-0" />
                   <span>Answer Recorded</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-md bg-warning-500 shrink-0" />
-                  <span>Flagged for Review</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-md bg-accent-200 dark:bg-accent-700 shrink-0" />
@@ -519,6 +405,36 @@ export function AssessmentExperience({ onNavigate }) {
             </div>
           )}
         </div>
+      </Modal>
+
+      {/* Exit / Switch Assessment Modal */}
+      <Modal
+        open={confirmExitOpen}
+        onClose={() => setConfirmExitOpen(false)}
+        title="Leave Assessment Session?"
+        subtitle="You will return to the active assessment catalog where you can choose another exam."
+        footer={
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setConfirmExitOpen(false)}>
+              Stay on Exam
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              icon={<LogOut size={14} />}
+              onClick={() => {
+                setConfirmExitOpen(false);
+                onNavigate('candidate-dashboard');
+              }}
+            >
+              Exit to Catalog
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-xs text-accent-600 dark:text-accent-300 leading-relaxed">
+          Your answers submitted so far have been saved. Returning to the dashboard will allow you to browse all available active assessments and pick another test.
+        </p>
       </Modal>
     </div>
   );

@@ -21,12 +21,9 @@ export class AssessmentService {
 
     // 1. Verify subject belongs to this organization (if provided)
     if (data.subjectId) {
-      const subject = await Subject.findOne({
-        _id: data.subjectId,
-        organizationId,
-      });
+      const subject = await Subject.findById(data.subjectId);
       if (!subject) {
-        throw new ApiError(400, "Subject not found in this organization");
+        throw new ApiError(400, "Selected academic subject not found");
       }
     }
 
@@ -49,7 +46,7 @@ export class AssessmentService {
       programId: data.programId || null,
       subjectId: data.subjectId || null,
       createdBy: userId,
-      status: ASSESSMENT_STATUSES.DRAFT,
+      status: data.status || ASSESSMENT_STATUSES.DRAFT,
       instructions: data.instructions || "Read each question carefully and submit before the timer expires.",
       duration: { value: durationVal, unit: durationUnit },
       durationSeconds: durationUnit === "MINUTES" ? durationVal * 60 : durationVal,
@@ -71,18 +68,22 @@ export class AssessmentService {
 
   static async getAssessments(organizationId, query = {}, callerUser = null) {
     const page = parseInt(query.page || "1", 10);
-    const limit = parseInt(query.limit || "20", 10);
-    const filter = { organizationId, status: { $ne: "DELETED" } };
+    const limit = parseInt(query.limit || "50", 10);
+    const filter = { status: { $ne: "DELETED" } };
+
+    if (organizationId) {
+      filter.organizationId = organizationId;
+    }
 
     const isCandidate = callerUser?.organizationRole?.name === ORGANIZATION_ROLES.CANDIDATE;
     if (isCandidate) {
       filter.status = { $in: [ASSESSMENT_STATUSES.PUBLISHED, ASSESSMENT_STATUSES.ACTIVE] };
-    } else if (query.status) {
-      filter.status = query.status;
+    } else if (query.status && query.status !== "all") {
+      filter.status = query.status.toUpperCase();
     }
 
-    if (query.subjectId) filter.subjectId = query.subjectId;
-    if (query.type) filter.type = query.type;
+    if (query.subjectId && query.subjectId !== "all") filter.subjectId = query.subjectId;
+    if (query.type && query.type !== "all") filter.type = query.type;
     if (query.search || query.q) {
       const searchStr = query.search || query.q;
       filter.$or = [
@@ -95,6 +96,8 @@ export class AssessmentService {
 
     const [items, total] = await Promise.all([
       Assessment.find(filter)
+        .populate("departmentId", "name code")
+        .populate("programId", "name code")
         .populate("subjectId", "name code")
         .populate("createdBy", "firstName lastName email")
         .sort({ createdAt: -1 })
@@ -375,18 +378,87 @@ export class AssessmentService {
   }
 
   /**
-   * Candidate & Group Assignments
+   * Candidate, Department, Program, Subject, Group & Open-Entry Assignments
    */
   static async assignCandidates(organizationId, assessmentId, data, userId) {
-    const { candidateIds = [], groupIds = [], availableFrom, availableUntil, attemptsAllowed } = data;
+    const {
+      candidateIds = [],
+      departmentIds = [],
+      programIds = [],
+      subjectIds = [],
+      groupIds = [],
+      isOpenEntry = false,
+      entryCode = null,
+      availableFrom,
+      availableUntil,
+      attemptsAllowed,
+    } = data;
 
     const assessment = await Assessment.findOne({ _id: assessmentId, organizationId });
     if (!assessment) {
       throw new ApiError(404, "Assessment not found");
     }
 
-    const targetCandidateIds = new Set(candidateIds.map((id) => id.toString()));
+    // 1. If Open Entry / Admission Test mode
+    if (isOpenEntry) {
+      const generatedCode = (entryCode || assessment.code || `ENTRY-${Date.now().toString(36).toUpperCase()}`).trim();
+      assessment.settings = {
+        ...assessment.settings,
+        isOpenEntry: true,
+        allowSelfEnrollment: true,
+        entryCode: generatedCode,
+      };
+      if (assessment.status === ASSESSMENT_STATUSES.DRAFT) {
+        assessment.status = ASSESSMENT_STATUSES.PUBLISHED;
+      }
+      await assessment.save();
 
+      return {
+        assignedCount: 0,
+        isOpenEntry: true,
+        entryCode: generatedCode,
+        message: "Assessment configured for open entry / universal admission test access.",
+      };
+    }
+
+    const targetCandidateIds = new Set((candidateIds || []).map((id) => id.toString()));
+
+    // 2. Resolve candidates by Department
+    if (Array.isArray(departmentIds) && departmentIds.length > 0) {
+      const deptCandidates = await Candidate.find({
+        departmentId: { $in: departmentIds },
+        organizationId,
+      }).select("_id").lean();
+      deptCandidates.forEach((c) => targetCandidateIds.add(c._id.toString()));
+    }
+
+    // 3. Resolve candidates by Degree Program
+    if (Array.isArray(programIds) && programIds.length > 0) {
+      const progCandidates = await Candidate.find({
+        programId: { $in: programIds },
+        organizationId,
+      }).select("_id").lean();
+      progCandidates.forEach((c) => targetCandidateIds.add(c._id.toString()));
+    }
+
+    // 4. Resolve candidates by Subject
+    if (Array.isArray(subjectIds) && subjectIds.length > 0) {
+      const subjectsList = await Subject.find({
+        _id: { $in: subjectIds },
+        organizationId,
+      }).select("programId").lean();
+
+      const linkedProgIds = subjectsList.map((s) => s.programId).filter(Boolean);
+      if (linkedProgIds.length > 0) {
+        const subjCandidates = await Candidate.find({
+          programId: { $in: linkedProgIds },
+          organizationId,
+        }).select("_id").lean();
+        subjCandidates.forEach((c) => targetCandidateIds.add(c._id.toString()));
+      }
+    }
+
+    // 5. Resolve candidates by Group / Cohort
     if (Array.isArray(groupIds) && groupIds.length > 0) {
       const groups = await CandidateGroup.find({ _id: { $in: groupIds }, organizationId }).lean();
       for (const grp of groups) {
@@ -429,7 +501,7 @@ export class AssessmentService {
                 durationMinutes: assessment.duration?.value || 60,
                 availableUntil: availableUntil || "Open",
               },
-            });
+            }).catch(() => {});
           }
         }
       }

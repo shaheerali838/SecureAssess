@@ -36,6 +36,18 @@ const subjectSchema = new mongoose.Schema(
       default: 3,
       min: 0,
     },
+    examinerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+      index: true,
+    },
+    assignedExaminers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
     status: {
       type: String,
       enum: ["ACTIVE", "INACTIVE", "ARCHIVED"],

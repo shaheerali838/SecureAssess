@@ -10,6 +10,22 @@ export const subscriptionService = {
   },
 
   /**
+   * Get dynamic usage and quota metering for current tenant
+   */
+  async getUsageAndEntitlements() {
+    const response = await api.get('/subscriptions/usage');
+    return response.data || response;
+  },
+
+  /**
+   * Get all active platform subscription tiers/plans
+   */
+  async getPlans() {
+    const response = await api.get('/plans');
+    return response.data || response;
+  },
+
+  /**
    * Upgrade or change subscription plan
    */
   async changePlan(plan) {

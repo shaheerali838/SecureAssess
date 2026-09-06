@@ -325,6 +325,13 @@ const ROLE_PERMISSION_MATRIX = {
 export const seedRBAC = async () => {
   logger.info("[Seeder] Starting RBAC Seeder...");
 
+  const existingPermsCount = await Permission.countDocuments();
+  const existingRolesCount = await Role.countDocuments({ isSystemRole: true });
+  if (existingPermsCount >= PERMISSION_LIST.length && existingRolesCount >= 7) {
+    logger.info(`[Seeder] RBAC permissions (${existingPermsCount}) & system roles (${existingRolesCount}) already seeded, skipping.`);
+    return;
+  }
+
   // 1. Seed Permissions
   const permissionDocs = {};
   for (const key of PERMISSION_LIST) {

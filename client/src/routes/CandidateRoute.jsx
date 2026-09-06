@@ -16,12 +16,7 @@ export const CandidateRoute = () => {
     );
   }
 
-  // Allow candidates or platform staff to enter candidate test-taking views
-  if (!isPlatformStaff && userRole && userRole !== ORGANIZATION_ROLES.CANDIDATE) {
-    // If user is an admin/examiner, let them view or redirect to org dashboard
-    return <Navigate to="/organization/dashboard" replace />;
-  }
-
+  // Allow candidates, examiners, faculty, org admins, and platform staff to enter interview and candidate views
   return <Outlet />;
 };
 

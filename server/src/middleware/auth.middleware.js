@@ -20,6 +20,25 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
 
   try {
     const decoded = verifyAccessToken(token);
+
+    // Support 1-time guest entry tokens for live interviews & exams
+    if (decoded.isGuest) {
+      req.user = {
+        id: decoded.sub || decoded.id || `guest_${Date.now()}`,
+        _id: decoded.sub || decoded.id,
+        email: decoded.email || "candidate@secureassess.io",
+        firstName: decoded.name || decoded.firstName || "Candidate",
+        lastName: decoded.lastName || "",
+        platformRole: "NONE",
+        role: "CANDIDATE",
+        status: USER_STATUSES.ACTIVE,
+        isGuest: true,
+        organizationId: decoded.organizationId || null,
+        sessionId: decoded.sessionId || null,
+      };
+      return next();
+    }
+
     const userId = decoded.sub || decoded.id || decoded.userId;
 
     if (!userId) {
@@ -52,3 +71,44 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
     throw new ApiError(401, "Invalid or expired authentication token", [error.message]);
   }
 });
+
+/**
+ * Optional Authentication Middleware:
+ * Attempts to decode Bearer JWT if present and attaches to req.user without throwing 401.
+ */
+export const optionalAuth = asyncHandler(async (req, res, next) => {
+  let token = req.headers.authorization;
+  if (!token) {
+    return next();
+  }
+
+  if (token.startsWith("Bearer ")) {
+    token = token.slice(7).trim();
+  }
+
+  try {
+    const decoded = verifyAccessToken(token);
+    const userId = decoded.sub || decoded.id || decoded.userId;
+
+    if (userId) {
+      const user = await User.findById(userId);
+      if (user && user.status === USER_STATUSES.ACTIVE) {
+        req.user = {
+          id: user._id.toString(),
+          _id: user._id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          platformRole: user.platformRole,
+          status: user.status,
+          sessionId: decoded.sessionId || null,
+        };
+      }
+    }
+  } catch {
+    // Non-blocking for optional authentication
+  }
+
+  next();
+});
+

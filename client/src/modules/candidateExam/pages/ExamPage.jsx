@@ -7,6 +7,7 @@ import useExamTimer from '../hooks/useExamTimer';
 import useExamAutosave from '../hooks/useExamAutosave';
 import useExamHeartbeat from '../hooks/useExamHeartbeat';
 import examService from '../services/exam.service';
+import { ConfirmModal } from '@/components/ui';
 
 export const ExamPage = () => {
   const { attemptId } = useParams();
@@ -21,6 +22,7 @@ export const ExamPage = () => {
   const [error, setError] = useState(null);
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorModal, setErrorModal] = useState({ isOpen: false, message: '' });
 
   // Autosave Hook
   const { saveAnswer, savingStatus } = useExamAutosave(attemptId, 800);
@@ -123,7 +125,10 @@ export const ExamPage = () => {
       navigate(`/exam/attempts/${attemptId}/submitted`);
     } catch (err) {
       console.error('Submission failed:', err);
-      alert(err.message || 'Submission failed. Please try again.');
+      setErrorModal({
+        isOpen: true,
+        message: err.message || 'Submission failed. Please check your network connection and try again.',
+      });
       setIsSubmitting(false);
     }
   };
@@ -190,6 +195,17 @@ export const ExamPage = () => {
         onConfirm={handleConfirmSubmit}
         onCancel={() => setIsSubmitModalOpen(false)}
         isSubmitting={isSubmitting}
+      />
+
+      {/* Theme-Respected Submission Error Alert Dialog */}
+      <ConfirmModal
+        isOpen={errorModal.isOpen}
+        onClose={() => setErrorModal({ isOpen: false, message: '' })}
+        title="Submission Issue"
+        message={errorModal.message}
+        type="alert"
+        confirmText="Dismiss"
+        variant="danger"
       />
     </div>
   );
