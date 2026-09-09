@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { connectDatabase, disconnectDatabase } from "../../src/config/db.js";
 import app from "../../src/app.js";
 import { seedRBAC } from "../../src/database/seeders/rbac.seeder.js";
+import { seedPlatformOwner } from "../../src/database/seeders/admin.seeder.js";
 import User from "../../src/modules/users/user.model.js";
 import UserMembership from "../../src/modules/users/userMembership.model.js";
 import Organization from "../../src/modules/organizations/organization.model.js";
@@ -70,7 +71,8 @@ const runStep59Tests = async () => {
   console.log("Connected to MongoDB for Step 59 Production Readiness & Final System Validation Suite");
 
   await seedRBAC();
-  console.log("RBAC roles & permissions synchronized");
+  await seedPlatformOwner();
+  console.log("RBAC roles & Platform Owner synchronized");
 
   const server = app.listen(0);
   await new Promise((res) => server.once("listening", res));
@@ -78,7 +80,14 @@ const runStep59Tests = async () => {
 
   try {
     // 1. Setup Platform Owner & Roles
-    const platformOwner = await User.findOne({ platformRole: PLATFORM_ROLES.PLATFORM_OWNER });
+    const platformOwner = await User.findOne({
+      $or: [
+        { platformRole: PLATFORM_ROLES.PLATFORM_OWNER },
+        { platformRole: PLATFORM_ROLES.PLATFORM_ADMIN },
+        { platformRole: "PLATFORM_OWNER" },
+        { platformRole: "PLATFORM_ADMIN" },
+      ]
+    });
     const orgAdminRole = await Role.findOne({ name: ORGANIZATION_ROLES.ORGANIZATION_ADMIN });
     const candidateRole = await Role.findOne({ name: ORGANIZATION_ROLES.CANDIDATE });
 
@@ -87,6 +96,8 @@ const runStep59Tests = async () => {
     await Candidate.deleteMany({ identifier: "CAND-TURING-59" });
     await QuestionBank.deleteMany({ code: "QB-CYBER-59" });
     await Assessment.deleteMany({ code: "EXAM-CRYPTO-59" });
+    await BillingEvent.deleteMany({ eventId: { $in: ["evt_final_val_9901"] } });
+    await Invoice.deleteMany({ providerInvoiceId: { $in: ["inv_ent_final_9901"] } });
     await Plan.deleteMany({});
     await Plan.insertMany(Object.values(DEFAULT_PLANS));
 
