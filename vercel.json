@@ -19,19 +19,23 @@
       "dest": "server/src/app.js"
     },
     {
-      "src": "/health",
+      "src": "/health(.*)",
       "dest": "server/src/app.js"
     },
     {
-      "src": "/health/(.*)",
-      "dest": "server/src/app.js"
+      "src": "/assets/(.*)",
+      "dest": "client/assets/$1"
+    },
+    {
+      "src": "/(favicon\\.ico|vite\\.svg|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|css|js|woff|woff2|ttf|eot|json))",
+      "dest": "client/$1"
     },
     {
       "handle": "filesystem"
     },
     {
       "src": "/(.*)",
-      "dest": "/client/index.html"
+      "dest": "client/index.html"
     }
   ]
 }
