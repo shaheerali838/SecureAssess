@@ -78,7 +78,7 @@ import { useOrganization } from '@/contexts/OrganizationContext';
 const NavWrapper = ({ Component, activeKey, layer = 'organization' }) => {
   const navigate = useNavigate();
   const { logout } = useAuth();
-  const { currentOrganization } = useOrganization();
+  const { currentOrganization, organizations = [] } = useOrganization();
 
   const handleNavigate = (targetKey) => {
     const keyMap = {
@@ -132,18 +132,18 @@ const NavWrapper = ({ Component, activeKey, layer = 'organization' }) => {
     }
   };
 
-  const org = currentOrganization || organizations[0];
+  const org = currentOrganization || (Array.isArray(organizations) && organizations[0]) || {};
 
   return (
     <AppShell
-      context={{ layer, orgId: org._id || org.id }}
+      context={{ layer, orgId: org._id || org.id || null }}
       activeView={activeKey}
       onNavigate={handleNavigate}
       onExit={() => {
         logout();
         navigate('/');
       }}
-      orgName={org.name}
+      orgName={org.name || 'SecureAssess'}
       orgLogoText={org.logoText || 'SA'}
       orgBrandColor={org.brandColor || '#2563eb'}
     >

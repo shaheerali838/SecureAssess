@@ -2,30 +2,31 @@ import mongoose from "mongoose";
 import { connectDatabase, disconnectDatabase } from "../../config/db.js";
 import { seedRBAC } from "./rbac.seeder.js";
 import { seedPlatformOwner } from "./admin.seeder.js";
-import { seedDemoAccounts } from "./demo.seeder.js";
-import { seedAssessmentsAndQuestions } from "./assessment.seeder.js";
-import { seedCandidatesAndAcademicStructure } from "./candidate.seeder.js";
-import { seedInterviews } from "./interview.seeder.js";
 import { logger } from "../../config/logger.js";
 
 /**
- * Wipes all collections in the MongoDB database for a completely fresh seed
+ * Wipes all application collections in the MongoDB database for a completely clean state
  */
 export const clearDatabase = async () => {
-  logger.info("[Seeder] Purging all database collections for a clean reset...");
-  const collections = mongoose.connection.collections;
-  for (const key in collections) {
+  logger.info("[Database] Purging all collections for a clean reset...");
+  const collections = await mongoose.connection.db.listCollections().toArray();
+  for (const col of collections) {
     try {
-      await collections[key].deleteMany({});
-      logger.info(`   -> Cleared collection: ${key}`);
+      await mongoose.connection.db.collection(col.name).deleteMany({});
+      logger.info(`   -> Cleared collection: ${col.name}`);
     } catch (err) {
-      logger.warn(`   -> Could not clear collection ${key}: ${err.message}`);
+      logger.warn(`   -> Could not clear collection ${col.name}: ${err.message}`);
     }
   }
-  logger.info("[Seeder] All database collections successfully wiped clean.");
+  logger.info("[Database] All collections successfully wiped clean.");
 };
 
-export const runSeeders = async (options = {}) => {
+/**
+ * Initializes the baseline system requirements:
+ * 1. System RBAC roles and permissions
+ * 2. Root Platform Super Admin user account
+ */
+export const initializeDatabase = async (options = {}) => {
   const isCleanRun =
     options.clean ||
     process.argv.includes("--clean") ||
@@ -33,35 +34,22 @@ export const runSeeders = async (options = {}) => {
     process.argv.includes("-f");
 
   try {
-    logger.info("[Seeder] Starting database seeder pipeline...");
+    logger.info("[Database] Starting system initialization pipeline...");
     await connectDatabase();
 
-    // If requested, wipe all existing data first
     if (isCleanRun) {
       await clearDatabase();
     }
 
-    // 1. Seed RBAC (Permissions -> Roles -> Role-Permission links)
+    // 1. Seed System RBAC (Permissions & System Roles)
     await seedRBAC();
 
-    // 2. Seed Initial Platform Owner (Root administrator account)
+    // 2. Seed Initial Platform Super Admin
     await seedPlatformOwner();
 
-    // 3. Seed Demo Tenant Organization & Multi-Role Persona Accounts
-    await seedDemoAccounts();
-
-    // 4. Seed Live Assessments & Question Bank
-    await seedAssessmentsAndQuestions();
-
-    // 5. Seed Academic Departments, Programs, Cohorts & Candidate Roster
-    await seedCandidatesAndAcademicStructure();
-
-    // 6. Seed Live Technical & Panel Interviews
-    await seedInterviews();
-
-    logger.info("[Seeder] Database seeding completed successfully!");
+    logger.info("[Database] System initialization completed successfully (0 mock/demo data).");
   } catch (error) {
-    logger.error(`[Seeder] Fatal error during seeding: ${error.message}`);
+    logger.error(`[Database] Fatal error during initialization: ${error.message}`);
     process.exit(1);
   } finally {
     await disconnectDatabase();
@@ -75,7 +63,7 @@ if (
     process.argv[1].endsWith("seeders\\index.js") ||
     process.argv[1].includes("seeders"))
 ) {
-  runSeeders().then(() => process.exit(0));
+  initializeDatabase().then(() => process.exit(0));
 }
 
-export default runSeeders;
+export default initializeDatabase;

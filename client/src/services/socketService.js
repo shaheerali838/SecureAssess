@@ -1,6 +1,6 @@
 import { io } from 'socket.io-client';
 
-const SOCKET_SERVER_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:7000';
+const SOCKET_SERVER_URL = import.meta.env.VITE_SOCKET_URL || (import.meta.env.PROD ? window.location.origin : 'http://localhost:7000');
 
 class SocketService {
   constructor() {
