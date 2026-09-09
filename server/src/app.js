@@ -8,12 +8,23 @@ import { tenantMiddleware } from "./middleware/tenant.middleware.js";
 import { requestIdMiddleware } from "./middleware/requestId.middleware.js";
 import { notFoundHandler } from "./middleware/notFound.middleware.js";
 import { errorHandler } from "./middleware/error.middleware.js";
+import { connectDatabase } from "./config/db.js";
 import rootRoutes from "./routes/index.js";
 
 const app = express();
 
 // Trust reverse proxies (Vercel / Cloudflare / Load Balancers)
 app.set("trust proxy", 1);
+
+// Automatic DB connection with caching for serverless environments
+app.use(async (req, res, next) => {
+  try {
+    await connectDatabase();
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
 
 // Global Middlewares
 app.use(requestIdMiddleware);
