@@ -36,9 +36,14 @@ Thumbs.db
 coverage/
 *.lcov
 
-# Temporary files
+# Temporary & Upload files
 scratch/
 tmp/
 temp/
 storage/
 server/storage/
+uploads/
+server/uploads/
+!server/uploads/.gitkeep
+!server/storage/.gitkeep
+.eslintcache
