@@ -9,9 +9,8 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
-  Sparkles,
 } from 'lucide-react';
-import { PLATFORM_ROLES, ORGANIZATION_ROLES } from '../../constants/roles';
+import { PLATFORM_ROLES } from '../../constants/roles';
 
 export const Login = () => {
   const navigate = useNavigate();
@@ -20,79 +19,8 @@ export const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [selectedPersona, setSelectedPersona] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
-
-  const personas = [
-    {
-      key: 'platform',
-      title: 'Platform Super Admin',
-      email: 'shaheer838838@gmail.com',
-      password: 'Admin@123',
-      icon: '🛡️',
-      badgeColor: 'text-primary-400 bg-primary-950/60 border-primary-800/60',
-      destination: 'Platform Super Admin Portal',
-      role: 'PLATFORM_ADMIN',
-    },
-    {
-      key: 'org_owner',
-      title: 'Organization Owner',
-      email: 'owner@stanford.edu',
-      password: 'Owner@123',
-      icon: '👑',
-      badgeColor: 'text-amber-400 bg-amber-950/60 border-amber-800/60',
-      destination: 'Organization Workspace',
-      role: ORGANIZATION_ROLES.ORGANIZATION_OWNER,
-    },
-    {
-      key: 'org_admin',
-      title: 'Organization Admin',
-      email: 'dean@stanford.edu',
-      password: 'OrgAdmin@123',
-      icon: '🏢',
-      badgeColor: 'text-secondary-400 bg-secondary-950/60 border-secondary-800/60',
-      destination: 'Organization Workspace',
-      role: ORGANIZATION_ROLES.ORGANIZATION_ADMIN,
-    },
-    {
-      key: 'examiner',
-      title: 'Examiner / Faculty',
-      email: 'professor@stanford.edu',
-      password: 'Examiner@123',
-      icon: '🎓',
-      badgeColor: 'text-warning-400 bg-warning-950/60 border-warning-800/60',
-      destination: 'Assessment Studio',
-      role: ORGANIZATION_ROLES.EXAMINER,
-    },
-    {
-      key: 'proctor',
-      title: 'Proctor / Invigilator',
-      email: 'proctor@stanford.edu',
-      password: 'Proctor@123',
-      icon: '👁️',
-      badgeColor: 'text-rose-400 bg-rose-950/60 border-rose-800/60',
-      destination: 'Integrity & Proctoring Center',
-      role: ORGANIZATION_ROLES.PROCTOR,
-    },
-    {
-      key: 'candidate',
-      title: 'Candidate / Student',
-      email: 'student@stanford.edu',
-      password: 'Student@123',
-      icon: '📝',
-      badgeColor: 'text-success-400 bg-success-950/60 border-success-800/60',
-      destination: 'Candidate Exam Room',
-      role: ORGANIZATION_ROLES.CANDIDATE,
-    },
-  ];
-
-  const handlePersonaSelect = (p) => {
-    setSelectedPersona(p.key);
-    setEmail(p.email);
-    setPassword(p.password);
-    setError(null);
-  };
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
@@ -180,10 +108,7 @@ export const Login = () => {
                   type="email"
                   required
                   value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    setSelectedPersona(null);
-                  }}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@organization.com"
                   className="block w-full pl-10 pr-3 py-2.5 bg-accent-800/60 border border-white/10 rounded-xl text-sm placeholder-accent-500 text-white focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all"
                 />
@@ -219,10 +144,7 @@ export const Login = () => {
                   type={showPassword ? 'text' : 'password'}
                   required
                   value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    setSelectedPersona(null);
-                  }}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••••••"
                   className="block w-full pl-10 pr-10 py-2.5 bg-accent-800/60 border border-white/10 rounded-xl text-sm placeholder-accent-500 text-white focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all"
                 />
@@ -244,53 +166,6 @@ export const Login = () => {
               )}
             </button>
           </form>
-
-          {/* Quick Fill Persona Switcher for Verified Seed Accounts */}
-          <div className="mt-6 pt-5 border-t border-white/10">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-[11px] font-bold text-accent-400 uppercase tracking-wider flex items-center gap-1.5">
-                <Sparkles size={13} className="text-primary-400" />
-                <span>Quick Sign In (All 6 Seeded Roles)</span>
-              </p>
-              <span className="text-[10px] text-accent-500 font-mono">1-Click Fill</span>
-            </div>
-
-            <div className="grid grid-cols-1 gap-2">
-              {personas.map((p) => {
-                const isSelected = selectedPersona === p.key;
-                return (
-                  <button
-                    key={p.key}
-                    type="button"
-                    onClick={() => handlePersonaSelect(p)}
-                    className={`w-full text-left p-2.5 rounded-xl border transition-all flex items-center justify-between gap-3 group cursor-pointer ${
-                      isSelected
-                        ? 'bg-accent-800/90 border-primary-500/80 shadow-soft ring-1 ring-primary-500/40'
-                        : 'bg-accent-800/30 hover:bg-accent-800/60 border-white/5 hover:border-white/15'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="text-base shrink-0">{p.icon}</span>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs font-bold text-white group-hover:text-primary-300 transition-colors truncate">
-                            {p.title}
-                          </p>
-                        </div>
-                        <p className="text-[11px] text-accent-400 font-mono truncate">{p.email}</p>
-                      </div>
-                    </div>
-
-                    <div className="shrink-0 text-right">
-                      <span className="text-[10px] text-accent-400 font-mono block">
-                        🔑 {p.password}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
         </div>
       </div>
     </div>
