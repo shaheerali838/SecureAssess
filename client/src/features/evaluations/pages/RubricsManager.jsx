@@ -81,58 +81,10 @@ export function RubricsManager({ onNavigate }) {
     try {
       const res = await rubricService.getRubrics({}, orgId);
       const items = Array.isArray(res) ? res : res?.items || res?.data?.items || res?.rubrics || res?.data || [];
-      if (items.length > 0) {
-        setRubrics(items);
-      } else {
-        // High quality fallback presets
-        setRubrics([
-          {
-            _id: 'rub_1',
-            title: 'Full-Stack Software Architecture Rubric',
-            code: 'RUB-CS-01',
-            discipline: 'Computer Science & AI',
-            description: 'Comprehensive scoring rubric for terminal lab examinations and coding portfolio defense.',
-            status: 'ACTIVE',
-            totalMaxScore: 100,
-            criteria: defaultCriteria,
-          },
-          {
-            _id: 'rub_2',
-            title: 'Aviation Emergency Procedures & Flight Check',
-            code: 'RUB-AERO-04',
-            discipline: 'Aerospace & Flight Systems',
-            description: 'Simulated engine flameout and instrument flight recovery checklist.',
-            status: 'ACTIVE',
-            totalMaxScore: 100,
-            criteria: [
-              {
-                name: 'Pre-Flight Systems Check & Checklist Discipline',
-                description: 'Verifies pitot-static heat, fuel balance, and trim tabs prior to ignition.',
-                weight: 50,
-                maxScore: 50,
-                bands: [
-                  { label: 'Exemplary', score: 50, desc: 'Complete checklist completion in order.' },
-                  { label: 'Proficient', score: 40, desc: 'Completed with minor pause.' },
-                  { label: 'Inadequate', score: 15, desc: 'Missed vital fuel shutoff valve.' },
-                ],
-              },
-              {
-                name: 'Emergency Gliding Angle & Field Selection',
-                description: 'Gliding glidepath adjustment and emergency squawk 7700 frequency broadcast.',
-                weight: 50,
-                maxScore: 50,
-                bands: [
-                  { label: 'Exemplary', score: 50, desc: 'Trimmed best-glide speed instantly (68 knots).' },
-                  { label: 'Proficient', score: 40, desc: 'Established glide after slight delay.' },
-                  { label: 'Inadequate', score: 10, desc: 'Stall horn triggered during descent.' },
-                ],
-              },
-            ],
-          },
-        ]);
-      }
+      setRubrics(items || []);
     } catch (err) {
       console.warn('Rubrics load note:', err.message);
+      setRubrics([]);
     } finally {
       setLoading(false);
     }

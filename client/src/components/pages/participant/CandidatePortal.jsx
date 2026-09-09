@@ -66,83 +66,11 @@ export function CandidatePortal({ onNavigate }) {
         }
       }
 
-      setAssignments(
-        unpack(assignRes, [
-          {
-            _id: 'as_1',
-            title: 'Midterm Flight Telemetry & Instrument Navigation',
-            code: 'AE-301-MID',
-            duration: 90,
-            dueDate: 'Tomorrow at 11:59 PM',
-            totalQuestions: 45,
-            securityTier: 'PROCTORED',
-            status: 'AVAILABLE',
-          },
-          {
-            _id: 'as_2',
-            title: 'Supersonic Aerodynamics & Shockwave Theory',
-            code: 'AE-405-FIN',
-            duration: 120,
-            dueDate: 'In 3 days',
-            totalQuestions: 60,
-            securityTier: 'KIOSK_LOCKED',
-            status: 'SCHEDULED',
-          },
-        ])
-      );
-
-      setAttempts(
-        unpack(attRes, [
-          {
-            _id: 'att_1',
-            title: 'Pre-Flight Systems Check Quiz',
-            submittedAt: 'Yesterday, 3:45 PM',
-            score: 92,
-            durationUsed: '38 mins',
-            status: 'GRADED',
-          },
-        ])
-      );
-
-      setResults(
-        unpack(resRes, [
-          {
-            _id: 'res_1',
-            assessmentTitle: 'Pre-Flight Systems Check Quiz',
-            score: 92,
-            maxScore: 100,
-            grade: 'A',
-            passed: true,
-            publishedAt: 'Yesterday',
-            subject: 'Aerospace Engineering',
-          },
-        ])
-      );
-
-      setCertificates(
-        unpack(certRes, [
-          {
-            _id: 'cert_1',
-            title: 'Certified Flight Instrument Specialist (Level 1)',
-            verificationCode: 'SA-AERO-2026-98124',
-            issuedDate: 'August 28, 2026',
-            issuer: 'Stanford Engineering Faculty',
-          },
-        ])
-      );
-
-      setInterviews(
-        unpack(intRes, [
-          {
-            _id: 'int_1',
-            title: 'Senior Flight Simulator Viva Voce',
-            examinerName: 'Capt. Robert Chen',
-            scheduledTime: 'Today at 4:00 PM (PKT)',
-            status: 'CONFIRMED',
-            roomId: 'room-aero-892',
-          },
-        ])
-      );
+      setAssignments(unpack(assignRes, []));
+      setAttempts(unpack(attRes, []));
+      setResults(unpack(resRes, []));
+      setCertificates(unpack(certRes, []));
+      setInterviews(unpack(intRes, []));
     } catch (err) {
       console.warn('Candidate portal load note:', err.message);
     } finally {

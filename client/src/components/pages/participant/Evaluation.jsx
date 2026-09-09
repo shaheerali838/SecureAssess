@@ -195,22 +195,19 @@ export function Evaluation({ onNavigate }) {
         type: 'assessment',
         title: att.assessmentTitle || att.assessmentId?.title || 'Academic Assessment',
         code: att.assessmentCode || att.assessmentId?.code || 'EXAM-REC',
-        score: att.score || att.earnedPoints || 88,
+        score: att.score || att.earnedPoints || 0,
         totalPoints: att.totalPoints || 100,
-        percentage: att.percentage || att.score || 88,
+        percentage: att.percentage || att.score || 0,
         passingPercentage: att.passingPercentage || 70,
         status: att.status === 'FAILED' ? 'FAILED' : 'PASSED',
         submittedAt: att.submittedAt || att.createdAt || new Date().toISOString(),
         durationMinutes: att.durationMinutes || 60,
-        integrityScore: att.integrityScore || 99.0,
+        integrityScore: att.integrityScore || 100.0,
         proctoringMode: att.proctoringMode || 'AI Proctoring',
-        breakdown: att.breakdown || [
-          { topic: 'Core Technical Competencies', earned: 45, total: 50 },
-          { topic: 'Applied Problem Solving', earned: 43, total: 50 },
-        ],
-        examinerRemarks: att.feedback || 'Completed according to standardized institutional proctoring protocol.',
+        breakdown: att.breakdown || [],
+        examinerRemarks: att.feedback || 'Completed according to institutional protocol.',
       }))
-    : defaultAssessments;
+    : [];
 
   const activeInterviewsList = interviews.length > 0
     ? interviews
@@ -224,19 +221,13 @@ export function Evaluation({ onNavigate }) {
           examinerTitle: 'Faculty Examiner',
           date: iv.scheduledAt || iv.createdAt || new Date().toISOString(),
           recommendation: iv.recommendation || 'Positive',
-          overallScore: iv.score || 88,
-          rubricScores: [
-            { criteria: 'Technical Depth & Core Knowledge', score: 4, max: 5 },
-            { criteria: 'Problem Solving & Real-time Coding', score: 4, max: 5 },
-            { criteria: 'Verbal & Technical Communication', score: 5, max: 5 },
-            { criteria: 'Code Quality & Modular Design', score: 4, max: 5 },
-            { criteria: 'Adherence to Integrity & Ethics', score: 5, max: 5 },
-          ],
-          strengths: iv.feedback || 'Strong performance and technical comprehension.',
-          improvementAreas: 'Continue practicing timed code optimization.',
-          verdict: 'Evaluation officially certified and recorded.',
+          overallScore: iv.score || 0,
+          rubricScores: iv.rubricScores || [],
+          strengths: iv.feedback || 'Evaluation complete.',
+          improvementAreas: iv.improvementAreas || '',
+          verdict: iv.verdict || 'Evaluation recorded.',
         }))
-    : defaultInterviews;
+    : [];
 
   // Aggregate statistics
   const totalAssessmentsCount = activeAssessmentsList.length;

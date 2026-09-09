@@ -124,65 +124,8 @@ export function CandidateDashboard({ onNavigate }) {
     fetchData();
   }, [currentOrganization]);
 
-  // Fallback direct assigned examinations if none in DB
-  const defaultAssignedExams = [
-    {
-      _id: 'exam-101',
-      assignmentId: 'asgn-01',
-      title: 'CS301: Advanced Data Structures & Algorithms',
-      code: 'CS301-MID',
-      durationMinutes: 90,
-      passingPercentage: 70,
-      proctoringMode: 'AI + Live Video',
-      dueDate: new Date(Date.now() + 86400000 * 2).toISOString(),
-      status: 'AVAILABLE',
-      isDirectlyAssigned: true,
-      instructions: 'Mandatory Midterm Exam assigned by Dept of Computer Science. Ensure full-screen mode and working webcam.',
-    },
-    {
-      _id: 'exam-102',
-      assignmentId: 'asgn-02',
-      title: 'SE404: Distributed Systems & Microservices Architecture',
-      code: 'SE404-FIN',
-      durationMinutes: 120,
-      passingPercentage: 75,
-      proctoringMode: 'AI Proctoring',
-      dueDate: new Date(Date.now() + 86400000 * 5).toISOString(),
-      status: 'AVAILABLE',
-      isDirectlyAssigned: true,
-      instructions: 'Final comprehensive exam assigned by faculty examiner. Multi-camera verification enabled.',
-    },
-  ];
-
-  // Fallback catalog
-  const defaultCatalogExams = [
-    ...defaultAssignedExams,
-    {
-      _id: 'exam-103',
-      title: 'CY502: Applied Cryptography & Zero-Knowledge Proofs',
-      code: 'CY502-VIVA',
-      durationMinutes: 60,
-      passingPercentage: 80,
-      proctoringMode: 'Live Invigilation',
-      status: 'AVAILABLE',
-      isDirectlyAssigned: false,
-      instructions: 'Interactive ZK-SNARK reasoning examination with automated code execution.',
-    },
-    {
-      _id: 'exam-104',
-      title: 'AI601: Deep Reinforcement Learning & Autonomous Agents',
-      code: 'AI601-TEST',
-      durationMinutes: 75,
-      passingPercentage: 70,
-      proctoringMode: 'AI Proctoring',
-      status: 'AVAILABLE',
-      isDirectlyAssigned: false,
-      instructions: 'Markov Decision Processes, Policy Gradient formulations, and Q-learning convergence dynamics.',
-    },
-  ];
-
-  const activeAssignedList = assignedAssessments.length > 0 ? assignedAssessments : defaultAssignedExams;
-  const activeCatalogList = allAssessments.length > 0 ? allAssessments : defaultCatalogExams;
+  const activeAssignedList = assignedAssessments || [];
+  const activeCatalogList = allAssessments || [];
 
   const currentList = activeTab === 'assigned' ? activeAssignedList : activeCatalogList;
 
@@ -214,26 +157,7 @@ export function CandidateDashboard({ onNavigate }) {
     setDetailsModalOpen(true);
   };
 
-  const pastScorecards = attempts.length > 0 ? attempts : [
-    {
-      _id: 'att-1',
-      assessmentTitle: 'CS201: Discrete Mathematics & Probability',
-      score: 88,
-      percentage: 88,
-      status: 'PASSED',
-      submittedAt: '2026-09-01T14:30:00Z',
-      integrityScore: 99,
-    },
-    {
-      _id: 'att-2',
-      assessmentTitle: 'CS102: Object Oriented Design & Principles',
-      score: 94,
-      percentage: 94,
-      status: 'PASSED',
-      submittedAt: '2026-08-20T11:00:00Z',
-      integrityScore: 98,
-    },
-  ];
+  const pastScorecards = attempts || [];
 
   const candidateName = user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user?.name || 'Stanford Candidate';
   const orgName = currentOrganization?.name || 'Stanford Engineering';

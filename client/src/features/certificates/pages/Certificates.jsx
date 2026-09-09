@@ -33,32 +33,10 @@ export function Certificates({ onNavigate }) {
     try {
       const data = await certificateService.getCertificates(orgId);
       const items = Array.isArray(data) ? data : data?.items || data?.data || [];
-      setCertificates(items);
+      setCertificates(items || []);
     } catch (err) {
-      console.warn('Certificate fetch fallback:', err.message);
-      // Fallback sample data
-      setCertificates([
-        {
-          _id: 'cert_01',
-          certificateNumber: 'SA-2026-000101',
-          verificationCode: 'SEC-8921-X99',
-          recipientName: 'Alan Turing',
-          assessmentTitle: 'Advanced Applied Cryptography Certification Exam',
-          score: 100,
-          status: 'ACTIVE',
-          issuedAt: new Date().toISOString(),
-        },
-        {
-          _id: 'cert_02',
-          certificateNumber: 'SA-2026-000102',
-          verificationCode: 'SEC-7741-K12',
-          recipientName: 'Margaret Hamilton',
-          assessmentTitle: 'Apollo Guidance Flight Systems Certification',
-          score: 98,
-          status: 'ACTIVE',
-          issuedAt: new Date(Date.now() - 86400000).toISOString(),
-        },
-      ]);
+      console.warn('Certificate fetch note:', err.message);
+      setCertificates([]);
     } finally {
       setLoading(false);
     }

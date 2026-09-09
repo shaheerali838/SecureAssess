@@ -29,15 +29,10 @@ export function Organizations({ onNavigate }) {
     try {
       const data = await organizationService.getOrganizations();
       const items = Array.isArray(data) ? data : (data?.items || data?.organizations || data?.data || []);
-      if (items && items.length > 0) {
-        setOrganizationsList(items);
-      } else {
-        setOrganizationsList([
-          { _id: 'org-alpha', id: 'org-alpha', name: 'Alpha Polytechnic Institute', industry: 'academic', tenantIndustry: 'academic', tier: 'Enterprise', status: 'ACTIVE', members: 450, tests: 24, domain: 'alpha.edu', code: 'ALPHA-POLY' },
-        ]);
-      }
+      setOrganizationsList(items || []);
     } catch (err) {
       console.warn('Orgs fetch note:', err.message);
+      setOrganizationsList([]);
     } finally {
       setLoading(false);
     }
