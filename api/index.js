@@ -1,9 +1,9 @@
-import app from "../src/app.js";
-import { connectDatabase } from "../src/config/db.js";
+import app from "../server/src/app.js";
+import { connectDatabase } from "../server/src/config/db.js";
 
 /**
- * Vercel Serverless Function Bridge
- * Dispatches HTTP requests to Express with cached MongoDB connection pooling.
+ * Unified Monorepo Vercel Serverless Function Bridge
+ * Dispatches all /api/* requests directly to Express with cached MongoDB connections.
  */
 export default async function handler(req, res) {
   try {
