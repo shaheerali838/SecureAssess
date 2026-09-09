@@ -12,6 +12,9 @@ import rootRoutes from "./routes/index.js";
 
 const app = express();
 
+// Trust reverse proxies (Vercel / Cloudflare / Load Balancers)
+app.set("trust proxy", 1);
+
 // Global Middlewares
 app.use(requestIdMiddleware);
 app.use(securityHeaders);
