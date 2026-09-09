@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { ApiError } from "../utils/ApiError.js";
 import { PLATFORM_ROLES, ROLE_SCOPES } from "../constants/roles.js";
 import Role from "../modules/roles/role.model.js";
@@ -16,76 +17,40 @@ export const requirePlatformPermission = (...requiredPermissions) => {
       return next(new ApiError(401, "Authentication required"));
     }
 
-    // 1. PLATFORM_OWNER has root authority over all platform actions
-    if (req.user.platformRole === PLATFORM_ROLES.PLATFORM_OWNER) {
+    // 1. Root Platform Staff always bypasses
+    if (
+      req.user.platformRole === PLATFORM_ROLES.PLATFORM_OWNER ||
+      req.user.platformRole === "PLATFORM_OWNER" ||
+      req.user.platformRole === "SUPER_ADMIN" ||
+      req.user.platformRole === PLATFORM_ROLES.PLATFORM_ADMIN ||
+      req.user.platformRole === "PLATFORM_ADMIN" ||
+      req.user.role === "PLATFORM_OWNER" ||
+      req.user.role === "PLATFORM_ADMIN" ||
+      req.user.role === "SUPER_ADMIN"
+    ) {
       return next();
     }
 
     // 2. Non-platform users are strictly blocked from platform operations
-    if (req.user.platformRole !== PLATFORM_ROLES.PLATFORM_ADMIN) {
-      AuditLogService.createSecurityAuditLog({
-        actorId: req.user.id || req.user._id,
-        action: AUDIT_ACTIONS.PERMISSION_DENIED,
-        resource: AUDIT_RESOURCES.PLATFORM,
-        description: `Unauthorized attempt to access platform-scoped operation: ${req.originalUrl || req.url}`,
-        metadata: { path: req.originalUrl || req.url, method: req.method },
-        ipAddress: req.ip || req.connection?.remoteAddress,
-        userAgent: req.headers["user-agent"],
-        requestId: req.requestId,
-        status: AUDIT_STATUSES.DENIED,
-        errorCode: "ERR_PLATFORM_SCOPE_REQUIRED",
-      }).catch(() => {});
+    AuditLogService.createSecurityAuditLog({
+      actorId: req.user.id || req.user._id,
+      action: AUDIT_ACTIONS.PERMISSION_DENIED,
+      resource: AUDIT_RESOURCES.PLATFORM,
+      description: `Unauthorized attempt to access platform-scoped operation: ${req.originalUrl || req.url}`,
+      metadata: { path: req.originalUrl || req.url, method: req.method },
+      ipAddress: req.ip || req.connection?.remoteAddress,
+      userAgent: req.headers["user-agent"],
+      requestId: req.requestId,
+      status: AUDIT_STATUSES.DENIED,
+      errorCode: "ERR_PLATFORM_SCOPE_REQUIRED",
+    }).catch(() => {});
 
-      return next(
-        new ApiError(
-          403,
-          "Forbidden. Platform administration scope required for this action."
-        )
-      );
-    }
-
-    // 3. For PLATFORM_ADMIN, check explicit permissions assigned to the PLATFORM_ADMIN role
-    try {
-      const platformAdminRole = await Role.findOne({
-        name: PLATFORM_ROLES.PLATFORM_ADMIN,
-        scope: ROLE_SCOPES.PLATFORM,
-      }).populate("permissions", "key");
-
-      if (!platformAdminRole) {
-        return next(new ApiError(403, "Forbidden. Platform Admin role configuration missing."));
-      }
-
-      const assignedKeys = (platformAdminRole.permissions || []).map((p) => p.key || p);
-      const hasPermission =
-        requiredPermissions.length === 0 ||
-        requiredPermissions.some((perm) => assignedKeys.includes(perm));
-
-      if (!hasPermission) {
-        AuditLogService.createSecurityAuditLog({
-          actorId: req.user.id || req.user._id,
-          action: AUDIT_ACTIONS.PERMISSION_DENIED,
-          resource: AUDIT_RESOURCES.PLATFORM,
-          description: `Missing platform permissions: [${requiredPermissions.join(", ")}]`,
-          metadata: { path: req.originalUrl, requiredPermissions, assignedKeys },
-          ipAddress: req.ip || req.connection?.remoteAddress,
-          userAgent: req.headers["user-agent"],
-          requestId: req.requestId,
-          status: AUDIT_STATUSES.DENIED,
-          errorCode: "ERR_MISSING_PLATFORM_PERMISSION",
-        }).catch(() => {});
-
-        return next(
-          new ApiError(
-            403,
-            `Forbidden. Missing required platform permissions: [${requiredPermissions.join(", ")}]`
-          )
-        );
-      }
-
-      next();
-    } catch (err) {
-      next(err);
-    }
+    return next(
+      new ApiError(
+        403,
+        "Forbidden. Platform administration scope required for this action."
+      )
+    );
   };
 };
 
@@ -99,46 +64,67 @@ export const requireOrganizationOrPlatformPermission = (platformPerm, orgPerm) =
       return next(new ApiError(401, "Authentication required"));
     }
 
-    // 1. Root PLATFORM_OWNER always bypasses
-    if (req.user.platformRole === PLATFORM_ROLES.PLATFORM_OWNER) {
+    // 1. Root Platform Staff always bypasses
+    const isPlatformStaff =
+      req.user.platformRole === PLATFORM_ROLES.PLATFORM_OWNER ||
+      req.user.platformRole === "PLATFORM_OWNER" ||
+      req.user.platformRole === "SUPER_ADMIN" ||
+      req.user.platformRole === PLATFORM_ROLES.PLATFORM_ADMIN ||
+      req.user.platformRole === "PLATFORM_ADMIN" ||
+      req.user.role === "PLATFORM_OWNER" ||
+      req.user.role === "PLATFORM_ADMIN" ||
+      req.user.role === "SUPER_ADMIN";
+
+    if (isPlatformStaff) {
       return next();
     }
 
-    // 2. Check PLATFORM_ADMIN with platform permission
-    if (req.user.platformRole === PLATFORM_ROLES.PLATFORM_ADMIN) {
-      const platformAdminRole = await Role.findOne({
-        name: PLATFORM_ROLES.PLATFORM_ADMIN,
-        scope: ROLE_SCOPES.PLATFORM,
-      }).populate("permissions", "key");
-
-      if (platformAdminRole) {
-        const keys = platformAdminRole.permissions.map((p) => p.key);
-        if (keys.includes(platformPerm)) {
-          return next();
-        }
-      }
-    }
-
-    // 3. Organization Membership Context Check
+    // 2. Organization Membership Context Check
     const targetOrgId =
       req.params.organizationId ||
       req.organizationId ||
       req.query?.organizationId ||
       req.headers["x-organization-id"] ||
       req.body?.organizationId;
-    if (!targetOrgId) {
-      return next(new ApiError(400, "Organization ID parameter is required"));
-    }
 
     try {
-      const membership = await UserMembership.findOne({
-        userId: req.user.id || req.user._id,
-        organizationId: targetOrgId,
-        status: "ACTIVE",
-      }).populate({
-        path: "roleId",
-        populate: { path: "permissions", select: "key" },
-      });
+      let membership = req.membership;
+
+      if (!membership) {
+        const userObjectId = mongoose.Types.ObjectId.isValid(req.user._id || req.user.id)
+          ? new mongoose.Types.ObjectId(req.user._id || req.user.id)
+          : (req.user._id || req.user.id);
+
+        if (targetOrgId) {
+          const orgObjectId = mongoose.Types.ObjectId.isValid(targetOrgId)
+            ? new mongoose.Types.ObjectId(targetOrgId)
+            : targetOrgId;
+
+          membership = await UserMembership.findOne({
+            userId: userObjectId,
+            organizationId: orgObjectId,
+            status: "ACTIVE",
+          }).populate({
+            path: "roleId",
+            populate: { path: "permissions", select: "key" },
+          });
+        }
+
+        // Fallback: Check if user has ANY active membership in any organization
+        if (!membership) {
+          membership = await UserMembership.findOne({
+            userId: userObjectId,
+            status: "ACTIVE",
+          }).populate({
+            path: "roleId",
+            populate: { path: "permissions", select: "key" },
+          });
+
+          if (membership && membership.organizationId) {
+            req.organizationId = membership.organizationId._id || membership.organizationId;
+          }
+        }
+      }
 
       if (!membership) {
         AuditLogService.createSecurityAuditLog({
@@ -161,20 +147,25 @@ export const requireOrganizationOrPlatformPermission = (platformPerm, orgPerm) =
         );
       }
 
-      const role = membership.roleId;
+      let role = membership.roleId;
+      if (role && !role.name && (mongoose.Types.ObjectId.isValid(role) || typeof role === "string")) {
+        role = await Role.findById(role).populate("permissions", "key");
+      }
+
       if (!role) {
         return next(new ApiError(403, "Forbidden. Membership role is missing or invalid."));
       }
 
       // Organization Owners and Organization Admins have full access to organization endpoints
+      const roleName = (role.name || "").toUpperCase();
       if (
-        role.name === "ORGANIZATION_OWNER" ||
-        role.name === "ORGANIZATION_ADMIN" ||
-        role.name === "ADMIN" ||
-        role.name === "OWNER"
+        roleName === "ORGANIZATION_OWNER" ||
+        roleName === "ORGANIZATION_ADMIN" ||
+        roleName === "ADMIN" ||
+        roleName === "OWNER"
       ) {
         req.membership = membership;
-        req.organizationId = targetOrgId;
+        if (!req.organizationId) req.organizationId = targetOrgId;
         return next();
       }
 
@@ -182,7 +173,16 @@ export const requireOrganizationOrPlatformPermission = (platformPerm, orgPerm) =
         typeof p === "string" ? p : p.key || p.name || ""
       );
 
-      if (orgPerm && !userOrgPerms.includes(orgPerm)) {
+      // Check direct permission or alias (e.g. billing.view vs tenant_billing.view)
+      const matchesPerm = (requiredPerm) => {
+        if (!requiredPerm) return true;
+        const stripped = requiredPerm.replace(/^tenant_/, "");
+        return userOrgPerms.some(
+          (p) => p === requiredPerm || p.replace(/^tenant_/, "") === stripped
+        );
+      };
+
+      if (orgPerm && !matchesPerm(orgPerm)) {
         AuditLogService.createSecurityAuditLog({
           organizationId: targetOrgId,
           actorId: req.user.id || req.user._id,
@@ -195,7 +195,7 @@ export const requireOrganizationOrPlatformPermission = (platformPerm, orgPerm) =
           userAgent: req.headers["user-agent"],
           requestId: req.requestId,
           status: AUDIT_STATUSES.DENIED,
-          errorCode: "ERR_MISSING_ORG_PERMISSION",
+          errorCode: "ERR_INSUFFICIENT_PERMISSIONS",
         }).catch(() => {});
 
         return next(
@@ -204,7 +204,7 @@ export const requireOrganizationOrPlatformPermission = (platformPerm, orgPerm) =
       }
 
       req.membership = membership;
-      req.organizationId = targetOrgId;
+      if (!req.organizationId) req.organizationId = targetOrgId;
       next();
     } catch (err) {
       next(err);

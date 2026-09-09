@@ -211,7 +211,9 @@ export const AppRoutes = () => {
       {/* ======================================================== */}
       <Route path="/" element={<LandingPage onNavigate={handleDirectNavigate} />} />
       <Route path="/request-demo" element={<RequestDemo onNavigate={handleDirectNavigate} />} />
-      <Route path="/login" element={<Login />} />
+      <Route element={<PublicRoute />}>
+        <Route path="/login" element={<Login />} />
+      </Route>
 
       {/* ======================================================== */}
       {/* 2. PLATFORM SUPER ADMIN PORTAL (SCOPE: PLATFORM)         */}
@@ -354,6 +356,8 @@ export const AppRoutes = () => {
       >
         <Route path="/organization">
           <Route index element={<Navigate to="/organization/dashboard" replace />} />
+          
+          {/* Shared Workspace Views (All Staff Roles) */}
           <Route
             path="dashboard"
             element={
@@ -365,145 +369,11 @@ export const AppRoutes = () => {
             }
           />
           <Route
-            path="assessments"
-            element={
-              <NavWrapper
-                Component={AssessmentLibrary}
-                activeKey="org-assessments"
-                layer="organization"
-              />
-            }
-          />
-          <Route
-            path="builder"
-            element={
-              <NavWrapper
-                Component={AssessmentBuilder}
-                activeKey="org-assessment-builder"
-                layer="organization"
-              />
-            }
-          />
-          <Route
-            path="question-bank"
-            element={
-              <NavWrapper
-                Component={QuestionBank}
-                activeKey="org-question-bank"
-                layer="organization"
-              />
-            }
-          />
-          <Route
-            path="participants"
-            element={
-              <NavWrapper
-                Component={ParticipantManagement}
-                activeKey="org-participants"
-                layer="organization"
-              />
-            }
-          />
-          <Route
-            path="participants/profile"
-            element={
-              <NavWrapper
-                Component={ParticipantProfile}
-                activeKey="org-participant-profile"
-                layer="organization"
-              />
-            }
-          />
-          <Route
-            path="structure"
-            element={
-              <NavWrapper
-                Component={OrgStructure}
-                activeKey="org-structure"
-                layer="organization"
-              />
-            }
-          />
-          <Route
-            path="academic-structure"
-            element={<Navigate to="/organization/structure" replace />}
-          />
-          <Route
-            path="sessions"
-            element={
-              <NavWrapper
-                Component={Sessions}
-                activeKey="org-sessions"
-                layer="organization"
-              />
-            }
-          />
-          <Route
-            path="sessions/review"
-            element={
-              <NavWrapper
-                Component={SessionReview}
-                activeKey="org-session-review"
-                layer="organization"
-              />
-            }
-          />
-          <Route
-            path="integrity"
-            element={
-              <NavWrapper
-                Component={LiveMonitoring}
-                activeKey="org-integrity"
-                layer="organization"
-              />
-            }
-          />
-          <Route
-            path="integrity/evidence"
-            element={
-              <NavWrapper
-                Component={IntegrityEvidence}
-                activeKey="org-integrity-evidence"
-                layer="organization"
-              />
-            }
-          />
-          <Route
             path="reports"
             element={
               <NavWrapper
                 Component={Reports}
                 activeKey="org-reports"
-                layer="organization"
-              />
-            }
-          />
-          <Route
-            path="billing"
-            element={
-              <NavWrapper
-                Component={Billing}
-                activeKey="org-billing"
-                layer="organization"
-              />
-            }
-          />
-          <Route
-            path="settings"
-            element={
-              <NavWrapper
-                Component={Settings}
-                activeKey="org-settings"
-                layer="organization"
-              />
-            }
-          />
-          <Route
-            path="users"
-            element={
-              <NavWrapper
-                Component={OrgUsers}
-                activeKey="org-users"
                 layer="organization"
               />
             }
@@ -522,16 +392,202 @@ export const AppRoutes = () => {
             path="interviews/room"
             element={<LiveInterview onNavigate={handleDirectNavigate} />}
           />
+
+          {/* 3A. OWNER ONLY: Financial & Billing Governance */}
           <Route
-            path="evaluations"
             element={
-              <NavWrapper
-                Component={Evaluations}
-                activeKey="org-evaluations"
-                layer="organization"
+              <ProtectedRoute
+                allowedRoles={[ORGANIZATION_ROLES.ORGANIZATION_OWNER]}
               />
             }
-          />
+          >
+            <Route
+              path="billing"
+              element={
+                <NavWrapper
+                  Component={Billing}
+                  activeKey="org-billing"
+                  layer="organization"
+                />
+              }
+            />
+          </Route>
+
+          {/* 3B. OWNER & ADMIN: Staff, Structure & Workspace Settings */}
+          <Route
+            element={
+              <ProtectedRoute
+                allowedRoles={[
+                  ORGANIZATION_ROLES.ORGANIZATION_OWNER,
+                  ORGANIZATION_ROLES.ORGANIZATION_ADMIN,
+                ]}
+              />
+            }
+          >
+            <Route
+              path="users"
+              element={
+                <NavWrapper
+                  Component={OrgUsers}
+                  activeKey="org-users"
+                  layer="organization"
+                />
+              }
+            />
+            <Route
+              path="structure"
+              element={
+                <NavWrapper
+                  Component={OrgStructure}
+                  activeKey="org-structure"
+                  layer="organization"
+                />
+              }
+            />
+            <Route
+              path="academic-structure"
+              element={<Navigate to="/organization/structure" replace />}
+            />
+            <Route
+              path="settings"
+              element={
+                <NavWrapper
+                  Component={Settings}
+                  activeKey="org-settings"
+                  layer="organization"
+                />
+              }
+            />
+          </Route>
+
+          {/* 3C. EXAMINER, ADMIN & OWNER: Assessments, Questions, Candidates, Evaluations */}
+          <Route
+            element={
+              <ProtectedRoute
+                allowedRoles={[
+                  ORGANIZATION_ROLES.ORGANIZATION_OWNER,
+                  ORGANIZATION_ROLES.ORGANIZATION_ADMIN,
+                  ORGANIZATION_ROLES.EXAMINER,
+                ]}
+              />
+            }
+          >
+            <Route
+              path="assessments"
+              element={
+                <NavWrapper
+                  Component={AssessmentLibrary}
+                  activeKey="org-assessments"
+                  layer="organization"
+                />
+              }
+            />
+            <Route
+              path="builder"
+              element={
+                <NavWrapper
+                  Component={AssessmentBuilder}
+                  activeKey="org-assessment-builder"
+                  layer="organization"
+                />
+              }
+            />
+            <Route
+              path="question-bank"
+              element={
+                <NavWrapper
+                  Component={QuestionBank}
+                  activeKey="org-question-bank"
+                  layer="organization"
+                />
+              }
+            />
+            <Route
+              path="participants"
+              element={
+                <NavWrapper
+                  Component={ParticipantManagement}
+                  activeKey="org-participants"
+                  layer="organization"
+                />
+              }
+            />
+            <Route
+              path="participants/profile"
+              element={
+                <NavWrapper
+                  Component={ParticipantProfile}
+                  activeKey="org-participant-profile"
+                  layer="organization"
+                />
+              }
+            />
+            <Route
+              path="evaluations"
+              element={
+                <NavWrapper
+                  Component={Evaluations}
+                  activeKey="org-evaluations"
+                  layer="organization"
+                />
+              }
+            />
+          </Route>
+
+          {/* 3D. PROCTOR, EXAMINER, ADMIN & OWNER: Proctoring, Live Telemetry & Session Archives */}
+          <Route
+            element={
+              <ProtectedRoute
+                allowedRoles={[
+                  ORGANIZATION_ROLES.ORGANIZATION_OWNER,
+                  ORGANIZATION_ROLES.ORGANIZATION_ADMIN,
+                  ORGANIZATION_ROLES.EXAMINER,
+                  ORGANIZATION_ROLES.PROCTOR,
+                ]}
+              />
+            }
+          >
+            <Route
+              path="integrity"
+              element={
+                <NavWrapper
+                  Component={LiveMonitoring}
+                  activeKey="org-integrity"
+                  layer="organization"
+                />
+              }
+            />
+            <Route
+              path="integrity/evidence"
+              element={
+                <NavWrapper
+                  Component={IntegrityEvidence}
+                  activeKey="org-integrity-evidence"
+                  layer="organization"
+                />
+              }
+            />
+            <Route
+              path="sessions"
+              element={
+                <NavWrapper
+                  Component={Sessions}
+                  activeKey="org-sessions"
+                  layer="organization"
+                />
+              }
+            />
+            <Route
+              path="sessions/review"
+              element={
+                <NavWrapper
+                  Component={SessionReview}
+                  activeKey="org-session-review"
+                  layer="organization"
+                />
+              }
+            />
+          </Route>
         </Route>
       </Route>
 
@@ -542,7 +598,13 @@ export const AppRoutes = () => {
         element={
           <ProtectedRoute
             scope={ROLE_SCOPES.ORGANIZATION}
-            allowedRoles={[ORGANIZATION_ROLES.CANDIDATE]}
+            allowedRoles={[
+              ORGANIZATION_ROLES.CANDIDATE,
+              ORGANIZATION_ROLES.EXAMINER,
+              ORGANIZATION_ROLES.PROCTOR,
+              ORGANIZATION_ROLES.ORGANIZATION_OWNER,
+              ORGANIZATION_ROLES.ORGANIZATION_ADMIN,
+            ]}
           />
         }
       >

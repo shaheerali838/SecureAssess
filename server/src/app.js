@@ -31,13 +31,15 @@ app.get("/health", (req, res) => {
     .json({ status: "HEALTHY", timestamp: new Date().toISOString() });
 });
 app.get("/health/live", (req, res) => {
-  res
-    .status(200)
-    .json({
-      status: "LIVE",
-      uptime: Math.floor(process.uptime()),
-      timestamp: new Date().toISOString(),
-    });
+  res.status(200).json({
+    status: "LIVE",
+    uptime: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+  });
+});
+app.get("/favicon.ico", (req, res) => res.status(204).end());
+app.get(["/health/plan", "/health/plans", "/api/health/plan", "/api/health/plans"], (req, res) => {
+  res.redirect("/api/v1/plans");
 });
 app.get("/health/ready", (req, res) => {
   res

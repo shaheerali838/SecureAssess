@@ -44,7 +44,15 @@ export const requireTenantContext = async (req, res, next) => {
       req.user.platformRole === PLATFORM_ROLES.PLATFORM_OWNER ||
       req.user.platformRole === PLATFORM_ROLES.PLATFORM_ADMIN ||
       req.user.platformRole === "PLATFORM_OWNER" ||
-      req.user.platformRole === "PLATFORM_ADMIN";
+      req.user.platformRole === "PLATFORM_ADMIN" ||
+      req.user.platformRole === "SUPER_ADMIN" ||
+      req.user.role === "PLATFORM_OWNER" ||
+      req.user.role === "PLATFORM_ADMIN" ||
+      req.user.role === "SUPER_ADMIN";
+
+    const userObjectId = mongoose.Types.ObjectId.isValid(req.user._id || req.user.id)
+      ? new mongoose.Types.ObjectId(req.user._id || req.user.id)
+      : (req.user._id || req.user.id);
 
     // 1. If no organization ID context was passed:
     if (!rawOrgId) {
@@ -53,7 +61,7 @@ export const requireTenantContext = async (req, res, next) => {
         req.organizationId = null;
         req.tenantId = null;
         req.organizationRole = {
-          name: req.user.platformRole,
+          name: req.user.platformRole || "PLATFORM_ADMIN",
           scope: "PLATFORM",
           permissions: [],
         };
@@ -62,7 +70,7 @@ export const requireTenantContext = async (req, res, next) => {
 
       // Auto-fallback: Resolve user's active membership organization
       const autoMembership = await UserMembership.findOne({
-        userId: req.user.id || req.user._id,
+        userId: userObjectId,
         status: "ACTIVE",
       })
         .populate("organizationId")
@@ -141,7 +149,7 @@ export const requireTenantContext = async (req, res, next) => {
 
     // 3. Resolve tenant membership
     let membership = await UserMembership.findOne({
-      userId: req.user.id || req.user._id,
+      userId: userObjectId,
       organizationId: organization._id,
       status: "ACTIVE",
     }).populate({
@@ -152,7 +160,7 @@ export const requireTenantContext = async (req, res, next) => {
     // If membership not found in target org (e.g. user switched accounts), check user's actual active org
     if (!membership) {
       const activeMembership = await UserMembership.findOne({
-        userId: req.user.id || req.user._id,
+        userId: userObjectId,
         status: "ACTIVE",
       })
         .populate("organizationId")

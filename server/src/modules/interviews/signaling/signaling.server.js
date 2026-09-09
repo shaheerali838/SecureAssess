@@ -63,7 +63,18 @@ export const attachInterviewSignaling = (io) => {
         );
 
         if (!authCheck.authorized) {
-          return socket.emit("error", { message: authCheck.reason });
+          if (authCheck.isRoomOccupied) {
+            socket.emit("room:occupied", {
+              message: authCheck.reason,
+              occupied: true,
+              activeCandidate: authCheck.activeCandidate,
+            });
+          }
+          return socket.emit("error", {
+            message: authCheck.reason,
+            isRoomOccupied: authCheck.isRoomOccupied || false,
+            activeCandidate: authCheck.activeCandidate || null,
+          });
         }
 
         const roomId = `interview_${interviewId}`;
@@ -288,20 +299,18 @@ export const attachInterviewSignaling = (io) => {
           isHost,
         });
 
-        // If the examiner/host left the room, immediately end the interview session for all candidates
-        if (isHost) {
-          interviewNamespace.to(roomId).emit(SIGNALING_EVENTS.INTERVIEW_ENDED, {
-            endedBy: participant.userId,
-            reason: "The examiner has left the session.",
+        // When a candidate leaves, notify room and queue that the viva seat is now available for the next candidate
+        if (!isHost) {
+          interviewNamespace.to(roomId).emit("interview:room_available", {
+            interviewId,
+            freedBy: participant.userId,
           });
-
-          try {
-            if (interviewId.length === 24 && /^[0-9a-fA-F]{24}$/.test(interviewId)) {
-              await Interview.findByIdAndUpdate(interviewId, { status: "COMPLETED", endedAt: new Date() });
-            }
-          } catch (dbErr) {
-            logger.warn(`[SignalingServer] Failed to mark interview COMPLETED on host disconnect: ${dbErr.message}`);
-          }
+        } else {
+          // If the examiner/host temporarily disconnects/steps out, inform room peers
+          interviewNamespace.to(roomId).emit("interview:host_stepped_out", {
+            hostId: participant.userId,
+            message: "The examiner stepped away and will rejoin shortly.",
+          });
         }
 
         if (socket.organizationId) {

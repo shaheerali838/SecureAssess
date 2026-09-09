@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 import Assessment from "../../modules/assessments/assessment.model.js";
+import AssessmentAssignment from "../../modules/assessmentAssignments/assessmentAssignment.model.js";
+import Candidate from "../../modules/candidates/candidate.model.js";
 import Organization from "../../modules/organizations/organization.model.js";
 import User from "../../modules/users/user.model.js";
 import QuestionBank from "../../modules/questionBank/questionBank.model.js";
@@ -17,15 +19,7 @@ export const seedAssessmentsAndQuestions = async () => {
     return;
   }
 
-  // Quick Idempotency Check
-  const existingAssessments = await Assessment.countDocuments({ organizationId: org._id });
-  const existingQB = await QuestionBank.countDocuments({ organizationId: org._id });
-  if (existingAssessments >= 4 && existingQB >= 1) {
-    logger.info(`[Seeder] Assessments (${existingAssessments}) & Question Banks (${existingQB}) already seeded, skipping.`);
-    return;
-  }
-
-  const creator = await User.findOne({ email: "dean@stanford.edu" }) || await User.findOne();
+  const creator = await User.findOne({ email: "dean@stanford.edu" }) || await User.findOne({ email: "professor@stanford.edu" }) || await User.findOne();
   if (!creator) {
     logger.warn("[Seeder] Creator user not found, skipping assessment seeding.");
     return;
@@ -134,6 +128,7 @@ export const seedAssessmentsAndQuestions = async () => {
       description: "Standardized undergraduate evaluation covering data structures, logical reasoning, and systems design.",
       type: ASSESSMENT_TYPES.MCQ,
       status: ASSESSMENT_STATUSES.PUBLISHED,
+      durationMinutes: 90,
       durationSeconds: 5400,
       totalPoints: 100,
       passingScore: 60,
@@ -146,6 +141,7 @@ export const seedAssessmentsAndQuestions = async () => {
       description: "Comprehensive technical aptitude exam for intermediate and senior engineering candidates.",
       type: ASSESSMENT_TYPES.MCQ,
       status: ASSESSMENT_STATUSES.PUBLISHED,
+      durationMinutes: 60,
       durationSeconds: 3600,
       totalPoints: 80,
       passingScore: 70,
@@ -158,6 +154,7 @@ export const seedAssessmentsAndQuestions = async () => {
       description: "Rigorous competency assessment testing situational decisions and protocol compliance.",
       type: ASSESSMENT_TYPES.MCQ,
       status: ASSESSMENT_STATUSES.PUBLISHED,
+      durationMinutes: 120,
       durationSeconds: 7200,
       totalPoints: 120,
       passingScore: 75,
@@ -165,13 +162,46 @@ export const seedAssessmentsAndQuestions = async () => {
     },
   ];
 
+  const seededAssessments = [];
   for (const a of assessmentsData) {
-    const existing = await Assessment.findOne({ organizationId: org._id, code: a.code });
-    if (!existing) {
-      await Assessment.create(a);
+    let assess = await Assessment.findOne({ organizationId: org._id, code: a.code });
+    if (!assess) {
+      assess = await Assessment.create(a);
       logger.info(`[Seeder] Created assessment: ${a.title} (${a.code})`);
+    } else {
+      assess.durationMinutes = a.durationMinutes;
+      await assess.save();
+    }
+    seededAssessments.push(assess);
+  }
+
+  // 4. Seed Assessment Assignments for Candidates
+  const candidates = await Candidate.find({ organizationId: org._id });
+  for (const cand of candidates) {
+    for (const assess of seededAssessments) {
+      const existingAssignment = await AssessmentAssignment.findOne({
+        organizationId: org._id,
+        assessmentId: assess._id,
+        candidateId: cand._id,
+      });
+
+      if (!existingAssignment) {
+        await AssessmentAssignment.create({
+          organizationId: org._id,
+          assessmentId: assess._id,
+          candidateId: cand._id,
+          assignedBy: creator._id,
+          status: "AVAILABLE",
+          assignedAt: new Date(),
+          maxAttempts: 2,
+          attemptLimit: 2,
+          attemptCount: 0,
+          instructions: `Mandatory institutional examination: ${assess.title}`,
+        });
+        logger.info(`[Seeder] Assigned assessment '${assess.title}' to candidate '${cand.firstName} ${cand.lastName}'`);
+      }
     }
   }
 
-  logger.info("[Seeder] Assessments and Question Bank seeded successfully.");
+  logger.info("[Seeder] Assessments, Questions, and Candidate Assignments seeded successfully.");
 };

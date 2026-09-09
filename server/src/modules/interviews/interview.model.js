@@ -81,6 +81,14 @@ const interviewSchema = new mongoose.Schema(
       type: interviewSettingsSchema,
       default: () => ({}),
     },
+    questions: {
+      type: Array,
+      default: [],
+    },
+    rubrics: {
+      type: Array,
+      default: [],
+    },
     metadata: {
       type: mongoose.Schema.Types.Mixed,
       default: {},

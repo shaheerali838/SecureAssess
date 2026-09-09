@@ -18,6 +18,7 @@ import {
 import { ApiError } from "../../utils/ApiError.js";
 import { EmailService } from "../../services/email/email.service.js";
 import { generateAccessToken } from "../../utils/token.js";
+import { SignalingService } from "./signaling/signaling.service.js";
 import crypto from "crypto";
 
 export class InterviewService {
@@ -35,6 +36,8 @@ export class InterviewService {
       assessmentId,
       interviewerUserIds = [],
       settings = {},
+      questions = [],
+      rubrics = [],
       metadata = {},
     } = data;
 
@@ -108,6 +111,8 @@ export class InterviewService {
       createdBy: createdByUserId,
       assessmentId: assessmentId || null,
       candidateId: candidate._id,
+      questions: questions || [],
+      rubrics: rubrics || [],
       settings,
       metadata,
     });
@@ -221,7 +226,21 @@ export class InterviewService {
         candidate = await Candidate.findOne({ userId, organizationId, status: "ACTIVE" });
       }
       if (!candidate) return { items: [], pagination: { total: 0 } };
-      filter.candidateId = candidate._id;
+
+      const orConditions = [{ candidateId: candidate._id }];
+      if (candidate.departmentId) {
+        orConditions.push({ "metadata.departmentId": String(candidate.departmentId) });
+        orConditions.push({ "metadata.departmentId": candidate.departmentId });
+      }
+      if (candidate.programId) {
+        orConditions.push({ "metadata.programId": String(candidate.programId) });
+        orConditions.push({ "metadata.programId": candidate.programId });
+      }
+      if (candidate.candidateGroupId) {
+        orConditions.push({ "metadata.candidateGroupId": String(candidate.candidateGroupId) });
+        orConditions.push({ "metadata.candidateGroupId": candidate.candidateGroupId });
+      }
+      filter.$or = orConditions;
     }
 
     if (query.status) filter.status = query.status;
@@ -273,7 +292,14 @@ export class InterviewService {
 
     if (isCandidate) {
       const candidate = await Candidate.findOne({ userId, status: "ACTIVE" });
-      if (!candidate || interview.candidateId?._id?.toString() !== candidate._id.toString()) {
+      const isDirect = candidate && interview.candidateId?._id?.toString() === candidate._id.toString();
+      const isAcademicCohort = candidate && (
+        (interview.metadata?.departmentId && String(interview.metadata.departmentId) === String(candidate.departmentId)) ||
+        (interview.metadata?.programId && String(interview.metadata.programId) === String(candidate.programId)) ||
+        (interview.metadata?.candidateGroupId && String(interview.metadata.candidateGroupId) === String(candidate.candidateGroupId))
+      );
+
+      if (!isDirect && !isAcademicCohort) {
         throw new ApiError(403, "Access denied: You can only view your own interviews");
       }
     }
@@ -296,34 +322,69 @@ export class InterviewService {
       throw new ApiError(400, "Invalid interview ID format");
     }
 
-    const interview = await Interview.findOne({ _id: interviewId, organizationId });
+    const interview = await Interview.findById(interviewId);
     if (!interview) {
-      throw new ApiError(404, "Interview not found in this organization");
+      throw new ApiError(404, "Interview not found");
     }
 
     if (interview.status === INTERVIEW_STATUSES.CANCELLED || interview.status === INTERVIEW_STATUSES.COMPLETED) {
-      throw new ApiError(400, `Cannot join interview in '${interview.status}' status`);
+      throw new ApiError(403, "This interview session has already concluded and cannot be rejoined under any circumstances.");
     }
 
-    // Verify participant registration
+    // Verify participant registration and single-seat viva lock
     let participant = await InterviewParticipant.findOne({ interviewId, userId });
-    if (!participant) {
-      if (isCandidate) {
+    if (isCandidate) {
+      const candidate = await Candidate.findOne({ userId, status: "ACTIVE" });
+      const isDirect = candidate && String(interview.candidateId) === String(candidate._id);
+      const isAcademicCohort = candidate && (
+        (interview.metadata?.departmentId && String(interview.metadata.departmentId) === String(candidate.departmentId)) ||
+        (interview.metadata?.programId && String(interview.metadata.programId) === String(candidate.programId)) ||
+        (interview.metadata?.candidateGroupId && String(interview.metadata.candidateGroupId) === String(candidate.candidateGroupId))
+      );
+
+      if (!participant && !isDirect && !isAcademicCohort) {
         throw new ApiError(403, "You are not an authorized participant in this interview");
       }
-      // Auto-register staff member
-      participant = await InterviewParticipant.create({
-        interviewId,
-        userId,
-        organizationId,
-        role: PARTICIPANT_ROLES.INTERVIEWER,
-        status: PARTICIPANT_STATUSES.JOINED,
-        joinedAt: new Date(),
-      });
+
+      // Enforce strict 1-candidate active room lock
+      const activePeers = SignalingService.getActiveRoomParticipants(interviewId);
+      const otherCandidate = activePeers.find(
+        (p) => p.role === PARTICIPANT_ROLES.CANDIDATE && String(p.userId) !== String(userId)
+      );
+      if (otherCandidate) {
+        throw new ApiError(409, "Another candidate is currently undergoing viva evaluation in this room. Please wait in the queue for your turn.");
+      }
+
+      if (!participant) {
+        participant = await InterviewParticipant.create({
+          interviewId,
+          userId,
+          organizationId: organizationId || interview.organizationId,
+          role: PARTICIPANT_ROLES.CANDIDATE,
+          status: PARTICIPANT_STATUSES.JOINED,
+          joinedAt: new Date(),
+        });
+      } else {
+        participant.status = PARTICIPANT_STATUSES.JOINED;
+        participant.joinedAt = new Date();
+        await participant.save();
+      }
     } else {
-      participant.status = PARTICIPANT_STATUSES.JOINED;
-      participant.joinedAt = new Date();
-      await participant.save();
+      // Auto-register staff member
+      if (!participant) {
+        participant = await InterviewParticipant.create({
+          interviewId,
+          userId,
+          organizationId: organizationId || interview.organizationId,
+          role: PARTICIPANT_ROLES.INTERVIEWER,
+          status: PARTICIPANT_STATUSES.JOINED,
+          joinedAt: new Date(),
+        });
+      } else {
+        participant.status = PARTICIPANT_STATUSES.JOINED;
+        participant.joinedAt = new Date();
+        await participant.save();
+      }
     }
 
     // Advance interview status to LIVE
@@ -383,12 +444,13 @@ export class InterviewService {
       throw new ApiError(400, "Invalid interview ID format");
     }
 
-    const interview = await Interview.findOne({ _id: interviewId, organizationId });
+    const interview = await Interview.findById(interviewId);
     if (!interview) {
       throw new ApiError(404, "Interview not found");
     }
 
     interview.status = INTERVIEW_STATUSES.COMPLETED;
+    interview.actualEndAt = new Date();
     await interview.save();
 
     await InterviewSession.updateMany(
@@ -396,16 +458,21 @@ export class InterviewService {
       { status: SESSION_STATUSES.ENDED, endedAt: new Date() }
     );
 
+    await InterviewParticipant.updateMany(
+      { interviewId },
+      { status: PARTICIPANT_STATUSES.LEFT, leftAt: new Date() }
+    );
+
     await InterviewEvent.create({
       interviewId,
-      organizationId,
+      organizationId: interview.organizationId,
       userId,
       type: INTERVIEW_EVENT_TYPES.INTERVIEW_ENDED,
       data: { endedAt: new Date() },
     });
 
     AuditLogService.createAuditLog({
-      organizationId,
+      organizationId: interview.organizationId,
       actorId: userId,
       action: "END",
       resource: "INTERVIEW",
@@ -433,16 +500,19 @@ export class InterviewService {
       throw new ApiError(400, "Cannot edit an interview that has already been completed");
     }
 
+    // Candidate assignment is permanent and immutable once scheduled
+    if (updateData.candidateId && interview.candidateId && String(updateData.candidateId) !== String(interview.candidateId)) {
+      throw new ApiError(400, "The assigned candidate for a scheduled interview is permanent and cannot be changed.");
+    }
+
     const allowedFields = [
       "title",
       "description",
       "type",
       "scheduledStartAt",
       "scheduledEndAt",
-      "candidateId",
-      "candidateName",
-      "candidateEmail",
       "settings",
+      "questions",
       "rubrics",
       "metadata",
     ];
@@ -792,6 +862,73 @@ export class InterviewService {
         isGuest: true,
       },
     };
+  }
+
+  /**
+   * Updates an existing interview with strict candidate immutability enforcement
+   */
+  static async updateInterview(organizationId, interviewId, updateData, userId) {
+    if (!mongoose.Types.ObjectId.isValid(interviewId)) {
+      throw new ApiError(400, "Invalid interview ID format");
+    }
+
+    const interview = await Interview.findOne({ _id: interviewId, organizationId });
+    if (!interview) {
+      throw new ApiError(404, "Interview not found");
+    }
+
+    // Candidate Immutability Rule: Once scheduled for a person, candidate cannot be reassigned
+    if (updateData.candidateId && interview.candidateId) {
+      const existingCandId = String(interview.candidateId._id || interview.candidateId);
+      const incomingCandId = String(updateData.candidateId);
+      if (existingCandId !== incomingCandId) {
+        throw new ApiError(400, "The assigned candidate for a scheduled interview is permanent and cannot be changed.");
+      }
+    }
+
+    // Allowed updatable fields
+    if (updateData.title) interview.title = updateData.title;
+    if (updateData.description !== undefined) interview.description = updateData.description;
+    if (updateData.type) interview.type = updateData.type;
+    if (updateData.scheduledStartAt) interview.scheduledStartAt = new Date(updateData.scheduledStartAt);
+    if (updateData.scheduledEndAt) interview.scheduledEndAt = new Date(updateData.scheduledEndAt);
+    if (Array.isArray(updateData.questions)) interview.questions = updateData.questions;
+
+    if (updateData.settings) {
+      interview.settings = {
+        ...interview.settings,
+        ...updateData.settings,
+      };
+    }
+
+    if (updateData.metadata) {
+      interview.metadata = {
+        ...interview.metadata,
+        ...updateData.metadata,
+      };
+    }
+
+    await interview.save();
+
+    // Audit Event
+    await InterviewEvent.create({
+      interviewId: interview._id,
+      organizationId,
+      userId,
+      type: INTERVIEW_EVENT_TYPES.SETTINGS_UPDATED,
+      data: { updatedBy: userId, updatedAt: new Date() },
+    }).catch(() => {});
+
+    AuditLogService.createAuditLog({
+      organizationId,
+      actorId: userId,
+      action: "UPDATE",
+      resource: "INTERVIEW",
+      resourceId: interview._id,
+      description: `Updated scheduled interview '${interview.title}' (Candidate assignment locked)`,
+    }).catch(() => {});
+
+    return interview;
   }
 }
 

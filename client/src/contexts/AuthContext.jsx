@@ -26,15 +26,32 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
+    const resolveRoleName = (source) => {
+      if (!source) return null;
+      if (typeof source === 'object') {
+        const candidate = source.name || source.roleName || source.role || source.platformRole;
+        if (candidate && typeof candidate === 'string') return candidate;
+      }
+      if (typeof source === 'string') {
+        const upper = source.toUpperCase();
+        if (/^[0-9a-fA-F]{24}$/.test(source) && !['ORGANIZATION_OWNER', 'ORGANIZATION_ADMIN', 'EXAMINER', 'PROCTOR', 'CANDIDATE'].includes(upper)) {
+          return null;
+        }
+        return source;
+      }
+      return null;
+    };
+
     try {
       const data = await authService.getMe();
       const verifiedUser = data.user || data;
       const memberships = data.memberships || [];
       const primaryRole =
-        verifiedUser.platformRole ||
-        memberships[0]?.roleId?.name ||
-        memberships[0]?.role?.name ||
-        verifiedUser.role ||
+        resolveRoleName(verifiedUser.platformRole) ||
+        resolveRoleName(memberships[0]?.role) ||
+        resolveRoleName(memberships[0]?.roleId) ||
+        resolveRoleName(memberships[0]?.roleName) ||
+        resolveRoleName(verifiedUser.role) ||
         null;
       const userObject = { ...verifiedUser, memberships, role: primaryRole };
       setUser(userObject);
@@ -62,16 +79,33 @@ export const AuthProvider = ({ children }) => {
       // Clear previous organization context to prevent tenant leakage
       localStorage.removeItem('secureassess_current_org_id');
 
+      const resolveRoleName = (source) => {
+        if (!source) return null;
+        if (typeof source === 'object') {
+          const candidate = source.name || source.roleName || source.role || source.platformRole;
+          if (candidate && typeof candidate === 'string') return candidate;
+        }
+        if (typeof source === 'string') {
+          const upper = source.toUpperCase();
+          if (/^[0-9a-fA-F]{24}$/.test(source) && !['ORGANIZATION_OWNER', 'ORGANIZATION_ADMIN', 'EXAMINER', 'PROCTOR', 'CANDIDATE'].includes(upper)) {
+            return null;
+          }
+          return source;
+        }
+        return null;
+      };
+
       const data = await authService.login(email, password);
       const authUser = data.user || data;
       const token = data.tokens?.accessToken || data.accessToken || data.token;
       const refreshToken = data.tokens?.refreshToken || data.refreshToken;
       const memberships = data.memberships || [];
       const primaryRole =
-        authUser.platformRole ||
-        memberships[0]?.roleId?.name ||
-        memberships[0]?.role?.name ||
-        authUser.role ||
+        resolveRoleName(authUser.platformRole) ||
+        resolveRoleName(memberships[0]?.role) ||
+        resolveRoleName(memberships[0]?.roleId) ||
+        resolveRoleName(memberships[0]?.roleName) ||
+        resolveRoleName(authUser.role) ||
         null;
 
       const userObject = { ...authUser, memberships, role: primaryRole };

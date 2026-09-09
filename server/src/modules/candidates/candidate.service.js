@@ -493,15 +493,59 @@ export class CandidateService {
    * Resolves active candidate profile for authenticated user
    */
   static async getCandidatePortalProfile(userId, organizationId = null) {
-    const filter = { userId, status: { $ne: "DEACTIVATED" } };
+    let filter = { userId, status: { $ne: "DEACTIVATED" } };
     if (organizationId) filter.organizationId = organizationId;
 
-    const candidate = await Candidate.findOne(filter)
+    let candidate = await Candidate.findOne(filter)
       .populate("organizationId", "name slug code logo settings tenantIndustry")
       .populate("departmentId", "name code")
       .populate("programId", "name code")
       .populate("candidateGroupId", "name code")
       .populate("userId", "firstName lastName email avatar");
+
+    if (!candidate) {
+      // Fallback 1: Resolve user by userId and match via email
+      const user = await User.findById(userId);
+      if (user && user.email) {
+        const emailFilter = { email: user.email.toLowerCase(), status: { $ne: "DEACTIVATED" } };
+        if (organizationId) emailFilter.organizationId = organizationId;
+
+        candidate = await Candidate.findOne(emailFilter)
+          .populate("organizationId", "name slug code logo settings tenantIndustry")
+          .populate("departmentId", "name code")
+          .populate("programId", "name code")
+          .populate("candidateGroupId", "name code")
+          .populate("userId", "firstName lastName email avatar");
+
+        if (candidate) {
+          if (!candidate.userId) {
+            candidate.userId = user._id;
+            await candidate.save();
+          }
+        } else {
+          // Fallback 2: Auto-create candidate profile for authenticated organization student
+          const targetOrgId = organizationId || (await UserMembership.findOne({ userId }))?.organizationId;
+          if (targetOrgId) {
+            const newCandidate = await Candidate.create({
+              organizationId: targetOrgId,
+              userId: user._id,
+              candidateCode: `CAND-${user._id.toString().slice(-6).toUpperCase()}`,
+              firstName: user.firstName || "Student",
+              lastName: user.lastName || "Candidate",
+              email: user.email.toLowerCase(),
+              status: "ACTIVE",
+            });
+
+            candidate = await Candidate.findById(newCandidate._id)
+              .populate("organizationId", "name slug code logo settings tenantIndustry")
+              .populate("departmentId", "name code")
+              .populate("programId", "name code")
+              .populate("candidateGroupId", "name code")
+              .populate("userId", "firstName lastName email avatar");
+          }
+        }
+      }
+    }
 
     if (!candidate) {
       throw new ApiError(404, "Candidate profile not found for authenticated user in this organization");
@@ -548,10 +592,10 @@ export class CandidateService {
     const assignments = await AssessmentAssignment.find({
       organizationId: candidate.organizationId._id || candidate.organizationId,
       candidateId: candidate._id,
-      status: { $in: ["ASSIGNED", "SCHEDULED", "IN_PROGRESS", "COMPLETED"] },
+      status: { $in: ["ASSIGNED", "AVAILABLE", "SCHEDULED", "IN_PROGRESS", "COMPLETED"] },
     })
       .populate("assessmentId", "title description durationMinutes totalPoints passingScore code instructions settings.allowCandidatePause settings.enforceFullscreen")
-      .sort({ validFrom: -1 })
+      .sort({ createdAt: -1 })
       .lean();
 
     return assignments;
@@ -642,10 +686,29 @@ export class CandidateService {
    */
   static async getCandidatePortalInterviews(userId, organizationId = null) {
     const candidate = await this.getCandidatePortalProfile(userId, organizationId);
+    const orgId = candidate.organizationId._id || candidate.organizationId;
+
+    // Find all interviews explicitly linked to candidate or assigned to candidate's academic structure
+    const orConditions = [
+      { candidateId: candidate._id },
+    ];
+
+    if (candidate.departmentId) {
+      orConditions.push({ "metadata.departmentId": String(candidate.departmentId) });
+      orConditions.push({ "metadata.departmentId": candidate.departmentId });
+    }
+    if (candidate.programId) {
+      orConditions.push({ "metadata.programId": String(candidate.programId) });
+      orConditions.push({ "metadata.programId": candidate.programId });
+    }
+    if (candidate.candidateGroupId) {
+      orConditions.push({ "metadata.candidateGroupId": String(candidate.candidateGroupId) });
+      orConditions.push({ "metadata.candidateGroupId": candidate.candidateGroupId });
+    }
 
     const interviews = await Interview.find({
-      organizationId: candidate.organizationId._id || candidate.organizationId,
-      candidateId: candidate._id,
+      organizationId: orgId,
+      $or: orConditions,
       status: { $nin: ["CANCELLED"] },
     })
       .populate("assessmentId", "title code")

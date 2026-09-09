@@ -18,16 +18,11 @@ export const seedInterviews = async () => {
     return;
   }
 
-  // Quick Idempotency Check
-  const existingInterviews = await Interview.countDocuments({ organizationId: org._id });
-  if (existingInterviews >= 3) {
-    logger.info(`[Seeder] Live interviews (${existingInterviews} sessions) already seeded, skipping.`);
-    return;
-  }
+
 
   // Find users & candidates
-  const faculty = await User.findOne({ email: "faculty@stanford.edu" }) || await User.findOne({});
-  const candidates = await Candidate.find({ organizationId: org._id }).limit(5);
+  const faculty = await User.findOne({ email: "professor@stanford.edu" }) || await User.findOne({ email: "dean@stanford.edu" }) || await User.findOne({});
+  const candidates = await Candidate.find({ organizationId: org._id });
   const assessment = await Assessment.findOne({ organizationId: org._id });
 
   if (!candidates || candidates.length === 0) {
@@ -106,7 +101,6 @@ export const seedInterviews = async () => {
     let interview = await Interview.findOne({
       organizationId: org._id,
       title: item.title,
-      candidateId: cand._id,
     });
 
     if (!interview) {
@@ -123,53 +117,43 @@ export const seedInterviews = async () => {
         candidateId: cand._id,
         settings: item.settings,
       });
+      logger.info(`[Seeder] Created interview: '${interview.title}' for candidate '${cand.firstName} ${cand.lastName}'`);
+    } else {
+      interview.createdBy = faculty._id;
+      interview.candidateId = cand._id;
+      interview.status = item.status;
+      interview.scheduledStartAt = item.scheduledStartAt;
+      interview.scheduledEndAt = item.scheduledEndAt;
+      await interview.save();
+    }
 
-      // Register Candidate as Participant
-      if (cand.userId) {
-        await InterviewParticipant.findOneAndUpdate(
-          { interviewId: interview._id, userId: cand.userId },
-          {
-            interviewId: interview._id,
-            userId: cand.userId,
-            organizationId: org._id,
-            role: PARTICIPANT_ROLES.CANDIDATE,
-            status: item.status === INTERVIEW_STATUSES.COMPLETED ? PARTICIPANT_STATUSES.JOINED : PARTICIPANT_STATUSES.INVITED,
-          },
-          { upsert: true }
-        );
-      }
-
-      // Register Interviewer
+    // Register Candidate as Participant
+    if (cand.userId) {
       await InterviewParticipant.findOneAndUpdate(
-        { interviewId: interview._id, userId: faculty._id },
+        { interviewId: interview._id, userId: cand.userId },
         {
           interviewId: interview._id,
-          userId: faculty._id,
+          userId: cand.userId,
           organizationId: org._id,
-          role: PARTICIPANT_ROLES.INTERVIEWER,
+          role: PARTICIPANT_ROLES.CANDIDATE,
           status: item.status === INTERVIEW_STATUSES.COMPLETED ? PARTICIPANT_STATUSES.JOINED : PARTICIPANT_STATUSES.INVITED,
         },
         { upsert: true }
       );
-
-      // Add sample initial note for completed interview
-      if (item.status === INTERVIEW_STATUSES.COMPLETED) {
-        await InterviewEvent.create({
-          interviewId: interview._id,
-          organizationId: org._id,
-          userId: faculty._id,
-          type: INTERVIEW_EVENT_TYPES.INTERVIEW_NOTE_ADDED,
-          data: {
-            content: "Candidate displayed strong foundational understanding of recursive tree traversal and graph decomposition.",
-            category: "TECHNICAL",
-            rating: 4.8,
-            isPrivate: true,
-          },
-        });
-      }
-
-      logger.info(`[Seeder] Created interview: '${interview.title}' for candidate '${cand.firstName} ${cand.lastName}'`);
     }
+
+    // Register Interviewer
+    await InterviewParticipant.findOneAndUpdate(
+      { interviewId: interview._id, userId: faculty._id },
+      {
+        interviewId: interview._id,
+        userId: faculty._id,
+        organizationId: org._id,
+        role: PARTICIPANT_ROLES.INTERVIEWER,
+        status: item.status === INTERVIEW_STATUSES.COMPLETED ? PARTICIPANT_STATUSES.JOINED : PARTICIPANT_STATUSES.INVITED,
+      },
+      { upsert: true }
+    );
   }
 
   logger.info("[Seeder] Live interviews seeded successfully!");

@@ -73,6 +73,10 @@ router.get("/health/ready", (req, res) => {
   );
 });
 
+router.get(["/health/plan", "/health/plans"], (req, res) => {
+  return res.redirect("/api/v1/plans");
+});
+
 // Public Credential Verification Endpoint
 router.get(
   "/public/certificates/verify/:verificationCode",

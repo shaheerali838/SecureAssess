@@ -430,178 +430,592 @@ export const ROLE_PERMISSIONS = Object.freeze({
  */
 export const SIDEBAR_CONFIG = Object.freeze({
   [ROLES.PLATFORM_OWNER]: [
-    { label: "Dashboard", path: "/platform/dashboard", id: "platform-dashboard", icon: "LayoutDashboard", permission: PERMISSIONS.PLATFORM_VIEW },
+    {
+      label: "Dashboard",
+      path: "/platform/dashboard",
+      id: "platform-dashboard",
+      icon: "LayoutDashboard",
+      permission: PERMISSIONS.PLATFORM_VIEW,
+    },
     {
       group: "Tenants & Workspaces",
       items: [
-        { label: "Tenant Organizations", path: "/platform/organizations", id: "platform-organizations", icon: "Building2", permission: PERMISSIONS.ORGANIZATIONS_VIEW },
-        { label: "Provision Tenant", path: "/platform/onboarding", id: "platform-onboarding", icon: "PlusCircle", permission: PERMISSIONS.ORGANIZATIONS_CREATE },
+        {
+          label: "Tenant Organizations",
+          path: "/platform/organizations",
+          id: "platform-organizations",
+          icon: "Building2",
+          permission: PERMISSIONS.ORGANIZATIONS_VIEW,
+        },
+        {
+          label: "Provision Tenant",
+          path: "/platform/onboarding",
+          id: "platform-onboarding",
+          icon: "PlusCircle",
+          permission: PERMISSIONS.ORGANIZATIONS_CREATE,
+        },
       ],
     },
     {
       group: "Security & Governance",
       items: [
-        { label: "Security Center", path: "/platform/security", id: "platform-security", icon: "ShieldCheck", permission: PERMISSIONS.PLATFORM_SECURITY_VIEW },
-        { label: "Audit Logs", path: "/platform/audit-logs", id: "platform-audit-logs", icon: "FileText", permission: PERMISSIONS.PLATFORM_AUDIT_LOGS_VIEW },
-        { label: "Platform Access", path: "/platform/access", id: "platform-access", icon: "Key", permission: PERMISSIONS.PLATFORM_ACCESS_MANAGE },
+        {
+          label: "Security Center",
+          path: "/platform/security",
+          id: "platform-security",
+          icon: "ShieldCheck",
+          permission: PERMISSIONS.PLATFORM_SECURITY_VIEW,
+        },
+        {
+          label: "Audit Logs",
+          path: "/platform/audit-logs",
+          id: "platform-audit-logs",
+          icon: "FileText",
+          permission: PERMISSIONS.PLATFORM_AUDIT_LOGS_VIEW,
+        },
+        {
+          label: "Platform Access",
+          path: "/platform/access",
+          id: "platform-access",
+          icon: "Key",
+          permission: PERMISSIONS.PLATFORM_ACCESS_MANAGE,
+        },
       ],
     },
     {
       group: "Infrastructure & Health",
       items: [
-        { label: "System Monitoring", path: "/platform/monitoring", id: "platform-monitoring", icon: "BarChart3", permission: PERMISSIONS.PLATFORM_MONITORING_VIEW },
-        { label: "Service Health", path: "/platform/services", id: "platform-services", icon: "Activity", permission: PERMISSIONS.PLATFORM_SERVICES_VIEW },
+        {
+          label: "System Monitoring",
+          path: "/platform/monitoring",
+          id: "platform-monitoring",
+          icon: "BarChart3",
+          permission: PERMISSIONS.PLATFORM_MONITORING_VIEW,
+        },
+        {
+          label: "Service Health",
+          path: "/platform/services",
+          id: "platform-services",
+          icon: "Activity",
+          permission: PERMISSIONS.PLATFORM_SERVICES_VIEW,
+        },
       ],
     },
     {
       group: "Commercial & Plans",
       items: [
-        { label: "Subscription Plans", path: "/platform/plans", id: "platform-plans", icon: "ClipboardList", permission: PERMISSIONS.PLATFORM_PLANS_MANAGE },
-        { label: "Platform Billing", path: "/platform/billing", id: "platform-billing", icon: "CreditCard", permission: PERMISSIONS.PLATFORM_BILLING_MANAGE },
+        {
+          label: "Subscription Plans",
+          path: "/platform/plans",
+          id: "platform-plans",
+          icon: "ClipboardList",
+          permission: PERMISSIONS.PLATFORM_PLANS_MANAGE,
+        },
+        {
+          label: "Platform Billing",
+          path: "/platform/billing",
+          id: "platform-billing",
+          icon: "CreditCard",
+          permission: PERMISSIONS.PLATFORM_BILLING_MANAGE,
+        },
       ],
     },
-    { label: "Platform Settings", path: "/platform/settings", id: "platform-settings", icon: "Settings", permission: PERMISSIONS.PLATFORM_SETTINGS_MANAGE },
+    {
+      label: "Platform Settings",
+      path: "/platform/settings",
+      id: "platform-settings",
+      icon: "Settings",
+      permission: PERMISSIONS.PLATFORM_SETTINGS_MANAGE,
+    },
   ],
 
   [ROLES.PLATFORM_ADMIN]: [
-    { label: "Dashboard", path: "/platform/dashboard", id: "platform-dashboard", icon: "LayoutDashboard", permission: PERMISSIONS.PLATFORM_VIEW },
+    {
+      label: "Dashboard",
+      path: "/platform/dashboard",
+      id: "platform-dashboard",
+      icon: "LayoutDashboard",
+      permission: PERMISSIONS.PLATFORM_VIEW,
+    },
     {
       group: "Tenants & Workspaces",
       items: [
-        { label: "Tenant Organizations", path: "/platform/organizations", id: "platform-organizations", icon: "Building2", permission: PERMISSIONS.ORGANIZATIONS_VIEW },
-        { label: "Provision Tenant", path: "/platform/onboarding", id: "platform-onboarding", icon: "PlusCircle", permission: PERMISSIONS.ORGANIZATIONS_CREATE },
+        {
+          label: "Tenant Organizations",
+          path: "/platform/organizations",
+          id: "platform-organizations",
+          icon: "Building2",
+          permission: PERMISSIONS.ORGANIZATIONS_VIEW,
+        },
+        {
+          label: "Provision Tenant",
+          path: "/platform/onboarding",
+          id: "platform-onboarding",
+          icon: "PlusCircle",
+          permission: PERMISSIONS.ORGANIZATIONS_CREATE,
+        },
       ],
     },
     {
       group: "Security & Governance",
       items: [
-        { label: "Security Center", path: "/platform/security", id: "platform-security", icon: "ShieldCheck", permission: PERMISSIONS.PLATFORM_SECURITY_VIEW },
-        { label: "Audit Logs", path: "/platform/audit-logs", id: "platform-audit-logs", icon: "FileText", permission: PERMISSIONS.PLATFORM_AUDIT_LOGS_VIEW },
-        { label: "Platform Access", path: "/platform/access", id: "platform-access", icon: "Key", permission: PERMISSIONS.PLATFORM_ACCESS_MANAGE },
+        {
+          label: "Security Center",
+          path: "/platform/security",
+          id: "platform-security",
+          icon: "ShieldCheck",
+          permission: PERMISSIONS.PLATFORM_SECURITY_VIEW,
+        },
+        {
+          label: "Audit Logs",
+          path: "/platform/audit-logs",
+          id: "platform-audit-logs",
+          icon: "FileText",
+          permission: PERMISSIONS.PLATFORM_AUDIT_LOGS_VIEW,
+        },
+        {
+          label: "Platform Access",
+          path: "/platform/access",
+          id: "platform-access",
+          icon: "Key",
+          permission: PERMISSIONS.PLATFORM_ACCESS_MANAGE,
+        },
       ],
     },
     {
       group: "Infrastructure & Health",
       items: [
-        { label: "System Monitoring", path: "/platform/monitoring", id: "platform-monitoring", icon: "BarChart3", permission: PERMISSIONS.PLATFORM_MONITORING_VIEW },
-        { label: "Service Health", path: "/platform/services", id: "platform-services", icon: "Activity", permission: PERMISSIONS.PLATFORM_SERVICES_VIEW },
+        {
+          label: "System Monitoring",
+          path: "/platform/monitoring",
+          id: "platform-monitoring",
+          icon: "BarChart3",
+          permission: PERMISSIONS.PLATFORM_MONITORING_VIEW,
+        },
+        {
+          label: "Service Health",
+          path: "/platform/services",
+          id: "platform-services",
+          icon: "Activity",
+          permission: PERMISSIONS.PLATFORM_SERVICES_VIEW,
+        },
       ],
     },
     {
       group: "Commercial & Plans",
       items: [
-        { label: "Subscription Plans", path: "/platform/plans", id: "platform-plans", icon: "ClipboardList", permission: PERMISSIONS.PLATFORM_PLANS_MANAGE },
-        { label: "Platform Billing", path: "/platform/billing", id: "platform-billing", icon: "CreditCard", permission: PERMISSIONS.PLATFORM_BILLING_MANAGE },
+        {
+          label: "Subscription Plans",
+          path: "/platform/plans",
+          id: "platform-plans",
+          icon: "ClipboardList",
+          permission: PERMISSIONS.PLATFORM_PLANS_MANAGE,
+        },
+        {
+          label: "Platform Billing",
+          path: "/platform/billing",
+          id: "platform-billing",
+          icon: "CreditCard",
+          permission: PERMISSIONS.PLATFORM_BILLING_MANAGE,
+        },
       ],
     },
-    { label: "Platform Settings", path: "/platform/settings", id: "platform-settings", icon: "Settings", permission: PERMISSIONS.PLATFORM_SETTINGS_MANAGE },
+    {
+      label: "Platform Settings",
+      path: "/platform/settings",
+      id: "platform-settings",
+      icon: "Settings",
+      permission: PERMISSIONS.PLATFORM_SETTINGS_MANAGE,
+    },
   ],
 
   [ROLES.ORGANIZATION_OWNER]: [
-    { label: "Dashboard", path: "/organization/dashboard", id: "org-dashboard", icon: "LayoutDashboard", permission: PERMISSIONS.ORG_PROFILE_VIEW },
+    {
+      label: "Dashboard",
+      path: "/organization/dashboard",
+      id: "org-dashboard",
+      icon: "LayoutDashboard",
+      permission: PERMISSIONS.ORG_PROFILE_VIEW,
+    },
     {
       group: "Assessments",
       items: [
-        { label: "Assessments Library", path: "/organization/assessments", id: "org-assessments", icon: "FileText", permission: PERMISSIONS.ASSESSMENTS_VIEW },
-        { label: "Create Assessment", path: "/organization/builder", id: "org-assessment-builder", icon: "PlusCircle", permission: PERMISSIONS.ASSESSMENTS_CREATE },
-        { label: "Question Banks", path: "/organization/question-bank", id: "org-question-bank", icon: "Library", permission: PERMISSIONS.QUESTION_BANKS_VIEW },
+        {
+          label: "Assessments Library",
+          path: "/organization/assessments",
+          id: "org-assessments",
+          icon: "FileText",
+          permission: PERMISSIONS.ASSESSMENTS_VIEW,
+        },
+        {
+          label: "Create Assessment",
+          path: "/organization/builder",
+          id: "org-assessment-builder",
+          icon: "PlusCircle",
+          permission: PERMISSIONS.ASSESSMENTS_CREATE,
+        },
+        {
+          label: "Question Banks",
+          path: "/organization/question-bank",
+          id: "org-question-bank",
+          icon: "Library",
+          permission: PERMISSIONS.QUESTION_BANKS_VIEW,
+        },
       ],
     },
     {
       group: "Interviews",
       items: [
-        { label: "Live Interviews", path: "/organization/interviews", id: "org-interviews", icon: "Video", permission: PERMISSIONS.INTERVIEWS_VIEW },
-        { label: "Grading & Rubrics", path: "/organization/evaluations", id: "org-evaluations", icon: "ClipboardList", permission: PERMISSIONS.EVALUATIONS_VIEW },
+        {
+          label: "Live Interviews",
+          path: "/organization/interviews",
+          id: "org-interviews",
+          icon: "Video",
+          permission: PERMISSIONS.INTERVIEWS_VIEW,
+        },
+        {
+          label: "Grading & Rubrics",
+          path: "/organization/evaluations",
+          id: "org-evaluations",
+          icon: "ClipboardList",
+          permission: PERMISSIONS.EVALUATIONS_VIEW,
+        },
       ],
     },
-    { label: "Candidate Roster", path: "/organization/participants", id: "org-participants", icon: "Users", permission: PERMISSIONS.CANDIDATES_VIEW },
-    { label: "Academic Structure", path: "/organization/structure", id: "org-structure", icon: "GraduationCap", permission: PERMISSIONS.DEPARTMENTS_VIEW },
-    { label: "Team & Staff", path: "/organization/users", id: "org-users", icon: "Users", permission: PERMISSIONS.ORG_USERS_VIEW },
+    {
+      label: "Candidate Roster",
+      path: "/organization/participants",
+      id: "org-participants",
+      icon: "Users",
+      permission: PERMISSIONS.CANDIDATES_VIEW,
+    },
+    {
+      label: "Academic Structure",
+      path: "/organization/structure",
+      id: "org-structure",
+      icon: "GraduationCap",
+      permission: PERMISSIONS.DEPARTMENTS_VIEW,
+    },
+    {
+      label: "Team & Staff",
+      path: "/organization/users",
+      id: "org-users",
+      icon: "Users",
+      permission: PERMISSIONS.ORG_USERS_VIEW,
+    },
     {
       group: "Proctoring & Integrity",
       items: [
-        { label: "Live Telemetry", path: "/organization/integrity", id: "org-integrity", icon: "ShieldCheck", permission: PERMISSIONS.PROCTORING_VIEW },
-        { label: "Incident Evidence", path: "/organization/integrity/evidence", id: "org-integrity-evidence", icon: "ShieldAlert", permission: PERMISSIONS.PROCTORING_FLAG },
-        { label: "Session Archive", path: "/organization/sessions", id: "org-sessions", icon: "Activity", permission: PERMISSIONS.PROCTORING_SESSIONS_VIEW },
+        {
+          label: "Live Telemetry",
+          path: "/organization/integrity",
+          id: "org-integrity",
+          icon: "ShieldCheck",
+          permission: PERMISSIONS.PROCTORING_VIEW,
+        },
+        {
+          label: "Incident Evidence",
+          path: "/organization/integrity/evidence",
+          id: "org-integrity-evidence",
+          icon: "ShieldAlert",
+          permission: PERMISSIONS.PROCTORING_FLAG,
+        },
+        {
+          label: "Session Archive",
+          path: "/organization/sessions",
+          id: "org-sessions",
+          icon: "Activity",
+          permission: PERMISSIONS.PROCTORING_SESSIONS_VIEW,
+        },
       ],
     },
-    { label: "Results & Reports", path: "/organization/reports", id: "org-reports", icon: "BarChart3", permission: PERMISSIONS.REPORTS_VIEW },
-    { label: "Billing", path: "/organization/billing", id: "org-billing", icon: "CreditCard", permission: PERMISSIONS.TENANT_BILLING_VIEW },
-    { label: "Workspace Settings", path: "/organization/settings", id: "org-settings", icon: "Settings", permission: PERMISSIONS.ORG_PROFILE_UPDATE },
+    {
+      label: "Results & Reports",
+      path: "/organization/reports",
+      id: "org-reports",
+      icon: "BarChart3",
+      permission: PERMISSIONS.REPORTS_VIEW,
+    },
+    {
+      label: "Billing",
+      path: "/organization/billing",
+      id: "org-billing",
+      icon: "CreditCard",
+      permission: PERMISSIONS.TENANT_BILLING_VIEW,
+    },
+    {
+      label: "Workspace Settings",
+      path: "/organization/settings",
+      id: "org-settings",
+      icon: "Settings",
+      permission: PERMISSIONS.ORG_PROFILE_UPDATE,
+    },
   ],
 
   [ROLES.ORGANIZATION_ADMIN]: [
-    { label: "Dashboard", path: "/organization/dashboard", id: "org-dashboard", icon: "LayoutDashboard", permission: PERMISSIONS.ORG_PROFILE_VIEW },
+    {
+      label: "Dashboard",
+      path: "/organization/dashboard",
+      id: "org-dashboard",
+      icon: "LayoutDashboard",
+      permission: PERMISSIONS.ORG_PROFILE_VIEW,
+    },
     {
       group: "Assessments",
       items: [
-        { label: "Assessments Library", path: "/organization/assessments", id: "org-assessments", icon: "FileText", permission: PERMISSIONS.ASSESSMENTS_VIEW },
-        { label: "Create Assessment", path: "/organization/builder", id: "org-assessment-builder", icon: "PlusCircle", permission: PERMISSIONS.ASSESSMENTS_CREATE },
-        { label: "Question Banks", path: "/organization/question-bank", id: "org-question-bank", icon: "Library", permission: PERMISSIONS.QUESTION_BANKS_VIEW },
+        {
+          label: "Assessments Library",
+          path: "/organization/assessments",
+          id: "org-assessments",
+          icon: "FileText",
+          permission: PERMISSIONS.ASSESSMENTS_VIEW,
+        },
+        {
+          label: "Create Assessment",
+          path: "/organization/builder",
+          id: "org-assessment-builder",
+          icon: "PlusCircle",
+          permission: PERMISSIONS.ASSESSMENTS_CREATE,
+        },
+        {
+          label: "Question Banks",
+          path: "/organization/question-bank",
+          id: "org-question-bank",
+          icon: "Library",
+          permission: PERMISSIONS.QUESTION_BANKS_VIEW,
+        },
       ],
     },
     {
       group: "Interviews",
       items: [
-        { label: "Live Interviews", path: "/organization/interviews", id: "org-interviews", icon: "Video", permission: PERMISSIONS.INTERVIEWS_VIEW },
-        { label: "Grading & Rubrics", path: "/organization/evaluations", id: "org-evaluations", icon: "ClipboardList", permission: PERMISSIONS.EVALUATIONS_VIEW },
+        {
+          label: "Live Interviews",
+          path: "/organization/interviews",
+          id: "org-interviews",
+          icon: "Video",
+          permission: PERMISSIONS.INTERVIEWS_VIEW,
+        },
+        {
+          label: "Grading & Rubrics",
+          path: "/organization/evaluations",
+          id: "org-evaluations",
+          icon: "ClipboardList",
+          permission: PERMISSIONS.EVALUATIONS_VIEW,
+        },
       ],
     },
-    { label: "Candidate Roster", path: "/organization/participants", id: "org-participants", icon: "Users", permission: PERMISSIONS.CANDIDATES_VIEW },
-    { label: "Academic Structure", path: "/organization/structure", id: "org-structure", icon: "GraduationCap", permission: PERMISSIONS.DEPARTMENTS_VIEW },
-    { label: "Team & Staff", path: "/organization/users", id: "org-users", icon: "Users", permission: PERMISSIONS.ORG_USERS_VIEW },
+    {
+      label: "Candidate Roster",
+      path: "/organization/participants",
+      id: "org-participants",
+      icon: "Users",
+      permission: PERMISSIONS.CANDIDATES_VIEW,
+    },
+    {
+      label: "Academic Structure",
+      path: "/organization/structure",
+      id: "org-structure",
+      icon: "GraduationCap",
+      permission: PERMISSIONS.DEPARTMENTS_VIEW,
+    },
+    {
+      label: "Team & Staff",
+      path: "/organization/users",
+      id: "org-users",
+      icon: "Users",
+      permission: PERMISSIONS.ORG_USERS_VIEW,
+    },
     {
       group: "Proctoring & Integrity",
       items: [
-        { label: "Live Telemetry", path: "/organization/integrity", id: "org-integrity", icon: "ShieldCheck", permission: PERMISSIONS.PROCTORING_VIEW },
-        { label: "Incident Evidence", path: "/organization/integrity/evidence", id: "org-integrity-evidence", icon: "ShieldAlert", permission: PERMISSIONS.PROCTORING_FLAG },
-        { label: "Session Archive", path: "/organization/sessions", id: "org-sessions", icon: "Activity", permission: PERMISSIONS.PROCTORING_SESSIONS_VIEW },
+        {
+          label: "Live Telemetry",
+          path: "/organization/integrity",
+          id: "org-integrity",
+          icon: "ShieldCheck",
+          permission: PERMISSIONS.PROCTORING_VIEW,
+        },
+        {
+          label: "Incident Evidence",
+          path: "/organization/integrity/evidence",
+          id: "org-integrity-evidence",
+          icon: "ShieldAlert",
+          permission: PERMISSIONS.PROCTORING_FLAG,
+        },
+        {
+          label: "Session Archive",
+          path: "/organization/sessions",
+          id: "org-sessions",
+          icon: "Activity",
+          permission: PERMISSIONS.PROCTORING_SESSIONS_VIEW,
+        },
       ],
     },
-    { label: "Results & Reports", path: "/organization/reports", id: "org-reports", icon: "BarChart3", permission: PERMISSIONS.REPORTS_VIEW },
-    { label: "Workspace Settings", path: "/organization/settings", id: "org-settings", icon: "Settings", permission: PERMISSIONS.ORG_PROFILE_UPDATE },
+    {
+      label: "Results & Reports",
+      path: "/organization/reports",
+      id: "org-reports",
+      icon: "BarChart3",
+      permission: PERMISSIONS.REPORTS_VIEW,
+    },
+    {
+      label: "Workspace Settings",
+      path: "/organization/settings",
+      id: "org-settings",
+      icon: "Settings",
+      permission: PERMISSIONS.ORG_PROFILE_UPDATE,
+    },
   ],
 
   [ROLES.EXAMINER]: [
-    { label: "Dashboard", path: "/organization/dashboard", id: "org-dashboard", icon: "LayoutDashboard", permission: PERMISSIONS.ORG_PROFILE_VIEW },
+    {
+      label: "Dashboard",
+      path: "/organization/dashboard",
+      id: "org-dashboard",
+      icon: "LayoutDashboard",
+      permission: PERMISSIONS.ORG_PROFILE_VIEW,
+    },
     {
       group: "Assessments",
       items: [
-        { label: "My Assessments", path: "/organization/assessments", id: "org-assessments", icon: "FileText", permission: PERMISSIONS.ASSESSMENTS_VIEW },
-        { label: "Create Assessment", path: "/organization/builder", id: "org-assessment-builder", icon: "PlusCircle", permission: PERMISSIONS.ASSESSMENTS_CREATE },
-        { label: "Question Banks", path: "/organization/question-bank", id: "org-question-bank", icon: "Library", permission: PERMISSIONS.QUESTION_BANKS_VIEW },
+        {
+          label: "Assessments",
+          path: "/organization/assessments",
+          id: "org-assessments",
+          icon: "FileText",
+          permission: PERMISSIONS.ASSESSMENTS_VIEW,
+        },
+        {
+          label: "Create Assessment",
+          path: "/organization/builder",
+          id: "org-assessment-builder",
+          icon: "PlusCircle",
+          permission: PERMISSIONS.ASSESSMENTS_CREATE,
+        },
+        {
+          label: "Question Banks",
+          path: "/organization/question-bank",
+          id: "org-question-bank",
+          icon: "Library",
+          permission: PERMISSIONS.QUESTION_BANKS_VIEW,
+        },
       ],
     },
     {
       group: "Interviews",
       items: [
-        { label: "My Interviews", path: "/organization/interviews", id: "org-interviews", icon: "Video", permission: PERMISSIONS.INTERVIEWS_VIEW },
-        { label: "Evaluations & Rubrics", path: "/organization/evaluations", id: "org-evaluations", icon: "ClipboardList", permission: PERMISSIONS.EVALUATIONS_VIEW },
+        {
+          label: "Interviews",
+          path: "/organization/interviews",
+          id: "org-interviews",
+          icon: "Video",
+          permission: PERMISSIONS.INTERVIEWS_VIEW,
+        },
+        {
+          label: "Evaluations & Rubrics",
+          path: "/organization/evaluations",
+          id: "org-evaluations",
+          icon: "ClipboardList",
+          permission: PERMISSIONS.EVALUATIONS_VIEW,
+        },
       ],
     },
-    { label: "Candidate Roster", path: "/organization/participants", id: "org-participants", icon: "Users", permission: PERMISSIONS.CANDIDATES_VIEW },
-    { label: "Results & Performance", path: "/organization/reports", id: "org-reports", icon: "BarChart3", permission: PERMISSIONS.RESULTS_VIEW },
+    {
+      label: "Candidate Roster",
+      path: "/organization/participants",
+      id: "org-participants",
+      icon: "Users",
+      permission: PERMISSIONS.CANDIDATES_VIEW,
+    },
+    {
+      label: "Results & Performance",
+      path: "/organization/reports",
+      id: "org-reports",
+      icon: "BarChart3",
+      permission: PERMISSIONS.RESULTS_VIEW,
+    },
   ],
 
   [ROLES.PROCTOR]: [
-    { label: "Dashboard", path: "/organization/dashboard", id: "org-dashboard", icon: "LayoutDashboard", permission: PERMISSIONS.ORG_PROFILE_VIEW },
+    {
+      label: "Dashboard",
+      path: "/organization/dashboard",
+      id: "org-dashboard",
+      icon: "LayoutDashboard",
+      permission: PERMISSIONS.ORG_PROFILE_VIEW,
+    },
     {
       group: "Proctoring & Integrity",
       items: [
-        { label: "Live Telemetry", path: "/organization/integrity", id: "org-integrity", icon: "ShieldCheck", permission: PERMISSIONS.PROCTORING_VIEW },
-        { label: "Incident Evidence", path: "/organization/integrity/evidence", id: "org-integrity-evidence", icon: "ShieldAlert", permission: PERMISSIONS.PROCTORING_FLAG },
-        { label: "Session Archive", path: "/organization/sessions", id: "org-sessions", icon: "Activity", permission: PERMISSIONS.PROCTORING_SESSIONS_VIEW },
+        {
+          label: "Live Telemetry",
+          path: "/organization/integrity",
+          id: "org-integrity",
+          icon: "ShieldCheck",
+          permission: PERMISSIONS.PROCTORING_VIEW,
+        },
+        {
+          label: "Incident Evidence",
+          path: "/organization/integrity/evidence",
+          id: "org-integrity-evidence",
+          icon: "ShieldAlert",
+          permission: PERMISSIONS.PROCTORING_FLAG,
+        },
+        {
+          label: "Session Archive",
+          path: "/organization/sessions",
+          id: "org-sessions",
+          icon: "Activity",
+          permission: PERMISSIONS.PROCTORING_SESSIONS_VIEW,
+        },
       ],
     },
-    { label: "Proctoring Reports", path: "/organization/reports", id: "org-reports", icon: "BarChart3", permission: PERMISSIONS.PROCTORING_REPORTS_VIEW },
+    {
+      label: "Proctoring Reports",
+      path: "/organization/reports",
+      id: "org-reports",
+      icon: "BarChart3",
+      permission: PERMISSIONS.PROCTORING_REPORTS_VIEW,
+    },
   ],
 
   [ROLES.CANDIDATE]: [
-    { label: "Dashboard", path: "/candidate/dashboard", id: "candidate-dashboard", icon: "LayoutDashboard", permission: PERMISSIONS.CANDIDATE_DASHBOARD_VIEW },
-    { label: "My Assessments", path: "/candidate/assessments", id: "candidate-assessments", icon: "FileText", permission: PERMISSIONS.CANDIDATE_ASSESSMENTS_VIEW },
-    { label: "My Interviews", path: "/candidate/interviews", id: "candidate-interviews", icon: "Video", permission: PERMISSIONS.CANDIDATE_INTERVIEWS_VIEW },
-    { label: "Results & Feedback", path: "/candidate/evaluation", id: "participant-evaluation", icon: "ClipboardList", permission: PERMISSIONS.RESULTS_VIEW_OWN },
-    { label: "System Diagnostic", path: "/candidate/system-check", id: "participant-system-check", icon: "ShieldCheck", permission: PERMISSIONS.SYSTEM_CHECK_RUN },
+    {
+      label: "Dashboard",
+      path: "/candidate/dashboard",
+      id: "candidate-dashboard",
+      icon: "LayoutDashboard",
+      permission: PERMISSIONS.CANDIDATE_DASHBOARD_VIEW,
+    },
+    {
+      label: "My Assessments",
+      path: "/candidate/assessments",
+      id: "candidate-assessments",
+      icon: "FileText",
+      permission: PERMISSIONS.CANDIDATE_ASSESSMENTS_VIEW,
+    },
+    {
+      label: "My Interviews",
+      path: "/candidate/interviews",
+      id: "candidate-interviews",
+      icon: "Video",
+      permission: PERMISSIONS.CANDIDATE_INTERVIEWS_VIEW,
+    },
+    {
+      label: "Results & Feedback",
+      path: "/candidate/evaluation",
+      id: "participant-evaluation",
+      icon: "ClipboardList",
+      permission: PERMISSIONS.RESULTS_VIEW_OWN,
+    },
+    {
+      label: "System Diagnostic",
+      path: "/candidate/system-check",
+      id: "participant-system-check",
+      icon: "ShieldCheck",
+      permission: PERMISSIONS.SYSTEM_CHECK_RUN,
+    },
   ],
 });
 
@@ -640,8 +1054,13 @@ export const hasAnyPermission = (userOrRole, permissions = []) => {
  */
 export const getSidebarForRole = (role) => {
   if (!role) return SIDEBAR_CONFIG[ROLES.ORGANIZATION_ADMIN] || [];
-  const normalized = typeof role === "string" ? role.toUpperCase() : (role.name || "").toUpperCase();
-  return SIDEBAR_CONFIG[normalized] || SIDEBAR_CONFIG[ROLES.ORGANIZATION_ADMIN] || [];
+  const normalized =
+    typeof role === "string"
+      ? role.toUpperCase()
+      : (role.name || "").toUpperCase();
+  return (
+    SIDEBAR_CONFIG[normalized] || SIDEBAR_CONFIG[ROLES.ORGANIZATION_ADMIN] || []
+  );
 };
 
 export default {

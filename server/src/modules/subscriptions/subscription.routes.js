@@ -70,6 +70,17 @@ router.post(
 );
 
 router.post(
+  "/upgrade",
+  requireAuth,
+  requireTenantContext,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.SUBSCRIPTIONS_MANAGE,
+    PERMISSIONS.SUBSCRIPTIONS_MANAGE
+  ),
+  changePlan
+);
+
+router.post(
   "/cancel",
   requireAuth,
   requireTenantContext,

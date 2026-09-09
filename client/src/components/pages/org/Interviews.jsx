@@ -91,7 +91,7 @@ export function Interviews({ onNavigate }) {
     } catch (e) {
       console.warn('Storage error:', e);
     }
-    onNavigate('participant-interview');
+    onNavigate('org-interview-room');
   };
 
   const handleCancelInterview = (interviewId, title, e) => {

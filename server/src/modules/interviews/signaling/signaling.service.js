@@ -18,16 +18,39 @@ export class SignalingService {
     try {
       let interview = null;
       if (interviewId && interviewId.length === 24 && /^[0-9a-fA-F]{24}$/.test(interviewId)) {
-        const query = organizationId ? { _id: interviewId, organizationId } : { _id: interviewId };
-        interview = await Interview.findOne(query).lean();
+        interview = await Interview.findById(interviewId).lean();
       }
 
       if (interview && (interview.status === "CANCELLED" || interview.status === "COMPLETED")) {
-        return { authorized: false, reason: `Interview is already ${interview.status.toLowerCase()}` };
+        return {
+          authorized: false,
+          reason: "This interview session has already concluded and is permanently closed. Re-joining is not permitted.",
+        };
       }
 
       const isGuest = String(userId).startsWith("guest_") || user?.isGuest === true;
-      if (isGuest || userRole === "CANDIDATE") {
+      const isCandidateRole = isGuest || userRole === "CANDIDATE";
+
+      // 1. If Candidate, enforce strict Single-Seat Viva policy (No 2 candidates in room simultaneously)
+      if (isCandidateRole) {
+        const strId = interviewId.toString();
+        const roomMap = activeRooms.get(strId);
+        if (roomMap && roomMap.size > 0) {
+          const activeCandidate = Array.from(roomMap.values()).find(
+            (p) => p.role === "CANDIDATE" && String(p.userId) !== String(userId)
+          );
+          if (activeCandidate) {
+            return {
+              authorized: false,
+              isRoomOccupied: true,
+              activeCandidate: activeCandidate.name || "Candidate",
+              reason: "Another candidate is currently in the oral defense room with the examiner. Please wait in the queue for your turn.",
+              role: "CANDIDATE",
+              interview: interview || { _id: interviewId, status: "LIVE" },
+            };
+          }
+        }
+
         return {
           authorized: true,
           role: "CANDIDATE",
@@ -35,10 +58,11 @@ export class SignalingService {
         };
       }
 
-      // Check if user is an examiner, host, or admin
+      // 2. Examiners, Proctors, Admins, and Owners are ALWAYS authorized to join/leave/rejoin
       if (
         userRole === "ORGANIZATION_ADMIN" ||
         userRole === "EXAMINER" ||
+        userRole === "PROCTOR" ||
         userRole === "RECRUITER" ||
         userRole === "PLATFORM_OWNER" ||
         userRole === "PLATFORM_ADMIN" ||

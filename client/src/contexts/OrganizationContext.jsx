@@ -81,15 +81,13 @@ export const OrganizationProvider = ({ children }) => {
         setCurrentOrganization(orgData);
         setCurrentMembership(active.organization ? active : user?.memberships?.[0] || null);
 
-        if (orgId && typeof orgId === 'string' && !orgId.startsWith('org-') && !isPlatformStaff) {
+        if (orgId && typeof orgId === 'string' && !orgId.startsWith('org-')) {
           localStorage.setItem('secureassess_current_org_id', orgId);
         }
       } else {
         setCurrentOrganization(null);
         setCurrentMembership(null);
-        if (isPlatformStaff) {
-          localStorage.removeItem('secureassess_current_org_id');
-        }
+        localStorage.removeItem('secureassess_current_org_id');
       }
     } catch (err) {
       console.warn('Failed to load organization context:', err.message);
@@ -132,17 +130,46 @@ export const OrganizationProvider = ({ children }) => {
     return null;
   };
 
+  const resolveRoleName = (source) => {
+    if (!source) return null;
+    if (typeof source === 'object') {
+      const candidate = source.name || source.roleName || source.role || source.platformRole;
+      if (candidate && typeof candidate === 'string') return candidate;
+    }
+    if (typeof source === 'string') {
+      const upper = source.toUpperCase();
+      // If it looks like a 24-char ObjectId and is not a recognized role, skip it
+      if (/^[0-9a-fA-F]{24}$/.test(source) && !['ORGANIZATION_OWNER', 'ORGANIZATION_ADMIN', 'EXAMINER', 'PROCTOR', 'CANDIDATE'].includes(upper)) {
+        return null;
+      }
+      return source;
+    }
+    return null;
+  };
+
+  const matchedMembership =
+    user?.memberships?.find((m) => {
+      const mOrgId = m.organizationId?._id || m.organizationId?.id || m.organizationId || m.organization?._id || m.organization?.id;
+      const curId = currentOrganization?._id || currentOrganization?.id;
+      return mOrgId && curId && mOrgId.toString() === curId.toString();
+    }) ||
+    currentMembership ||
+    user?.memberships?.[0] ||
+    null;
+
   const userRole =
-    (isPlatformStaff ? user?.platformRole : null) ||
-    currentMembership?.roleId?.name ||
-    currentMembership?.role?.name ||
-    (typeof currentMembership?.roleId === 'string' ? currentMembership.roleId : null) ||
-    currentMembership?.roleName ||
-    user?.memberships?.[0]?.roleId?.name ||
-    user?.memberships?.[0]?.role?.name ||
-    user?.memberships?.[0]?.roleName ||
-    user?.role ||
-    user?.platformRole;
+    (isPlatformStaff ? resolveRoleName(user?.platformRole) : null) ||
+    resolveRoleName(matchedMembership?.role) ||
+    resolveRoleName(matchedMembership?.roleId) ||
+    resolveRoleName(matchedMembership?.roleName) ||
+    resolveRoleName(currentMembership?.role) ||
+    resolveRoleName(currentMembership?.roleId) ||
+    resolveRoleName(currentMembership?.roleName) ||
+    resolveRoleName(user?.memberships?.[0]?.role) ||
+    resolveRoleName(user?.memberships?.[0]?.roleId) ||
+    resolveRoleName(user?.memberships?.[0]?.roleName) ||
+    resolveRoleName(user?.role) ||
+    resolveRoleName(user?.platformRole);
 
   const normalizedUserRole = (userRole || '').toUpperCase();
 
@@ -158,6 +185,8 @@ export const OrganizationProvider = ({ children }) => {
     normalizedUserRole === 'ADMIN';
 
   const permissions =
+    matchedMembership?.roleId?.permissions ||
+    matchedMembership?.role?.permissions ||
     currentMembership?.roleId?.permissions ||
     currentMembership?.role?.permissions ||
     user?.permissions ||

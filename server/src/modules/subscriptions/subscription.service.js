@@ -10,6 +10,8 @@ import {
 import { NotificationService } from "../notifications/notification.service.js";
 import { NOTIFICATION_TYPES, NOTIFICATION_PRIORITIES } from "../notifications/notification.constants.js";
 import { AuditLogService } from "../auditLogs/auditLog.service.js";
+import { Invoice } from "../billing/billing.model.js";
+import { INVOICE_STATUSES } from "../billing/billing.constants.js";
 import { ApiError } from "../../utils/ApiError.js";
 
 const billingProvider = new MockBillingProvider();
@@ -70,6 +72,30 @@ export class SubscriptionService {
     subscription.currentPeriodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
     await subscription.save();
+
+    try {
+      const invoiceId = `inv_${targetPlan.code.toLowerCase()}_${Date.now()}`;
+      await Invoice.create({
+        organizationId,
+        subscriptionId: subscription._id,
+        provider: "MOCK",
+        providerInvoiceId: invoiceId,
+        amount: targetPlan.price || 0,
+        amountInCents: Math.round((targetPlan.price || 0) * 100),
+        currency: targetPlan.currency || "USD",
+        status: INVOICE_STATUSES.PAID,
+        paidAt: new Date(),
+        billingPeriodStart: subscription.currentPeriodStart,
+        billingPeriodEnd: subscription.currentPeriodEnd,
+        metadata: {
+          planCode: targetPlan.code,
+          planName: targetPlan.name,
+          upgradedBy: userId,
+        },
+      });
+    } catch (invErr) {
+      console.warn("Could not create invoice record for plan transition:", invErr.message);
+    }
 
     AuditLogService.createAuditLog({
       organizationId,
