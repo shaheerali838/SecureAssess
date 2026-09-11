@@ -9,10 +9,22 @@ export const corsOptions = {
 
     const allowlist = (ENV.CORS_ORIGIN || "*")
       .split(",")
-      .map((item) => item.trim());
+      .map((item) => item.trim().replace(/\/$/, ""));
 
-    if (allowlist.includes("*") || allowlist.includes(origin)) {
+    const normalizedOrigin = origin.replace(/\/$/, "");
+
+    if (allowlist.includes("*") || allowlist.includes(normalizedOrigin)) {
       return callback(null, true);
+    }
+
+    // Automatically allow all vercel deployment & preview domains
+    try {
+      const parsedUrl = new URL(origin);
+      if (parsedUrl.hostname.endsWith(".vercel.app") || parsedUrl.hostname === "localhost") {
+        return callback(null, true);
+      }
+    } catch {
+      // ignore invalid URL
     }
 
     if (ENV.NODE_ENV === "production") {
