@@ -3,7 +3,8 @@ import {
   Building2, Plus, Filter, Download, MoreHorizontal,
   ChevronRight, X, Mail, Globe, MapPin, Calendar, Users,
   FileText, MonitorPlay, Shield, RefreshCw, Eye, CheckCircle2,
-  AlertTriangle, HardDrive, Package, Key, Sliders, DollarSign, Activity
+  AlertTriangle, HardDrive, Package, Key, Sliders, DollarSign, Activity,
+  Trash2
 } from 'lucide-react';
 import {
   Card, CardBody, CardHeader, Badge, StatusBadge, Button, Avatar, SearchBar,
@@ -23,6 +24,12 @@ export function Organizations({ onNavigate }) {
 
   // Tenant Inspection Modal
   const [inspectModalOpen, setInspectModalOpen] = useState(false);
+
+  // Tenant Deletion Modal
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [orgToDelete, setOrgToDelete] = useState(null);
+  const [deleteMode, setDeleteMode] = useState('permanent'); // 'permanent' or 'deactivate'
+  const [deleting, setDeleting] = useState(false);
 
   const fetchOrgs = async () => {
     setLoading(true);
@@ -68,6 +75,38 @@ export function Organizations({ onNavigate }) {
       }
     } catch (err) {
       setToastMessage({ type: 'error', text: 'Action failed: ' + err.message });
+    }
+  };
+
+  const handleOpenDeleteModal = (org) => {
+    setOrgToDelete(org);
+    setDeleteMode('permanent');
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!orgToDelete) return;
+    const orgId = orgToDelete._id || orgToDelete.id;
+    const isPermanent = deleteMode === 'permanent';
+
+    setDeleting(true);
+    try {
+      await organizationService.deleteOrganization(orgId, isPermanent);
+      setToastMessage({
+        type: 'success',
+        text: `Organization '${orgToDelete.name}' ${isPermanent ? 'permanently deleted' : 'deactivated'} successfully!`,
+      });
+      setDeleteModalOpen(false);
+      setOrgToDelete(null);
+      if (selectedOrg && (selectedOrg._id === orgId || selectedOrg.id === orgId)) {
+        setInspectModalOpen(false);
+        setSelectedOrg(null);
+      }
+      fetchOrgs();
+    } catch (err) {
+      setToastMessage({ type: 'error', text: 'Deletion failed: ' + (err.message || 'Unknown error') });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -317,6 +356,15 @@ export function Organizations({ onNavigate }) {
                           >
                             {org.status === 'SUSPENDED' ? 'Activate' : 'Suspend'}
                           </Button>
+                          <Button
+                            variant="ghost"
+                            size="xs"
+                            className="text-danger-500 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-950/40"
+                            icon={<Trash2 size={13} />}
+                            onClick={() => handleOpenDeleteModal(org)}
+                          >
+                            Delete
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -337,13 +385,27 @@ export function Organizations({ onNavigate }) {
         size="lg"
         footer={
           <div className="flex items-center justify-between w-full">
-            <Button
-              variant={selectedOrg?.status === 'SUSPENDED' ? 'primary' : 'danger'}
-              size="sm"
-              onClick={() => handleToggleStatus(selectedOrg)}
-            >
-              {selectedOrg?.status === 'SUSPENDED' ? 'Reactivate Workspace' : 'Suspend Workspace'}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant={selectedOrg?.status === 'SUSPENDED' ? 'primary' : 'danger'}
+                size="sm"
+                onClick={() => handleToggleStatus(selectedOrg)}
+              >
+                {selectedOrg?.status === 'SUSPENDED' ? 'Reactivate Workspace' : 'Suspend Workspace'}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-danger-500 hover:bg-danger-50 dark:hover:bg-danger-950/40 border-danger-300 dark:border-danger-800"
+                icon={<Trash2 size={14} />}
+                onClick={() => {
+                  setInspectModalOpen(false);
+                  handleOpenDeleteModal(selectedOrg);
+                }}
+              >
+                Delete Organization
+              </Button>
+            </div>
             <Button variant="outline" size="sm" onClick={() => setInspectModalOpen(false)}>
               Close
             </Button>
@@ -416,6 +478,95 @@ export function Organizations({ onNavigate }) {
           </div>
         )}
       </Modal>
+
+      {/* Delete Organization Confirmation Modal */}
+      <Modal
+        open={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        title="Delete Tenant Organization"
+        subtitle={`Confirm deletion for ${orgToDelete?.name || 'this workspace'}`}
+        size="md"
+        footer={
+          <div className="flex items-center justify-end gap-2 w-full">
+            <Button variant="outline" size="sm" onClick={() => setDeleteModalOpen(false)} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              loading={deleting}
+              icon={<Trash2 size={14} />}
+              onClick={handleConfirmDelete}
+            >
+              {deleteMode === 'permanent' ? 'Permanently Delete' : 'Deactivate Workspace'}
+            </Button>
+          </div>
+        }
+      >
+        {orgToDelete && (
+          <div className="space-y-4 text-xs">
+            <div className="p-3.5 rounded-xl bg-danger-50 dark:bg-danger-950/50 border border-danger-200 dark:border-danger-800 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-danger-500 shrink-0 mt-0.5" />
+              <div className="text-danger-700 dark:text-danger-300">
+                <p className="font-bold text-sm">Caution: Platform Administrative Action</p>
+                <p className="mt-0.5">
+                  You are about to delete workspace <strong>{orgToDelete.name}</strong> (Code: <code className="font-mono font-semibold">{orgToDelete.code}</code>).
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block font-semibold text-accent-800 dark:text-accent-200">
+                Select Deletion Level:
+              </label>
+              <div className="space-y-2">
+                <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${deleteMode === 'permanent' ? 'bg-danger-50/60 dark:bg-danger-950/40 border-danger-300 dark:border-danger-700' : 'bg-accent-50/50 dark:bg-accent-900/40 border-accent-200 dark:border-accent-800'}`}>
+                  <input
+                    type="radio"
+                    name="deleteMode"
+                    value="permanent"
+                    checked={deleteMode === 'permanent'}
+                    onChange={(e) => setDeleteMode(e.target.value)}
+                    className="mt-1"
+                  />
+                  <div>
+                    <p className="font-bold text-accent-900 dark:text-white">Permanent Purge (Hard Delete)</p>
+                    <p className="text-accent-500 dark:text-accent-400 mt-0.5">
+                      Permanently removes the organization record, all staff memberships, and active subscriptions. This action is irreversible.
+                    </p>
+                  </div>
+                </label>
+
+                <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${deleteMode === 'deactivate' ? 'bg-primary-50/60 dark:bg-primary-950/40 border-primary-300 dark:border-primary-700' : 'bg-accent-50/50 dark:bg-accent-900/40 border-accent-200 dark:border-accent-800'}`}>
+                  <input
+                    type="radio"
+                    name="deleteMode"
+                    value="deactivate"
+                    checked={deleteMode === 'deactivate'}
+                    onChange={(e) => setDeleteMode(e.target.value)}
+                    className="mt-1"
+                  />
+                  <div>
+                    <p className="font-bold text-accent-900 dark:text-white">Deactivate Workspace (Soft Delete)</p>
+                    <p className="text-accent-500 dark:text-accent-400 mt-0.5">
+                      Sets the organization status to <code>DEACTIVATED</code>. Blocks all tenant logins and operations while retaining historical records.
+                    </p>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Toast Notification */}
+      {toastMessage && (
+        <Toast
+          type={toastMessage.type}
+          message={toastMessage.text}
+          onClose={() => setToastMessage(null)}
+        />
+      )}
     </div>
   );
 }

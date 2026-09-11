@@ -2,11 +2,14 @@ import crypto from "crypto";
 import User from "../users/user.model.js";
 import UserMembership from "../users/userMembership.model.js";
 import Session from "./session.model.js";
+import Candidate from "../candidates/candidate.model.js";
 import { UserMapper } from "../users/user.mapper.js";
 import { hashPassword, comparePassword } from "../../utils/password.js";
 import { generateAccessToken } from "../../utils/token.js";
 import { USER_STATUSES } from "../../constants/userStatuses.js";
 import { ApiError } from "../../utils/ApiError.js";
+import { EmailService } from "../../services/email/email.service.js";
+import { ENV } from "../../config/env.js";
 
 /**
  * SHA-256 Hash helper for tokens (refresh tokens, reset tokens, verification tokens)
@@ -24,14 +27,14 @@ export class AuthService {
     const user = await User.findOne({ email: normalizedEmail });
 
     if (!user) {
-      throw new ApiError(401, "Invalid email or password");
+      throw new ApiError(404, "No account found with this email address");
     }
 
     // Account status checks
     if (user.status === USER_STATUSES.INVITED) {
       throw new ApiError(
         403,
-        "Account has been invited. Please complete your account setup and password configuration before logging in."
+        "Account is pending activation. Please use the activation link sent to your email or reset your password below."
       );
     }
     if (user.status === USER_STATUSES.SUSPENDED) {
@@ -49,7 +52,7 @@ export class AuthService {
     if (!isPasswordValid) {
       user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
       await user.save();
-      throw new ApiError(401, "Invalid email or password");
+      throw new ApiError(401, "Incorrect password. Please try again or reset your password.");
     }
 
     // Reset failed login attempts and update last login
@@ -261,60 +264,150 @@ export class AuthService {
   }
 
   /**
-   * Generates password reset token without leaking user existence
+   * Generates password reset token and sends email
    */
   static async forgotPassword(email) {
     const normalizedEmail = email.toLowerCase().trim();
     const user = await User.findOne({ email: normalizedEmail });
 
-    if (user && user.status === USER_STATUSES.ACTIVE) {
-      const rawToken = crypto.randomBytes(32).toString("hex");
-      const tokenHash = hashToken(rawToken);
+    if (!user) {
+      throw new ApiError(404, "No account found with this email address");
+    }
 
-      user.passwordResetTokenHash = tokenHash;
-      user.passwordResetExpiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-      await user.save();
+    if (user.status === USER_STATUSES.INVITED) {
+      throw new ApiError(
+        400,
+        "Account has not been activated yet. Please use the activation link sent to your email to set your password."
+      );
+    }
 
-      // Return generated token for test environments/logging
-      return {
-        success: true,
-        message: "If an account with that email exists, a password reset link has been sent.",
-        resetToken: process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test" ? rawToken : undefined,
-      };
+    if (user.status === USER_STATUSES.SUSPENDED || user.status === USER_STATUSES.DEACTIVATED) {
+      throw new ApiError(403, `Account is ${user.status.toLowerCase()}. Password reset is not permitted.`);
+    }
+
+    if (user.status !== USER_STATUSES.ACTIVE || !user.emailVerified) {
+      throw new ApiError(
+        400,
+        "Account is not verified. Password reset is not available."
+      );
+    }
+
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const tokenHash = hashToken(rawToken);
+
+    user.passwordResetTokenHash = tokenHash;
+    user.passwordResetExpiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    await user.save();
+
+    const clientUrl = ENV.CLIENT_URL || "http://localhost:5173";
+    const resetUrl = `${clientUrl}/login?token=${rawToken}&email=${encodeURIComponent(normalizedEmail)}&mode=reset`;
+
+    try {
+      await EmailService.sendPasswordResetEmail(normalizedEmail, {
+        name: `${user.firstName} ${user.lastName}`.trim() || "User",
+        resetUrl,
+      });
+    } catch (err) {
+      console.warn(`[AuthService] Failed to send password reset email: ${err.message}`);
     }
 
     return {
       success: true,
-      message: "If an account with that email exists, a password reset link has been sent.",
+      message: `Password reset link sent to ${normalizedEmail}. Please check your inbox.`,
+      resetToken: process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test" ? rawToken : undefined,
     };
   }
 
   /**
    * Resets password using valid token and revokes existing sessions
    */
-  static async resetPassword({ token, newPassword }) {
-    const tokenHash = hashToken(token);
-    const user = await User.findOne({
-      passwordResetTokenHash: tokenHash,
-      passwordResetExpiresAt: { $gt: new Date() },
-    });
-
-    if (!user) {
-      throw new ApiError(400, "Invalid or expired password reset token");
+  static async resetPassword({ token, newPassword, password }) {
+    const rawPass = newPassword || password;
+    if (!token || !rawPass) {
+      throw new ApiError(400, "Token and new password are required");
+    }
+    if (rawPass.length < 6) {
+      throw new ApiError(400, "New password must be at least 6 characters long");
     }
 
-    const newHash = await hashPassword(newPassword);
+    const cleanToken = String(token).trim();
+    const tokenHash = hashToken(cleanToken);
+
+    let user = await User.findOne({
+      $or: [
+        { passwordResetTokenHash: tokenHash },
+        { passwordResetTokenHash: cleanToken },
+        { emailVerificationTokenHash: tokenHash },
+        { emailVerificationTokenHash: cleanToken },
+      ],
+    });
+
+    if (user) {
+      const isExpired =
+        (user.passwordResetExpiresAt && user.passwordResetExpiresAt < new Date() && (user.passwordResetTokenHash === tokenHash || user.passwordResetTokenHash === cleanToken)) ||
+        (user.emailVerificationExpiresAt && user.emailVerificationExpiresAt < new Date() && (user.emailVerificationTokenHash === tokenHash || user.emailVerificationTokenHash === cleanToken));
+
+      if (isExpired) {
+        throw new ApiError(400, "This password reset link has expired. Please request a new link.");
+      }
+    }
+
+    let candidate = null;
+    if (!user) {
+      candidate = await Candidate.findOne({
+        $or: [
+          { invitationToken: cleanToken },
+          { invitationToken: tokenHash },
+        ],
+      });
+
+      if (candidate) {
+        if (candidate.invitationExpiresAt && candidate.invitationExpiresAt < new Date()) {
+          throw new ApiError(400, "This invitation link has expired. Please contact your administrator.");
+        }
+        if (candidate.userId) {
+          user = await User.findById(candidate.userId);
+        } else if (candidate.email) {
+          user = await User.findOne({ email: candidate.email.toLowerCase().trim() });
+        }
+      }
+    }
+
+    if (!user) {
+      throw new ApiError(400, "Invalid or expired password reset token. Please request a new link.");
+    }
+
+    const newHash = await hashPassword(rawPass);
     user.passwordHash = newHash;
     user.passwordResetTokenHash = null;
     user.passwordResetExpiresAt = null;
+    user.emailVerificationTokenHash = null;
+    user.emailVerificationExpiresAt = null;
     user.passwordChangedAt = new Date();
     user.tokenVersion = (user.tokenVersion || 0) + 1;
-    if (user.status === USER_STATUSES.INVITED) {
-      user.status = USER_STATUSES.ACTIVE;
-      user.emailVerified = true;
-      user.emailVerifiedAt = new Date();
-    }
+    user.status = USER_STATUSES.ACTIVE;
+    user.emailVerified = true;
+    user.emailVerifiedAt = new Date();
     await user.save();
+
+    if (candidate) {
+      candidate.status = "ACTIVE";
+      candidate.invitationToken = null;
+      candidate.invitationExpiresAt = null;
+      if (!candidate.userId) candidate.userId = user._id;
+      await candidate.save();
+    } else {
+      await Candidate.updateMany(
+        { email: user.email.toLowerCase().trim(), status: "INVITED" },
+        { $set: { status: "ACTIVE", invitationToken: null, invitationExpiresAt: null, userId: user._id } }
+      );
+    }
+
+    // Activate all invited/pending memberships
+    await UserMembership.updateMany(
+      { userId: user._id, status: { $in: ["INVITED", "PENDING"] } },
+      { $set: { status: "ACTIVE", joinedAt: new Date() } }
+    );
 
     // Revoke all sessions
     await Session.updateMany(
@@ -322,17 +415,24 @@ export class AuthService {
       { $set: { revokedAt: new Date(), revokeReason: "PASSWORD_RESET" } }
     );
 
-    return { success: true, message: "Password reset successfully. You can now log in with your new password." };
+    return { success: true, message: "Password reset successfully. Please log in with your new password." };
   }
 
   /**
    * Verifies email address using token
    */
   static async verifyEmail(token) {
-    const tokenHash = hashToken(token);
+    if (!token) {
+      throw new ApiError(400, "Verification token is required");
+    }
+    const cleanToken = String(token).trim();
+    const tokenHash = hashToken(cleanToken);
+
     const user = await User.findOne({
-      emailVerificationTokenHash: tokenHash,
-      emailVerificationExpiresAt: { $gt: new Date() },
+      $or: [
+        { emailVerificationTokenHash: tokenHash, emailVerificationExpiresAt: { $gt: new Date() } },
+        { emailVerificationTokenHash: cleanToken, emailVerificationExpiresAt: { $gt: new Date() } },
+      ],
     });
 
     if (!user) {
@@ -352,25 +452,29 @@ export class AuthService {
    * Resends email verification token
    */
   static async resendVerification(email) {
+    if (!email) {
+      throw new ApiError(400, "Email address is required");
+    }
     const normalizedEmail = email.toLowerCase().trim();
     const user = await User.findOne({ email: normalizedEmail });
 
-    if (user && !user.emailVerified) {
-      const rawToken = crypto.randomBytes(32).toString("hex");
-      user.emailVerificationTokenHash = hashToken(rawToken);
-      user.emailVerificationExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-      await user.save();
-
-      return {
-        success: true,
-        message: "Verification email has been resent.",
-        verificationToken: process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test" ? rawToken : undefined,
-      };
+    if (!user) {
+      throw new ApiError(404, "No account found with this email address");
     }
+
+    if (user.emailVerified) {
+      throw new ApiError(400, "This account is already verified. Please sign in directly.");
+    }
+
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    user.emailVerificationTokenHash = hashToken(rawToken);
+    user.emailVerificationExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    await user.save();
 
     return {
       success: true,
-      message: "If an unverified account with that email exists, a verification link has been sent.",
+      message: `Verification email resent to ${normalizedEmail}. Please check your inbox.`,
+      verificationToken: process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test" ? rawToken : undefined,
     };
   }
 
@@ -381,16 +485,57 @@ export class AuthService {
     if (!token || !password) {
       throw new ApiError(400, "Token and password are required");
     }
-    const tokenHash = hashToken(token);
-    const user = await User.findOne({
+    const cleanToken = String(token).trim();
+    if (password.length < 6) {
+      throw new ApiError(400, "Password must be at least 6 characters long");
+    }
+
+    const tokenHash = hashToken(cleanToken);
+
+    // 1. Check User model for reset or verification token hash or direct token
+    let user = await User.findOne({
       $or: [
-        { passwordResetTokenHash: tokenHash, passwordResetExpiresAt: { $gt: new Date() } },
-        { emailVerificationTokenHash: tokenHash, emailVerificationExpiresAt: { $gt: new Date() } },
+        { passwordResetTokenHash: tokenHash },
+        { emailVerificationTokenHash: tokenHash },
+        { passwordResetTokenHash: cleanToken },
+        { emailVerificationTokenHash: cleanToken },
       ],
     });
 
+    if (user) {
+      const isExpired =
+        (user.passwordResetExpiresAt && user.passwordResetExpiresAt < new Date() && (user.passwordResetTokenHash === tokenHash || user.passwordResetTokenHash === cleanToken)) ||
+        (user.emailVerificationExpiresAt && user.emailVerificationExpiresAt < new Date() && (user.emailVerificationTokenHash === tokenHash || user.emailVerificationTokenHash === cleanToken));
+
+      if (isExpired) {
+        throw new ApiError(400, "This activation link has expired. Please request a new invitation or reset link.");
+      }
+    }
+
+    // 2. Check Candidate model if user not found yet
+    let candidate = null;
     if (!user) {
-      throw new ApiError(400, "Invalid or expired invitation token");
+      candidate = await Candidate.findOne({
+        $or: [
+          { invitationToken: cleanToken },
+          { invitationToken: tokenHash },
+        ],
+      });
+
+      if (candidate) {
+        if (candidate.invitationExpiresAt && candidate.invitationExpiresAt < new Date()) {
+          throw new ApiError(400, "This invitation link has expired. Please contact your organization administrator.");
+        }
+        if (candidate.userId) {
+          user = await User.findById(candidate.userId);
+        } else if (candidate.email) {
+          user = await User.findOne({ email: candidate.email.toLowerCase().trim() });
+        }
+      }
+    }
+
+    if (!user) {
+      throw new ApiError(400, "This activation link is invalid or has already been used. Please sign in or use Forgot Password.");
     }
 
     const newHash = await hashPassword(password);
@@ -402,17 +547,37 @@ export class AuthService {
     user.passwordResetExpiresAt = null;
     user.emailVerificationTokenHash = null;
     user.emailVerificationExpiresAt = null;
-    if (firstName) user.firstName = firstName.trim();
-    if (lastName) user.lastName = lastName.trim();
+    user.passwordChangedAt = new Date();
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+    if (firstName && typeof firstName === "string" && firstName.trim()) user.firstName = firstName.trim();
+    if (lastName && typeof lastName === "string" && lastName.trim()) user.lastName = lastName.trim();
     await user.save();
 
-    // Activate invited memberships
+    // Activate candidate profile if applicable
+    if (candidate) {
+      candidate.status = "ACTIVE";
+      candidate.invitationToken = null;
+      candidate.invitationExpiresAt = null;
+      if (!candidate.userId) candidate.userId = user._id;
+      await candidate.save();
+    } else {
+      await Candidate.updateMany(
+        { email: user.email.toLowerCase().trim(), status: "INVITED" },
+        { $set: { status: "ACTIVE", invitationToken: null, invitationExpiresAt: null, userId: user._id } }
+      );
+    }
+
+    // Activate invited/pending memberships
     await UserMembership.updateMany(
-      { userId: user._id, status: "INVITED" },
+      { userId: user._id, status: { $in: ["INVITED", "PENDING"] } },
       { $set: { status: "ACTIVE", joinedAt: new Date() } }
     );
 
     return this.login({ email: user.email, password, userAgent, ipAddress });
   }
 }
+
+export default AuthService;
+
+
 

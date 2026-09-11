@@ -54,7 +54,7 @@ export function SessionReview({ onNavigate }) {
             session = {
               id: s._id || s.id,
               participant: s.candidateName || s.participant || (s.candidateId?.firstName ? `${s.candidateId.firstName} ${s.candidateId.lastName || ''}`.trim() : 'Candidate'),
-              email: s.candidateEmail || s.candidateId?.email || 'candidate@secureassess.edu',
+              email: s.candidateEmail || s.candidateId?.email || s.metadata?.candidateEmail || '',
               assessment: s.assessmentTitle || s.assessment || s.assessmentId?.title || 'Proctored Assessment',
               assessmentCode: s.assessmentCode || s.assessmentId?.code || 'EXAM',
               status: s.status || 'COMPLETED',

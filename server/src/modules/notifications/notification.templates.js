@@ -88,4 +88,22 @@ export const NOTIFICATION_TEMPLATES = Object.freeze({
     formatMessage: (data = {}) =>
       `Security Alert: ${data.message || "A new login or security event was detected on your account."}`,
   },
+  [NOTIFICATION_TYPES.ORGANIZATION_CREATED]: {
+    title: "Tenant Workspace Provisioned",
+    channels: [NOTIFICATION_CHANNELS.IN_APP, NOTIFICATION_CHANNELS.EMAIL],
+    formatMessage: (data = {}) =>
+      `Your tenant organization '${data.organizationName || "Workspace"}' has been successfully provisioned.`,
+  },
+  [NOTIFICATION_TYPES.ORGANIZATION_INVITATION]: {
+    title: "Organization Invitation",
+    channels: [NOTIFICATION_CHANNELS.IN_APP, NOTIFICATION_CHANNELS.EMAIL],
+    formatMessage: (data = {}) =>
+      `You have been invited to join '${data.organizationName || "an organization"}' as '${data.roleName || "Staff"}'.`,
+  },
+  [NOTIFICATION_TYPES.STAFF_INVITATION]: {
+    title: "Staff Invitation",
+    channels: [NOTIFICATION_CHANNELS.IN_APP, NOTIFICATION_CHANNELS.EMAIL],
+    formatMessage: (data = {}) =>
+      `You have been invited to join '${data.organizationName || "an organization"}' as '${data.roleName || "Staff"}'.`,
+  },
 });

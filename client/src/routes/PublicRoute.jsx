@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useOrganization } from '../contexts/OrganizationContext';
 import { ORGANIZATION_ROLES } from '../constants/roles';
@@ -7,6 +7,10 @@ import { ORGANIZATION_ROLES } from '../constants/roles';
 export const PublicRoute = () => {
   const { isAuthenticated, isPlatformStaff, isLoading } = useAuth();
   const { userRole } = useOrganization();
+  const location = useLocation();
+
+  const searchParams = new URLSearchParams(location.search);
+  const hasSetupToken = Boolean(searchParams.get('token'));
 
   if (isLoading) {
     return (
@@ -16,8 +20,8 @@ export const PublicRoute = () => {
     );
   }
 
-  // If already authenticated, route automatically to the right portal
-  if (isAuthenticated) {
+  // If already authenticated and NOT setting up password/invitation via token, route automatically
+  if (isAuthenticated && !hasSetupToken) {
     if (isPlatformStaff) {
       return <Navigate to="/platform/dashboard" replace />;
     }

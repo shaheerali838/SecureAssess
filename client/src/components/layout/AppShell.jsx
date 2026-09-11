@@ -93,9 +93,9 @@ export function AppShell({
     })
     .filter(Boolean);
 
-  const displayOrgName = currentOrganization?.name || user?.organizationName || 'Stanford Engineering';
-  const displayUserName = user?.name || (isPlatform ? 'Platform Administrator' : user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'Organization Staff');
-  const displayUserEmail = user?.email || (isPlatform ? 'admin@secureassess.io' : 'user@institution.edu');
+  const displayOrgName = currentOrganization?.name || user?.organizationName || (isPlatform ? 'SecureAssess Platform' : 'Workspace');
+  const displayUserName = user?.name || (user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : (isPlatform ? 'Platform Administrator' : 'Staff Member'));
+  const displayUserEmail = user?.email || '';
   const displayUserRole = normalizedRole.replace(/_/g, ' ') || (isPlatform ? 'PLATFORM ADMIN' : 'STAFF');
 
   const handleToggleClick = (e) => {
@@ -134,10 +134,22 @@ export function AppShell({
       {/* Brand Header */}
       <div className="p-4 border-b border-accent-100 dark:border-accent-800">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5 min-w-0">
+          <button
+            type="button"
+            onClick={() => {
+              const defaultKey = isPlatform
+                ? 'platform-dashboard'
+                : isCandidate
+                ? 'candidate-dashboard'
+                : 'org-dashboard';
+              onNavigate(defaultKey);
+              setMobileOpen(false);
+            }}
+            className="flex items-center gap-2.5 min-w-0 text-left hover:opacity-80 transition-opacity cursor-pointer group"
+          >
             {isPlatform ? (
               <>
-                <div className="w-8 h-8 rounded-xl bg-primary-600 flex items-center justify-center text-white shadow-soft shrink-0">
+                <div className="w-8 h-8 rounded-xl bg-primary-600 flex items-center justify-center text-white shadow-soft shrink-0 group-hover:scale-105 transition-transform">
                   <Shield size={18} />
                 </div>
                 <div className="min-w-0">
@@ -149,7 +161,7 @@ export function AppShell({
               </>
             ) : (
               <>
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-white font-bold text-xs shadow-soft shrink-0 ${
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-white font-bold text-xs shadow-soft shrink-0 group-hover:scale-105 transition-transform ${
                   isCandidate ? 'bg-emerald-600' : isProctor ? 'bg-amber-600' : isExaminer ? 'bg-indigo-600' : 'bg-secondary-600'
                 }`}>
                   {displayOrgName.substring(0, 2).toUpperCase()}
@@ -164,7 +176,7 @@ export function AppShell({
                 </div>
               </>
             )}
-          </div>
+          </button>
 
           {/* Theme Toggle Button */}
           <button
@@ -334,30 +346,43 @@ export function AppShell({
             type="button"
             onClick={() => setMobileOpen(true)}
             className="text-accent-600 dark:text-accent-300 hover:text-accent-900 dark:hover:text-white p-1.5 rounded-lg cursor-pointer"
+            aria-label="Open mobile menu"
           >
             <Menu size={20} />
           </button>
 
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-primary-600 flex items-center justify-center shadow-soft">
+          <button
+            type="button"
+            onClick={() => {
+              const defaultKey = isPlatform
+                ? 'platform-dashboard'
+                : isCandidate
+                ? 'candidate-dashboard'
+                : 'org-dashboard';
+              onNavigate(defaultKey);
+            }}
+            className="flex items-center gap-2 cursor-pointer group"
+          >
+            <div className="w-7 h-7 rounded-lg bg-primary-600 flex items-center justify-center shadow-soft group-hover:scale-105 transition-transform">
               <Shield size={15} className="text-white" />
             </div>
             <span className="font-bold text-xs text-accent-900 dark:text-white truncate max-w-[150px]">
               {isPlatform ? 'SecureAssess' : displayOrgName}
             </span>
-          </div>
+          </button>
 
           <button
             type="button"
             onClick={handleToggleClick}
             className="p-1.5 rounded-xl text-accent-500 hover:bg-accent-100 dark:hover:bg-accent-800 cursor-pointer"
             title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            aria-label="Toggle theme"
           >
             {isDark ? <Sun size={17} className="text-warning-400" /> : <Moon size={17} />}
           </button>
         </header>
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1400px] w-full mx-auto animate-fade-in">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1400px] w-full mx-auto animate-fade-in overflow-x-hidden">
           {children}
         </main>
       </div>

@@ -53,12 +53,14 @@ export const authService = {
   },
 
   /**
-   * Change password (authenticated)
+   * Accept workspace invitation & set password
    */
-  changePassword: async (currentPassword, newPassword) => {
-    const response = await api.post('/auth/change-password', {
-      currentPassword,
-      newPassword,
+  acceptInvitation: async ({ token, password, firstName, lastName }) => {
+    const response = await api.post('/auth/accept-invitation', {
+      token,
+      password,
+      firstName,
+      lastName,
     });
     return response.data || response;
   },

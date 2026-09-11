@@ -97,10 +97,10 @@ export function CandidateLiveInterview({ onNavigate }) {
     interview?.metadata?.candidateEmail ||
     storedUser?.email ||
     emailParam ||
-    'candidate@secureassess.io';
-  const candCode = interview?.candidateId?.candidateCode || storedUser?.candidateCode || 'CAND-100101';
-  const examinerName = interview?.examinerName || 'Dr. Sarah Mitchell (Lead Examiner)';
-  const interviewTitle = interview?.title || 'Distributed Systems & Technical Oral Defense';
+    '';
+  const candCode = interview?.candidateId?.candidateCode || interview?.candidateCode || storedUser?.candidateCode || '';
+  const examinerName = interview?.examinerName || (interview?.examinerId ? `${interview.examinerId.firstName || ''} ${interview.examinerId.lastName || ''}`.trim() : 'Assigned Examiner');
+  const interviewTitle = interview?.title || 'Live Technical Interview & Oral Defense';
 
   // Simulated Media Canvas for conflict fallback
   const createSimulatedMediaStream = (name, audioStream) => {
@@ -215,7 +215,7 @@ export function CandidateLiveInterview({ onNavigate }) {
             status: 'LIVE',
             scheduledStartAt: new Date().toISOString(),
             candidateName: nameParam || 'Guest Candidate',
-            candidateEmail: emailParam || 'candidate@secureassess.io',
+            candidateEmail: emailParam || storedUser?.email || '',
           };
         }
 

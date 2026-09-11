@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your SecureAssess Tenant Workspace is Ready</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: #090d16;
+      color: #f1f5f9;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrapper {
+      width: 100%;
+      table-layout: fixed;
+      background-color: #090d16;
+      padding: 40px 0;
+    }
+    .main {
+      background-color: #111827;
+      margin: 0 auto;
+      width: 100%;
+      max-width: 600px;
+      border-radius: 16px;
+      border: 1px solid #1f293d;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+    }
+    .header {
+      background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
+      padding: 36px 32px 28px;
+      text-align: center;
+      border-bottom: 1px solid #2e384d;
+    }
+    .logo-badge {
+      display: inline-block;
+      background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
+      color: #ffffff;
+      padding: 8px 16px;
+      border-radius: 10px;
+      font-weight: 800;
+      font-size: 16px;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    }
+    .header h1 {
+      color: #ffffff;
+      font-size: 22px;
+      font-weight: 700;
+      margin: 8px 0 4px;
+      letter-spacing: -0.5px;
+    }
+    .header p {
+      color: #94a3b8;
+      font-size: 14px;
+      margin: 0;
+    }
+    .content {
+      padding: 32px;
+    }
+    .greeting {
+      font-size: 15px;
+      color: #e2e8f0;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+    .credentials-card {
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+      border: 1px solid #4f46e5;
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 8px 20px rgba(79, 70, 229, 0.15);
+    }
+    .credentials-title {
+      margin: 0 0 12px;
+      color: #818cf8;
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .info-card {
+      background-color: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 18px 24px;
+      margin-bottom: 24px;
+    }
+    .info-label {
+      color: #94a3b8;
+      font-weight: 500;
+      font-size: 13px;
+    }
+    .info-val {
+      color: #f8fafc;
+      font-weight: 600;
+      text-align: right;
+      font-size: 13px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      background: rgba(79, 70, 229, 0.2);
+      color: #818cf8;
+      border: 1px solid rgba(79, 70, 229, 0.4);
+    }
+    .cta-container {
+      text-align: center;
+      margin: 28px 0 24px;
+    }
+    .cta-btn {
+      display: inline-block;
+      background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+      color: #ffffff !important;
+      text-decoration: none;
+      padding: 14px 32px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 15px;
+      box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4);
+      letter-spacing: 0.2px;
+    }
+    .steps-card {
+      background-color: #0b1120;
+      border-radius: 10px;
+      padding: 18px 22px;
+      margin-top: 24px;
+      border-left: 3px solid #6366f1;
+    }
+    .steps-card h4 {
+      margin: 0 0 10px;
+      color: #c7d2fe;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .steps-card ol {
+      margin: 0;
+      padding-left: 18px;
+      color: #94a3b8;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .footer {
+      background-color: #0b0f19;
+      padding: 24px 32px;
+      text-align: center;
+      border-top: 1px solid #1f293d;
+      font-size: 12px;
+      color: #64748b;
+      line-height: 1.5;
+    }
+    .footer a {
+      color: #818cf8;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="main">
+      <div class="header">
+        <div class="logo-badge">SecureAssess</div>
+        <h1>Workspace Provisioned</h1>
+        <p>Enterprise Assessment & AI Proctoring Infrastructure</p>
+      </div>
+      
+      <div class="content">
+        <p class="greeting">
+          Hello <strong>{{ownerName}}</strong>,<br><br>
+          Your institutional workspace for <strong>{{organizationName}}</strong> has been successfully provisioned on SecureAssess. Click below to complete your setup and configure your administrative account password:
+        </p>
+
+        <!-- Access Account Box -->
+        <div class="credentials-card">
+          <div class="credentials-title">🔐 Workspace Access Account</div>
+          <table width="100%" cellpadding="6" cellspacing="0">
+            <tr>
+              <td style="color: #94a3b8; width: 38%; font-size: 13px;">Login Email:</td>
+              <td style="color: #ffffff; font-weight: 600; font-family: monospace; font-size: 14px;">{{loginEmail}}</td>
+            </tr>
+            <tr>
+              <td style="color: #94a3b8; font-size: 13px;">Activation Status:</td>
+              <td style="color: #38bdf8; font-weight: 600; font-size: 13px;">Ready for Activation</td>
+            </tr>
+          </table>
+          <p style="margin: 12px 0 0; font-size: 11px; color: #94a3b8; line-height: 1.4;">
+            💡 <em>Click the button below to set your account password and launch your administrative workspace.</em>
+          </p>
+        </div>
+
+        <!-- Organization Metadata -->
+        <div class="info-card">
+          <table width="100%" cellpadding="5" cellspacing="0">
+            <tr>
+              <td class="info-label">Organization Name:</td>
+              <td class="info-val"><strong>{{organizationName}}</strong></td>
+            </tr>
+            <tr>
+              <td class="info-label">Organization Code:</td>
+              <td class="info-val"><span class="badge">{{organizationCode}}</span></td>
+            </tr>
+            <tr>
+              <td class="info-label">Assigned Role:</td>
+              <td class="info-val">{{roleName}}</td>
+            </tr>
+            <tr>
+              <td class="info-label">Industry Domain:</td>
+              <td class="info-val">{{industry}}</td>
+            </tr>
+            <tr>
+              <td class="info-label">Subscription Tier:</td>
+              <td class="info-val">{{tierName}}</td>
+            </tr>
+          </table>
+        </div>
+
+        <div class="cta-container">
+          <a href="{{actionUrl}}" class="cta-btn" target="_blank">{{actionText}}</a>
+        </div>
+
+        <div class="steps-card">
+          <h4>Recommended Next Steps:</h4>
+          <ol>
+            <li>Sign in and configure your Academic Taxonomy (Departments, Degree Programs, Courses).</li>
+            <li>Invite Examiners and Proctors to collaborate on authoring and invigilation.</li>
+            <li>Import or author items in your institution's Question Bank.</li>
+            <li>Launch secure assessments with automated AI proctoring and real-time telemetry.</li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="footer">
+        <p>
+          Need assistance or technical onboarding support? Contact our enterprise team at <a href="mailto:support@secureassess.io">support@secureassess.io</a>.
+        </p>
+        <p>
+          &copy; {{currentYear}} SecureAssess Enterprise Examination Engine. All rights reserved.
+        </p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

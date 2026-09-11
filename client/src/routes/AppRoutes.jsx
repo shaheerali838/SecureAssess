@@ -1,5 +1,5 @@
-import React from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 
 // Security Route Wrappers & Role Constants
 import { ProtectedRoute } from './ProtectedRoute';
@@ -16,9 +16,10 @@ import { AppShell } from '@/components/layout/AppShell';
 // Auth Pages
 import { Login } from '@/pages/auth/Login';
 
-// Public Marketing & Demo
+// Public Marketing, Demo & Verification
 import { LandingPage } from '@/components/pages/LandingPage';
 import { RequestDemo } from '@/components/pages/RequestDemo';
+import { CertificateVerify } from '@/pages/public/CertificateVerify';
 
 // Platform Super Admin Modular Views (PLATFORM Scope)
 import { PlatformDashboard } from '@/pages/platform/PlatformDashboard';
@@ -84,6 +85,8 @@ const NavWrapper = ({ Component, activeKey, layer = 'organization' }) => {
     const keyMap = {
       landing: '/',
       'request-demo': '/request-demo',
+      verify: '/verify',
+      login: '/login',
       'platform-dashboard': '/platform/dashboard',
       'platform-organizations': '/platform/organizations',
       'platform-onboarding': '/platform/onboarding',
@@ -154,11 +157,101 @@ const NavWrapper = ({ Component, activeKey, layer = 'organization' }) => {
 
 export const AppRoutes = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const path = location.pathname;
+    let pageTitle = 'SecureAssess — Enterprise Multi-Tenant Assessment & Integrity Platform';
+
+    if (path === '/') {
+      pageTitle = 'SecureAssess — Enterprise Multi-Tenant Assessment & Integrity Platform';
+    } else if (path.startsWith('/request-demo')) {
+      pageTitle = 'Request a Demo | SecureAssess';
+    } else if (path.startsWith('/verify')) {
+      pageTitle = 'Verify Credential | SecureAssess';
+    } else if (path.startsWith('/login')) {
+      pageTitle = 'Sign In to Workspace | SecureAssess';
+    } else if (path.startsWith('/platform/dashboard')) {
+      pageTitle = 'Platform Dashboard | SecureAssess Super Admin';
+    } else if (path.startsWith('/platform/organizations')) {
+      pageTitle = 'Tenant Organizations | SecureAssess';
+    } else if (path.startsWith('/platform/onboarding')) {
+      pageTitle = 'Provision Tenant | SecureAssess';
+    } else if (path.startsWith('/platform/security')) {
+      pageTitle = 'Security Center | SecureAssess';
+    } else if (path.startsWith('/platform/audit-logs')) {
+      pageTitle = 'Platform Audit Logs | SecureAssess';
+    } else if (path.startsWith('/platform/access')) {
+      pageTitle = 'Platform Access Control | SecureAssess';
+    } else if (path.startsWith('/platform/monitoring')) {
+      pageTitle = 'System Monitoring | SecureAssess';
+    } else if (path.startsWith('/platform/services')) {
+      pageTitle = 'Service Health | SecureAssess';
+    } else if (path.startsWith('/platform/plans')) {
+      pageTitle = 'Subscription Plans | SecureAssess';
+    } else if (path.startsWith('/platform/billing')) {
+      pageTitle = 'Platform Billing | SecureAssess';
+    } else if (path.startsWith('/platform/settings')) {
+      pageTitle = 'Platform Settings | SecureAssess';
+    } else if (path.startsWith('/organization/dashboard')) {
+      pageTitle = 'Organization Dashboard | SecureAssess';
+    } else if (path.startsWith('/organization/assessments')) {
+      pageTitle = 'Assessments Library | SecureAssess';
+    } else if (path.startsWith('/organization/builder')) {
+      pageTitle = 'Assessment Builder | SecureAssess';
+    } else if (path.startsWith('/organization/question-bank')) {
+      pageTitle = 'Question Bank | SecureAssess';
+    } else if (path.startsWith('/organization/participants')) {
+      pageTitle = 'Candidate Roster | SecureAssess';
+    } else if (path.startsWith('/organization/structure')) {
+      pageTitle = 'Academic Structure | SecureAssess';
+    } else if (path.startsWith('/organization/users')) {
+      pageTitle = 'Staff & Team | SecureAssess';
+    } else if (path.startsWith('/organization/integrity')) {
+      pageTitle = 'Live Monitoring & Telemetry | SecureAssess';
+    } else if (path.startsWith('/organization/sessions')) {
+      pageTitle = 'Session Archive | SecureAssess';
+    } else if (path.startsWith('/organization/reports')) {
+      pageTitle = 'Results & Reports | SecureAssess';
+    } else if (path.startsWith('/organization/billing')) {
+      pageTitle = 'Billing & Subscription | SecureAssess';
+    } else if (path.startsWith('/organization/settings')) {
+      pageTitle = 'Workspace Settings | SecureAssess';
+    } else if (path.startsWith('/organization/interviews')) {
+      pageTitle = 'Interviews Management | SecureAssess';
+    } else if (path.startsWith('/organization/evaluations')) {
+      pageTitle = 'Grading & Rubrics | SecureAssess';
+    } else if (path.startsWith('/candidate/dashboard')) {
+      pageTitle = 'Candidate Dashboard | SecureAssess';
+    } else if (path.startsWith('/candidate/assessments')) {
+      pageTitle = 'My Assessments | SecureAssess';
+    } else if (path.startsWith('/candidate/interviews')) {
+      pageTitle = 'My Interviews | SecureAssess';
+    } else if (path.startsWith('/candidate/assigned')) {
+      pageTitle = 'Assigned Hub | SecureAssess';
+    } else if (path.startsWith('/candidate/system-check')) {
+      pageTitle = 'System Diagnostic | SecureAssess';
+    } else if (path.startsWith('/candidate/consent')) {
+      pageTitle = 'Examination Consent | SecureAssess';
+    } else if (path.startsWith('/candidate/assessment')) {
+      pageTitle = 'Assessment Session | SecureAssess';
+    } else if (path.startsWith('/candidate/interview') || path.startsWith('/interview')) {
+      pageTitle = 'Live Interview Room | SecureAssess';
+    } else if (path.startsWith('/candidate/evaluation')) {
+      pageTitle = 'Results & Feedback | SecureAssess';
+    } else if (path.startsWith('/forbidden')) {
+      pageTitle = '403 Forbidden | SecureAssess';
+    }
+
+    document.title = pageTitle;
+  }, [location.pathname]);
 
   const handleDirectNavigate = (targetKey) => {
     const keyMap = {
       landing: '/',
       'request-demo': '/request-demo',
+      verify: '/verify',
+      login: '/login',
       'platform-dashboard': '/platform/dashboard',
       'platform-organizations': '/platform/organizations',
       'platform-onboarding': '/platform/onboarding',
@@ -207,10 +300,12 @@ export const AppRoutes = () => {
   return (
     <Routes>
       {/* ======================================================== */}
-      {/* 1. PUBLIC MARKETING & AUTHENTICATION                     */}
+      {/* 1. PUBLIC MARKETING, AUTH & CREDENTIAL VERIFICATION      */}
       {/* ======================================================== */}
       <Route path="/" element={<LandingPage onNavigate={handleDirectNavigate} />} />
       <Route path="/request-demo" element={<RequestDemo onNavigate={handleDirectNavigate} />} />
+      <Route path="/verify" element={<CertificateVerify />} />
+      <Route path="/verify/:verificationCode" element={<CertificateVerify />} />
       <Route element={<PublicRoute />}>
         <Route path="/login" element={<Login />} />
       </Route>

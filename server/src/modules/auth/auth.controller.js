@@ -146,10 +146,15 @@ export const resendVerification = asyncHandler(async (req, res) => {
  * POST /api/v1/auth/accept-invitation - Accept invitation and activate account
  */
 export const acceptInvitation = asyncHandler(async (req, res) => {
-  const { token, password, firstName, lastName } = req.body;
-  if (!token || !password) {
-    throw new ApiError(400, "Token and password are required");
+  const { isValid, errors } = AuthValidator.validateAcceptInvitation(req.body);
+  if (!isValid) {
+    throw new ApiError(400, "Validation failed", errors);
   }
+
+  const token = req.body.token || req.body.setupToken || req.body.inviteToken || req.body.resetToken;
+  const password = req.body.password || req.body.newPassword;
+  const firstName = req.body.firstName;
+  const lastName = req.body.lastName;
 
   const userAgent = req.headers["user-agent"] || "";
   const ipAddress = req.ip || req.connection.remoteAddress || "";
@@ -165,3 +170,4 @@ export const acceptInvitation = asyncHandler(async (req, res) => {
 
   return res.status(200).json(new ApiResponse(200, result, "Invitation accepted and account activated"));
 });
+

@@ -140,9 +140,9 @@ export function ExaminerLiveInterview({ onNavigate }) {
     interview?.candidateEmail ||
     interview?.metadata?.candidateEmail ||
     interview?.candidateId?.email ||
-    'candidate@secureassess.io';
-  const candCode = interview?.candidateId?.candidateCode || 'CAND-100101';
-  const interviewTitle = interview?.title || 'Distributed Systems & Technical Oral Defense';
+    '';
+  const candCode = interview?.candidateId?.candidateCode || interview?.candidateCode || '';
+  const interviewTitle = interview?.title || 'Live Technical Interview & Oral Defense';
 
   // Simulated Media for Camera Conflict Fallback
   const createSimulatedMediaStream = (name, audioStream) => {

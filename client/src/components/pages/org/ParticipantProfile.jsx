@@ -75,7 +75,7 @@ export function ParticipantProfile({ onNavigate }) {
   const candName = candidate
     ? (candidate.name || `${candidate.firstName || ''} ${candidate.lastName || ''}`.trim() || 'Candidate')
     : 'Candidate Profile';
-  const candEmail = candidate?.email || 'candidate@secureassess.edu';
+  const candEmail = candidate?.email || '';
   const latestAttempt = attempts[0] || null;
   const examScore = latestAttempt ? Math.round(latestAttempt.scorePercentage || latestAttempt.score || 0) : 0;
   const integrityScore = latestAttempt ? (latestAttempt.integrityScore ?? 100) : 100;

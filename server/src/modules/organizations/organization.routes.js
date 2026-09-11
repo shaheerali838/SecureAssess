@@ -1,6 +1,7 @@
 import express from "express";
 import {
   createOrganization,
+  checkUniqueness,
   listOrganizations,
   getOrganizationById,
   updateOrganization,
@@ -9,6 +10,7 @@ import {
   activateOrganization,
   deleteOrganization,
   inviteStaffMember,
+  resendInvitation,
   switchOrganization,
 } from "./organization.controller.js";
 import {
@@ -51,6 +53,9 @@ import { PERMISSIONS } from "../../constants/permissions.js";
 const router = express.Router();
 
 // --- Organization Resource Endpoints ---
+
+// GET /api/v1/organizations/check-uniqueness - Real-time availability check
+router.get("/check-uniqueness", requireAuth, checkUniqueness);
 
 // POST /api/v1/organizations - Create a new organization and assign initial owner (Platform only)
 router.post(
@@ -138,8 +143,13 @@ router.post(
   switchOrganization
 );
 
-// DELETE /api/v1/organizations/:organizationId - Soft delete / deactivate organization
-router.delete("/:organizationId", requireAuth, deleteOrganization);
+// DELETE /api/v1/organizations/:organizationId - Delete or deactivate organization (Platform only)
+router.delete(
+  "/:organizationId",
+  requireAuth,
+  requirePlatformPermission(PERMISSIONS.ORGANIZATIONS_DELETE),
+  deleteOrganization
+);
 
 // --- Organization Member Management Endpoints ---
 
@@ -152,6 +162,17 @@ router.post(
     PERMISSIONS.ORG_USERS_CREATE
   ),
   inviteStaffMember
+);
+
+// POST /api/v1/organizations/:organizationId/members/:membershipId/resend-invite - Resend staff invitation
+router.post(
+  "/:organizationId/members/:membershipId/resend-invite",
+  requireAuth,
+  requireOrganizationOrPlatformPermission(
+    PERMISSIONS.ORG_USERS_CREATE,
+    PERMISSIONS.ORG_USERS_CREATE
+  ),
+  resendInvitation
 );
 
 // POST /api/v1/organizations/:organizationId/invitations - Alias for invitation

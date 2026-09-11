@@ -47,6 +47,7 @@ export function OrgUsers({ onNavigate }) {
   const [newRole, setNewRole] = useState('EXAMINER');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [resendingId, setResendingId] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
 
   // Sync tab with URL parameter
@@ -92,8 +93,8 @@ export function OrgUsers({ onNavigate }) {
 
             const firstName = m.userId?.firstName || m.firstName || '';
             const lastName = m.userId?.lastName || m.lastName || '';
-            const memberName = `${firstName} ${lastName}`.trim() || m.name || 'Staff Member';
-            const memberEmail = m.userId?.email || m.email || 'staff@secureassess.edu';
+            const memberName = `${firstName} ${lastName}`.trim() || m.name || m.userId?.name || 'Staff Member';
+            const memberEmail = m.userId?.email || m.email || m.invitedEmail || m.userEmail || '';
             const rawStatus = m.status || m.userId?.status || 'ACTIVE';
 
             return {
@@ -160,7 +161,7 @@ export function OrgUsers({ onNavigate }) {
 
       setToastMessage({
         type: 'success',
-        text: `Invitation sent to ${email} with role ${role.replace('_', ' ')}!`,
+        text: `Invitation email sent to ${email} with role ${role.replace('_', ' ')}!`,
       });
       setInviteModalOpen(false);
       setName('');
@@ -168,28 +169,36 @@ export function OrgUsers({ onNavigate }) {
       fetchUsers();
     } catch (err) {
       console.error('Invite staff error:', err);
-      const tempId = `temp_staff_${Date.now()}`;
-      setUsersList((prev) => [
-        {
-          _id: tempId,
-          id: tempId,
-          name,
-          email: email.trim().toLowerCase(),
-          role: role.toUpperCase(),
-          status: 'INVITED',
-          lastActive: 'Just now',
-        },
-        ...prev,
-      ]);
       setToastMessage({
-        type: 'success',
-        text: `Staff invitation registered for ${email}!`,
+        type: 'error',
+        text: err.response?.data?.message || err.message || 'Failed to dispatch staff invitation email',
       });
-      setInviteModalOpen(false);
-      setName('');
-      setEmail('');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Resend Staff Invitation
+  const handleResendInvite = async (member, e) => {
+    e?.stopPropagation?.();
+    const orgId = currentOrganization?._id || currentOrganization?.id;
+    const memberId = member._id || member.id;
+    setResendingId(memberId);
+    try {
+      const res = await organizationService.resendInvitation(orgId, memberId);
+      const targetEmail = res?.data?.email || res?.email || member.email || 'the user';
+      setToastMessage({
+        type: 'success',
+        text: res?.message || `Invitation email re-sent successfully to ${targetEmail}!`,
+      });
+    } catch (err) {
+      console.error('Resend invite error:', err);
+      setToastMessage({
+        type: 'error',
+        text: err.response?.data?.message || err.message || 'Failed to resend invitation email',
+      });
+    } finally {
+      setResendingId(null);
     }
   };
 
@@ -540,6 +549,20 @@ export function OrgUsers({ onNavigate }) {
                         {/* Member Row Actions */}
                         <td className="px-5 py-3.5 text-right">
                           <div className="flex items-center justify-end gap-1">
+                            {/* Resend Invitation Email (For Invited / Pending members) */}
+                            {String(u.status).toUpperCase() === 'INVITED' && (
+                              <button
+                                type="button"
+                                className="px-2 py-1 text-primary-600 dark:text-primary-400 bg-primary-50/80 dark:bg-primary-950/50 hover:bg-primary-100 dark:hover:bg-primary-900/60 border border-primary-200 dark:border-primary-800/60 rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-xs font-semibold"
+                                title="Resend Invitation Email"
+                                disabled={resendingId === (u._id || u.id)}
+                                onClick={(e) => handleResendInvite(u, e)}
+                              >
+                                <Mail size={13} className={resendingId === (u._id || u.id) ? 'animate-spin' : ''} />
+                                <span className="text-[11px]">Resend</span>
+                              </button>
+                            )}
+
                             {/* View Action */}
                             <button
                               type="button"

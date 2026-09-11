@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrganization } from '../../contexts/OrganizationContext';
 import { LogOut, Building2, Shield, User, ChevronDown } from 'lucide-react';
@@ -8,17 +9,24 @@ export const Navbar = ({ portalType = 'organization' }) => {
   const { user, logout, isPlatformStaff } = useAuth();
   const { organizations, currentOrganization, switchOrganization, userRole } = useOrganization();
 
+  const logoDestination =
+    portalType === 'platform'
+      ? '/platform/dashboard'
+      : portalType === 'candidate'
+      ? '/candidate/dashboard'
+      : '/organization/dashboard';
+
   return (
-    <header className="h-16 bg-white/90 dark:bg-accent-900/90 backdrop-blur-md border-b border-accent-200 dark:border-accent-800 px-6 flex items-center justify-between sticky top-0 z-30">
+    <header className="h-16 bg-white/90 dark:bg-accent-900/90 backdrop-blur-md border-b border-accent-200 dark:border-accent-800 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30">
       <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-primary-600 to-secondary-500 flex items-center justify-center text-white font-bold shadow-soft">
+        <Link to={logoDestination} className="flex items-center gap-2 group cursor-pointer">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-primary-600 to-secondary-500 flex items-center justify-center text-white font-bold shadow-soft group-hover:scale-105 transition-transform">
             <Shield className="w-5 h-5" />
           </div>
           <span className="font-display font-bold text-lg text-accent-900 dark:text-white tracking-tight">
             Secure<span className="text-primary-600 dark:text-primary-400">Assess</span>
           </span>
-        </div>
+        </Link>
 
         <div className="hidden md:flex items-center">
           <span className="text-xs font-semibold px-2.5 py-1 rounded-full uppercase tracking-wider bg-accent-100 dark:bg-accent-800 text-accent-700 dark:text-accent-300 border border-accent-200 dark:border-accent-700">

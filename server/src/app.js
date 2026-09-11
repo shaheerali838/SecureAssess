@@ -52,9 +52,12 @@ app.get("/health/live", (req, res) => {
   });
 });
 app.get("/favicon.ico", (req, res) => res.status(204).end());
-app.get(["/health/plan", "/health/plans", "/api/health/plan", "/api/health/plans"], (req, res) => {
-  res.redirect("/api/v1/plans");
-});
+app.get(
+  ["/health/plan", "/health/plans", "/api/health/plan", "/api/health/plans"],
+  (req, res) => {
+    res.redirect("/api/v1/plans");
+  },
+);
 app.get("/health/ready", (req, res) => {
   res
     .status(200)

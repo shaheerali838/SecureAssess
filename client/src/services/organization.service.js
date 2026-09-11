@@ -58,6 +58,17 @@ export const organizationService = {
   },
 
   /**
+   * Check real-time on-the-spot availability of organization name and owner email
+   */
+  checkUniqueness: async ({ name, email }) => {
+    const params = new URLSearchParams();
+    if (name) params.append('name', name);
+    if (email) params.append('email', email);
+    const response = await api.get(`/organizations/check-uniqueness?${params.toString()}`);
+    return response.data || response;
+  },
+
+  /**
    * Platform-level: Create organization tenant
    */
   createOrganization: async (orgData) => {
@@ -90,6 +101,14 @@ export const organizationService = {
   },
 
   /**
+   * Delete or deactivate organization (Platform Super Admin only)
+   */
+  deleteOrganization: async (organizationId, permanent = false) => {
+    const response = await api.delete(`/organizations/${organizationId}${permanent ? '?permanent=true' : ''}`);
+    return response.data || response;
+  },
+
+  /**
    * List staff members in organization
    */
   listMembers: async (organizationId, params = {}) => {
@@ -104,6 +123,15 @@ export const organizationService = {
   inviteMember: async (organizationId, inviteData) => {
     const orgId = organizationId || localStorage.getItem('secureassess_current_org_id');
     const response = await api.post(`/organizations/${orgId}/members/invite`, inviteData);
+    return response.data || response;
+  },
+
+  /**
+   * Resend invitation email to staff member
+   */
+  resendInvitation: async (organizationId, membershipId) => {
+    const orgId = organizationId || localStorage.getItem('secureassess_current_org_id');
+    const response = await api.post(`/organizations/${orgId}/members/${membershipId}/resend-invite`);
     return response.data || response;
   },
 

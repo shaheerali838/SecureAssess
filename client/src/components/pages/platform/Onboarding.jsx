@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Building2, ArrowRight, ArrowLeft, Check, Shield, Palette, Users,
-  FileText, ShieldCheck, Sparkles, Upload, Plus, X, RefreshCw
+  FileText, ShieldCheck, Sparkles, Upload, Plus, X, RefreshCw, AlertCircle
 } from 'lucide-react';
 import { Button, Card, CardBody, Input, Select, Badge } from '@/components/ui';
 import organizationService from '@/services/organization.service';
@@ -27,20 +27,165 @@ const colorOptions = ['#2563eb', '#0d9488', '#7c3aed', '#059669', '#1e3a8a', '#d
 
 export function Onboarding({ onNavigate }) {
   const [step, setStep] = useState(1);
-  const [orgName, setOrgName] = useState('Stanford University');
+  const [orgName, setOrgName] = useState('');
   const [country, setCountry] = useState('United States');
-  const [city, setCity] = useState('Stanford');
-  const [website, setWebsite] = useState('https://stanford.edu');
-  const [adminFirstName, setAdminFirstName] = useState('Dean');
-  const [adminLastName, setAdminLastName] = useState('Harrison');
-  const [adminEmail, setAdminEmail] = useState('dean.harrison@stanford.edu');
-  const [adminPhone, setAdminPhone] = useState('+1 (650) 723-2300');
+  const [city, setCity] = useState('');
+  const [website, setWebsite] = useState('');
+  const [adminFirstName, setAdminFirstName] = useState('');
+  const [adminLastName, setAdminLastName] = useState('');
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPhone, setAdminPhone] = useState('');
   const [industry, setIndustry] = useState('academic');
   const [brandColor, setBrandColor] = useState('#2563eb');
   const [roles, setRoles] = useState(['Organization Admin', 'Examiner', 'Candidate']);
   const [newRole, setNewRole] = useState('');
   const [defaultDuration, setDefaultDuration] = useState(60);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+  const [nameError, setNameError] = useState(null);
+  const [emailError, setEmailError] = useState(null);
+  const [nameChecking, setNameChecking] = useState(false);
+  const [emailChecking, setEmailChecking] = useState(false);
+  const [nameAvailable, setNameAvailable] = useState(false);
+  const [emailAvailable, setEmailAvailable] = useState(false);
+  const [validatingStep1, setValidatingStep1] = useState(false);
+
+  // Live on-the-spot validation for Organization Name (300ms debounce)
+  React.useEffect(() => {
+    const trimmed = orgName.trim();
+    if (!trimmed) {
+      setNameError(null);
+      setNameAvailable(false);
+      setNameChecking(false);
+      return;
+    }
+    if (trimmed.length < 2) {
+      setNameError('Organization name must be at least 2 characters');
+      setNameAvailable(false);
+      setNameChecking(false);
+      return;
+    }
+
+    setNameChecking(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await organizationService.checkUniqueness({ name: trimmed });
+        const data = res.data || res;
+        if (data.errors?.name || data.nameAvailable === false) {
+          setNameError(data.errors?.name || `An organization with the name '${trimmed}' already exists.`);
+          setNameAvailable(false);
+        } else {
+          setNameError(null);
+          setNameAvailable(true);
+        }
+      } catch {
+        setNameError(null);
+        setNameAvailable(false);
+      } finally {
+        setNameChecking(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [orgName]);
+
+  // Live on-the-spot validation for Administrative Email (300ms debounce)
+  React.useEffect(() => {
+    const trimmed = adminEmail.trim();
+    if (!trimmed) {
+      setEmailError(null);
+      setEmailAvailable(false);
+      setEmailChecking(false);
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmed)) {
+      setEmailError('Please enter a valid administrative email (e.g. dean@domain.edu)');
+      setEmailAvailable(false);
+      setEmailChecking(false);
+      return;
+    }
+
+    setEmailChecking(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await organizationService.checkUniqueness({ email: trimmed });
+        const data = res.data || res;
+        if (data.errors?.email || data.emailAvailable === false) {
+          setEmailError(data.errors?.email || 'Email already taken');
+          setEmailAvailable(false);
+        } else {
+          setEmailError(null);
+          setEmailAvailable(true);
+        }
+      } catch {
+        setEmailError(null);
+        setEmailAvailable(false);
+      } finally {
+        setEmailChecking(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [adminEmail]);
+
+  const handleStep1Continue = async () => {
+    setNameError(null);
+    setEmailError(null);
+    setError(null);
+
+    const trimmedName = orgName.trim();
+    const trimmedEmail = adminEmail.trim();
+    const trimmedFirst = adminFirstName.trim();
+
+    if (!trimmedName) {
+      setNameError('Organization name is required');
+      return;
+    }
+    if (trimmedName.length < 2) {
+      setNameError('Organization name must be at least 2 characters');
+      return;
+    }
+    if (!trimmedEmail) {
+      setEmailError('Administrative email is required');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setEmailError('Please enter a valid administrative email');
+      return;
+    }
+    if (!trimmedFirst) {
+      setError('Primary administrator first name is required');
+      return;
+    }
+
+    setValidatingStep1(true);
+    try {
+      const res = await organizationService.checkUniqueness({
+        name: trimmedName,
+        email: trimmedEmail,
+      });
+      const data = res.data || res;
+
+      let hasError = false;
+      if (data.errors?.name || data.nameAvailable === false) {
+        setNameError(data.errors?.name || `An organization with the name '${trimmedName}' already exists.`);
+        hasError = true;
+      }
+      if (data.errors?.email || data.emailAvailable === false) {
+        setEmailError(data.errors?.email || 'Email already taken');
+        hasError = true;
+      }
+
+      if (hasError) return;
+
+      setStep(2);
+    } catch {
+      setStep(2);
+    } finally {
+      setValidatingStep1(false);
+    }
+  };
 
   const addRole = () => {
     if (newRole && !roles.includes(newRole)) {
@@ -52,6 +197,7 @@ export function Onboarding({ onNavigate }) {
   const removeRole = (r) => setRoles(roles.filter((x) => x !== r));
 
   const handleFinalizeProvisioning = async () => {
+    setError(null);
     setSubmitting(true);
 
     const mapIndustryToType = (ind) => {
@@ -98,9 +244,7 @@ export function Onboarding({ onNavigate }) {
       await organizationService.createOrganization(payload);
       setStep(7);
     } catch (err) {
-      console.warn('Onboarding organization creation note:', err.message);
-      // Advance so setup completes cleanly
-      setStep(7);
+      setError(err.message || 'Failed to provision tenant. Please review inputs.');
     } finally {
       setSubmitting(false);
     }
@@ -138,12 +282,12 @@ export function Onboarding({ onNavigate }) {
           {steps.map((s, i) => (
             <div key={s.num} className="flex items-center flex-1 last:flex-none">
               <div
-                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl transition-colors ${
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
                   step === s.num
-                    ? 'bg-primary-50 dark:bg-primary-950/60 text-primary-700 dark:text-primary-300 border border-primary-200 dark:border-primary-800/50'
+                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-950/60 text-primary-700 dark:text-primary-300 shadow-soft'
                     : step > s.num
-                    ? 'bg-success-50 dark:bg-success-950/60 text-success-700 dark:text-success-300 border border-success-200 dark:border-success-800/50'
-                    : 'bg-accent-100 dark:bg-accent-800/60 text-accent-400 border border-transparent'
+                    ? 'border-success-300 dark:border-success-800 bg-success-50 dark:bg-success-950/40 text-success-700 dark:text-success-300'
+                    : 'border-accent-200 dark:border-accent-800 text-accent-400 dark:text-accent-500'
                 }`}
               >
                 <div
@@ -160,7 +304,7 @@ export function Onboarding({ onNavigate }) {
                 <span className="text-xs font-semibold hidden sm:inline">{s.label}</span>
               </div>
               {i < steps.length - 1 && (
-                <div className={`flex-1 h-0.5 rounded mx-1 ${step > s.num ? 'bg-success-400' : 'bg-accent-200 dark:bg-accent-800'}`} />
+                <div className={`flex-1 h-0.5 rounded mx-1 ${step > s.num ? 'bg-success-400' : 'bg-accent-200 dark:border-accent-800'}`} />
               )}
             </div>
           ))}
@@ -177,23 +321,81 @@ export function Onboarding({ onNavigate }) {
                   <Building2 size={24} />
                 </div>
                 <h2 className="text-lg font-bold text-accent-900 dark:text-white">Organization Identity</h2>
-                <p className="text-xs text-accent-500 dark:text-accent-400 mt-1">Tenant registration and contact points</p>
+                <p className="text-xs text-accent-500 dark:text-accent-400 mt-1">Tenant registration and administrative contact points</p>
               </div>
-              <Input label="Organization Name *" placeholder="e.g. Stanford University" value={orgName} onChange={(e) => setOrgName(e.target.value)} />
+
+              {error && (
+                <div className="p-3.5 rounded-xl bg-danger-50 dark:bg-danger-950/50 border border-danger-200 dark:border-danger-800 text-danger-700 dark:text-danger-300 text-xs flex items-center gap-2">
+                  <AlertCircle size={16} className="shrink-0 text-danger-500" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <div>
+                <Input
+                  label="Organization Name *"
+                  placeholder="e.g. Harvard University or Acme Corp"
+                  value={orgName}
+                  onChange={(e) => setOrgName(e.target.value)}
+                  error={nameError}
+                />
+                <div className="mt-1 min-h-[18px]">
+                  {nameChecking && (
+                    <p className="text-[11px] text-accent-400 dark:text-accent-500 flex items-center gap-1">
+                      <RefreshCw size={11} className="animate-spin text-primary-500" /> Checking availability...
+                    </p>
+                  )}
+                  {nameAvailable && !nameChecking && !nameError && orgName.trim().length >= 2 && (
+                    <p className="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-medium">
+                      <Check size={12} className="text-emerald-500" /> Organization name is available
+                    </p>
+                  )}
+                </div>
+              </div>
+
               <div className="grid sm:grid-cols-2 gap-4">
                 <Input label="Country / Jurisdiction *" placeholder="United States" value={country} onChange={(e) => setCountry(e.target.value)} />
-                <Input label="Website Domain" placeholder="https://stanford.edu" value={website} onChange={(e) => setWebsite(e.target.value)} />
+                <Input label="Website Domain" placeholder="https://organization.edu" value={website} onChange={(e) => setWebsite(e.target.value)} />
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 <Input label="Primary Administrator First Name *" placeholder="Dean" value={adminFirstName} onChange={(e) => setAdminFirstName(e.target.value)} />
                 <Input label="Primary Administrator Last Name" placeholder="Harrison" value={adminLastName} onChange={(e) => setAdminLastName(e.target.value)} />
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
-                <Input label="Administrative Email *" type="email" placeholder="admin@stanford.edu" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} />
+                <div>
+                  <Input
+                    label="Administrative Email *"
+                    type="email"
+                    placeholder="admin@organization.edu"
+                    value={adminEmail}
+                    onChange={(e) => setAdminEmail(e.target.value)}
+                    error={emailError}
+                  />
+                  <div className="mt-1 min-h-[18px]">
+                    {emailChecking && (
+                      <p className="text-[11px] text-accent-400 dark:text-accent-500 flex items-center gap-1">
+                        <RefreshCw size={11} className="animate-spin text-primary-500" /> Checking email availability...
+                      </p>
+                    )}
+                    {emailAvailable && !emailChecking && !emailError && adminEmail.trim().length > 0 && (
+                      <p className="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-medium">
+                        <Check size={12} className="text-emerald-500" /> Administrative email is available
+                      </p>
+                    )}
+                  </div>
+                </div>
                 <Input label="Contact Phone" placeholder="+1 (650) 723-2300" value={adminPhone} onChange={(e) => setAdminPhone(e.target.value)} />
               </div>
               <div className="flex justify-end pt-2">
-                <Button variant="primary" iconRight={<ArrowRight size={16} />} onClick={() => setStep(2)}>Continue to Industry</Button>
+                <Button
+                  variant="primary"
+                  loading={validatingStep1 || nameChecking || emailChecking}
+                  disabled={Boolean(nameError || emailError)}
+                  iconRight={<ArrowRight size={16} />}
+                  onClick={handleStep1Continue}
+                >
+                  Continue to Industry
+                </Button>
               </div>
             </div>
           )}
@@ -370,6 +572,16 @@ export function Onboarding({ onNavigate }) {
                   </div>
                 ))}
               </div>
+
+              {error && (
+                <div className="p-3.5 rounded-xl bg-danger-50 dark:bg-danger-950/60 border border-danger-200 dark:border-danger-800 text-danger-700 dark:text-danger-300 text-xs flex items-center gap-2.5 animate-shake">
+                  <AlertCircle className="w-5 h-5 shrink-0 text-danger-500" />
+                  <div>
+                    <p className="font-bold text-sm">Provisioning Error</p>
+                    <p className="mt-0.5">{error}</p>
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-between pt-2">
                 <Button variant="outline" icon={<ArrowLeft size={16} />} onClick={() => setStep(5)}>Back</Button>

@@ -63,7 +63,7 @@ export function Interviews({ onNavigate }) {
       const sessionData = {
         id: interview._id || interview.id,
         participant: candName,
-        email: interview.candidateId?.email || interview.candidateEmail || 'candidate@secureassess.edu',
+        email: interview.candidateId?.email || interview.candidateEmail || interview.metadata?.candidateEmail || '',
         assessment: `[Live Interview] ${interview.title || 'Technical Defense'}`,
         assessmentCode: `INTV-${(interview.type || 'TECH').toUpperCase()}`,
         status: 'COMPLETED',

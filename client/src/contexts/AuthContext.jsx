@@ -161,6 +161,47 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  /**
+   * Handle accept invitation & set password
+   */
+  const acceptInvitation = async ({ token, password, firstName, lastName }) => {
+    setIsLoading(true);
+    try {
+      localStorage.removeItem('secureassess_current_org_id');
+
+      const data = await authService.acceptInvitation({ token, password, firstName, lastName });
+      const authUser = data.user || data;
+      const tok = data.tokens?.accessToken || data.accessToken || data.token;
+      const refreshToken = data.tokens?.refreshToken || data.refreshToken;
+      const memberships = data.memberships || [];
+
+      const userObject = { ...authUser, memberships };
+
+      setUser(userObject);
+      setAccessToken(tok);
+
+      localStorage.setItem('secureassess_user', JSON.stringify(userObject));
+      if (tok) {
+        localStorage.setItem('secureassess_access_token', tok);
+      }
+      if (refreshToken) {
+        localStorage.setItem('secureassess_refresh_token', refreshToken);
+      }
+
+      if (memberships.length > 0) {
+        const primaryOrg = memberships[0].organizationId || memberships[0].organization;
+        const orgId = typeof primaryOrg === 'object' ? (primaryOrg._id || primaryOrg.id) : primaryOrg;
+        if (orgId && typeof orgId === 'string') {
+          localStorage.setItem('secureassess_current_org_id', orgId);
+        }
+      }
+
+      return { user: userObject, memberships, tokens: data.tokens, ...data };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const isPlatformStaff = Boolean(
     user &&
       (user.platformRole === PLATFORM_ROLES.PLATFORM_OWNER ||
@@ -180,6 +221,7 @@ export const AuthProvider = ({ children }) => {
     isPlatformAdmin,
     login,
     logout,
+    acceptInvitation,
     refreshSession: initializeAuth,
   };
 

@@ -31,8 +31,8 @@ export class AuthValidator {
     if (!body.currentPassword || typeof body.currentPassword !== "string") {
       errors.push("Current password is required");
     }
-    if (!body.newPassword || typeof body.newPassword !== "string" || body.newPassword.length < 8) {
-      errors.push("New password must be at least 8 characters long");
+    if (!body.newPassword || typeof body.newPassword !== "string" || body.newPassword.length < 6) {
+      errors.push("New password must be at least 6 characters long");
     }
     if (body.currentPassword && body.newPassword && body.currentPassword === body.newPassword) {
       errors.push("New password must be different from current password");
@@ -53,11 +53,29 @@ export class AuthValidator {
     if (!body || typeof body !== "object") {
       return { isValid: false, errors: ["Request body is required"] };
     }
-    if (!body.token || typeof body.token !== "string") {
+    const token = body.token || body.setupToken || body.inviteToken || body.resetToken;
+    if (!token || typeof token !== "string") {
       errors.push("Reset token is required");
     }
-    if (!body.newPassword || typeof body.newPassword !== "string" || body.newPassword.length < 8) {
-      errors.push("New password must be at least 8 characters long");
+    const password = body.newPassword || body.password;
+    if (!password || typeof password !== "string" || password.length < 6) {
+      errors.push("New password must be at least 6 characters long");
+    }
+    return { isValid: errors.length === 0, errors };
+  }
+
+  static validateAcceptInvitation(body) {
+    const errors = [];
+    if (!body || typeof body !== "object") {
+      return { isValid: false, errors: ["Request body is required"] };
+    }
+    const token = body.token || body.setupToken || body.inviteToken || body.resetToken;
+    if (!token || typeof token !== "string") {
+      errors.push("Invitation token is required");
+    }
+    const password = body.password || body.newPassword;
+    if (!password || typeof password !== "string" || password.length < 6) {
+      errors.push("Password must be at least 6 characters long");
     }
     return { isValid: errors.length === 0, errors };
   }
@@ -70,3 +88,4 @@ export class AuthValidator {
     return { isValid: errors.length === 0, errors };
   }
 }
+

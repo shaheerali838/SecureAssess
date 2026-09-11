@@ -6,6 +6,19 @@ import Organization from "./organization.model.js";
  */
 export class OrganizationRepository {
   /**
+   * Finds an organization by its exact name (case-insensitive).
+   */
+  static async findByName(name, options = {}) {
+    if (!name) return null;
+    const escaped = name.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return Organization.findOne(
+      { name: { $regex: new RegExp(`^${escaped}$`, "i") } },
+      null,
+      options
+    );
+  }
+
+  /**
    * Finds an organization by its unique lowercase slug.
    */
   static async findBySlug(slug, options = {}) {

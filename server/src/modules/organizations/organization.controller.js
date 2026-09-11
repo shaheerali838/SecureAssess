@@ -22,6 +22,17 @@ export const createOrganization = asyncHandler(async (req, res) => {
 });
 
 /**
+ * GET /api/v1/organizations/check-uniqueness - Real-time availability check for organization name and owner email
+ */
+export const checkUniqueness = asyncHandler(async (req, res) => {
+  const { name, email } = req.query;
+  const result = await OrganizationService.checkUniqueness({ name, email });
+  return res
+    .status(200)
+    .json(new ApiResponse(200, result, "Uniqueness check completed"));
+});
+
+/**
  * GET /api/v1/organizations - List organizations with tenant/platform scoping
  */
 export const listOrganizations = asyncHandler(async (req, res) => {
@@ -120,12 +131,14 @@ export const activateOrganization = asyncHandler(async (req, res) => {
  */
 export const deleteOrganization = asyncHandler(async (req, res) => {
   const organizationId = req.params.organizationId || req.organizationId;
+  const hardDelete = req.query.permanent === "true" || req.query.hard === "true" || req.body?.permanent === true;
   const result = await OrganizationService.deleteOrganization(
     organizationId,
-    req.user
+    req.user,
+    hardDelete
   );
 
-  return res.status(200).json(new ApiResponse(200, result, "Organization deactivated successfully"));
+  return res.status(200).json(new ApiResponse(200, result, result.message || "Organization removed successfully"));
 });
 
 /**
@@ -140,6 +153,21 @@ export const inviteStaffMember = asyncHandler(async (req, res) => {
     inviterUserId
   );
   return res.status(201).json(new ApiResponse(201, result, "Staff invitation sent successfully"));
+});
+
+/**
+ * POST /api/v1/organizations/:organizationId/members/:membershipId/resend-invite - Resend staff invitation
+ */
+export const resendInvitation = asyncHandler(async (req, res) => {
+  const organizationId = req.params.organizationId || req.organizationId;
+  const membershipId = req.params.membershipId;
+  const inviterUserId = req.user?.id || req.user?._id;
+  const result = await OrganizationService.resendInvitation(
+    organizationId,
+    membershipId,
+    inviterUserId
+  );
+  return res.status(200).json(new ApiResponse(200, result, "Staff invitation email resent successfully"));
 });
 
 /**

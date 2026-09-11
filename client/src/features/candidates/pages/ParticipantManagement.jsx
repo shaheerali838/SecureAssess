@@ -412,13 +412,13 @@ export function ParticipantManagement({ onNavigate }) {
                     const id = p._id || p.id || idx;
                     const candidateName =
                       p.name || `${p.firstName || ''} ${p.lastName || ''}`.trim() || 'Candidate';
-                    const candidateEmail = p.email || 'examinee@example.com';
-                    const code = p.candidateCode || `CAND-${id.toString().slice(-6).toUpperCase()}`;
+                    const candidateEmail = p.email || p.userId?.email || '';
+                    const code = p.candidateCode || p.code || '';
 
                     const deptName =
                       p.departmentId?.name ||
                       departments.find((d) => (d._id || d.id) === p.departmentId)?.name ||
-                      'General Studies';
+                      '';
 
                     const progName =
                       p.programId?.name ||

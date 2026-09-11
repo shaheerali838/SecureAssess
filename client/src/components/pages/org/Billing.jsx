@@ -746,7 +746,7 @@ export function Billing({ onNavigate }) {
                       Institutional Billing Profile & Governance
                     </h4>
                     <p className="text-[11px] text-accent-500 dark:text-accent-400">
-                      Primary contact: <strong>{currentOrganization?.contactEmail || currentOrganization?.billingEmail || 'billing@institution.edu'}</strong> · Currency: <strong>USD ($)</strong>
+                      Primary contact: <strong>{currentOrganization?.contact?.email || currentOrganization?.contactEmail || currentOrganization?.billingEmail || user?.email || 'N/A'}</strong> · Currency: <strong>USD ($)</strong>
                     </p>
                   </div>
                 </div>
@@ -866,7 +866,7 @@ export function Billing({ onNavigate }) {
                   {currentOrganization?.name || 'Institution Tenant'}
                 </p>
                 <p className="text-accent-600 dark:text-accent-400">
-                  {currentOrganization?.contactEmail || 'billing@institution.edu'}
+                  {currentOrganization?.contact?.email || currentOrganization?.contactEmail || currentOrganization?.billingEmail || user?.email || 'N/A'}
                 </p>
               </div>
               <div className="text-right">

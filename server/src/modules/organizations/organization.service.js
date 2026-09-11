@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import mongoose from "mongoose";
 import Organization from "./organization.model.js";
 import { OrganizationRepository } from "./organization.repository.js";
@@ -16,14 +17,32 @@ import { MEMBERSHIP_STATUSES } from "../../constants/membershipStatuses.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { generateRandomCode } from "../../utils/generateCode.js";
 import { generateAccessToken } from "../../utils/token.js";
+import { hashPassword } from "../../utils/password.js";
 import { AuditLogService } from "../auditLogs/auditLog.service.js";
 import { NotificationService } from "../notifications/notification.service.js";
 import { NOTIFICATION_TYPES } from "../notifications/notification.constants.js";
+import { EmailService } from "../../services/email/email.service.js";
 import { EntitlementService } from "../../services/billing/entitlement.service.js";
+import { ENV } from "../../config/env.js";
 import Role from "../roles/role.model.js";
 import User from "../users/user.model.js";
 import UserMembership from "../users/userMembership.model.js";
 import Subscription from "../subscriptions/subscription.model.js";
+
+/**
+ * Generates an alphanumeric temporary password with symbol prefix (e.g. SA@K4M8P2)
+ */
+export const generateTemporaryPassword = () => {
+  const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const lower = "abcdefghijkmnpqrstuvwxyz";
+  const nums = "23456789";
+  let pass = "SA@";
+  for (let i = 0; i < 3; i++) {
+    pass += letters.charAt(Math.floor(Math.random() * letters.length));
+    pass += nums.charAt(Math.floor(Math.random() * nums.length));
+  }
+  return pass;
+};
 
 /**
  * Normalizes text to a clean URL-friendly slug
@@ -96,6 +115,52 @@ export class OrganizationService {
   }
 
   /**
+   * Checks real-time on-the-spot availability/uniqueness of organization name and owner email
+   */
+  static async checkUniqueness({ name, email }) {
+    const results = {
+      nameAvailable: true,
+      emailAvailable: true,
+      errors: {},
+    };
+
+    if (name && typeof name === "string" && name.trim()) {
+      const existingOrg = await OrganizationRepository.findByName(name.trim());
+      if (existingOrg) {
+        results.nameAvailable = false;
+        results.errors.name = `An organization with the name '${name.trim()}' already exists.`;
+      }
+    }
+
+    if (email && typeof email === "string" && email.trim()) {
+      const ownerEmail = email.toLowerCase().trim();
+      const ownerUser = await User.findOne({ email: ownerEmail });
+      if (ownerUser) {
+        const ownerRole = await Role.findOne({
+          name: ORGANIZATION_ROLES.ORGANIZATION_OWNER,
+          scope: ROLE_SCOPES.ORGANIZATION,
+          isSystemRole: true,
+        });
+
+        if (ownerRole) {
+          const existingOwnerMembership = await UserMembership.findOne({
+            userId: ownerUser._id,
+            roleId: ownerRole._id,
+            status: { $ne: MEMBERSHIP_STATUSES.REVOKED },
+          }).populate("organizationId");
+
+          if (existingOwnerMembership && existingOwnerMembership.organizationId) {
+            results.emailAvailable = false;
+            results.errors.email = "Email already taken";
+          }
+        }
+      }
+    }
+
+    return results;
+  }
+
+  /**
    * Creates a new organization with initial owner and subscription inside a MongoDB transaction
    */
   static async createOrganization(data, creatorId = null) {
@@ -103,6 +168,15 @@ export class OrganizationService {
     session.startTransaction();
 
     try {
+      // 0. Validate Organization Name Uniqueness (case-insensitive)
+      const existingOrg = await OrganizationRepository.findByName(data.name, { session });
+      if (existingOrg) {
+        throw new ApiError(
+          409,
+          `An organization with the name '${data.name.trim()}' already exists. Please choose a unique organization name.`
+        );
+      }
+
       // 1. Generate unique slug & code
       const slug = await this.generateUniqueSlug(data.name, session);
       const code = await this.generateUniqueCode(data.name, session);
@@ -121,11 +195,34 @@ export class OrganizationService {
         );
       }
 
-      // 3. Find or create Owner User
+      // 3. Find or create Owner User & Validate Owner Email Uniqueness
       const ownerEmail = data.owner.email.toLowerCase().trim();
       let ownerUser = await User.findOne({ email: ownerEmail }).session(
         session,
       );
+
+      if (ownerUser) {
+        const existingOwnerMembership = await UserMembership.findOne({
+          userId: ownerUser._id,
+          roleId: ownerRole._id,
+          status: { $ne: MEMBERSHIP_STATUSES.REVOKED },
+        })
+          .populate("organizationId")
+          .session(session);
+
+        if (existingOwnerMembership && existingOwnerMembership.organizationId) {
+          throw new ApiError(409, "Email already taken");
+        }
+      }
+
+      const rawSetupToken = crypto.randomBytes(32).toString("hex");
+      const tokenHash = crypto
+        .createHash("sha256")
+        .update(rawSetupToken)
+        .digest("hex");
+
+      const initialPlainPassword = data.owner.password || generateTemporaryPassword();
+      const initialPasswordHash = await hashPassword(initialPlainPassword);
 
       if (!ownerUser) {
         const createdUsers = await User.create(
@@ -134,15 +231,33 @@ export class OrganizationService {
               firstName: data.owner.firstName.trim(),
               lastName: data.owner.lastName?.trim() || "",
               email: ownerEmail,
-              passwordHash: "INVITED_ACCOUNT",
+              passwordHash: initialPasswordHash,
               status: USER_STATUSES.ACTIVE,
               platformRole: null,
               emailVerified: true,
+              passwordResetTokenHash: tokenHash,
+              passwordResetExpiresAt: new Date(
+                Date.now() + 7 * 24 * 60 * 60 * 1000,
+              ), // 7 days
             },
           ],
           { session },
         );
         ownerUser = createdUsers[0];
+      } else {
+        // If owner account already exists, update credentials & setup token so the emailed credentials work immediately
+        ownerUser.passwordHash = initialPasswordHash;
+        ownerUser.passwordResetTokenHash = tokenHash;
+        ownerUser.passwordResetExpiresAt = new Date(
+          Date.now() + 7 * 24 * 60 * 60 * 1000,
+        );
+        if (data.owner.firstName && !ownerUser.firstName) {
+          ownerUser.firstName = data.owner.firstName.trim();
+        }
+        if (data.owner.lastName && !ownerUser.lastName) {
+          ownerUser.lastName = data.owner.lastName.trim();
+        }
+        await ownerUser.save({ session });
       }
 
       // 4. Create Organization
@@ -193,6 +308,45 @@ export class OrganizationService {
 
       // 7. Commit transaction
       await session.commitTransaction();
+
+      // Resolve action URL for owner onboarding
+      const clientUrl = ENV.CLIENT_URL || "http://localhost:5173";
+      const actionUrl = `${clientUrl}/login?token=${rawSetupToken}&email=${encodeURIComponent(ownerEmail)}&mode=setup`;
+      const actionText = "Sign In & Access Workspace";
+
+      const ownerFullName = `${ownerUser.firstName} ${ownerUser.lastName}`.trim();
+
+      // Dispatch tenant provisioning welcome email with login email & password
+      EmailService.sendTenantProvisionedEmail(ownerEmail, {
+        ownerName: ownerFullName || "Workspace Administrator",
+        organizationName: organization.name,
+        organizationCode: organization.code,
+        organizationSlug: organization.slug,
+        roleName: "Organization Owner & Workspace Administrator",
+        industry: tenantIndustry,
+        tierName: "Starter Academic Tier",
+        loginEmail: ownerEmail,
+        temporaryPassword: initialPlainPassword,
+        actionUrl,
+        actionText,
+      }).catch((err) => {
+        console.warn(`[OrganizationService] Failed to dispatch tenant welcome email: ${err.message}`);
+      });
+
+      // Dispatch in-app & system notification
+      NotificationService.createNotification({
+        organizationId: organization._id,
+        recipientId: ownerUser._id,
+        type: NOTIFICATION_TYPES.ORGANIZATION_CREATED,
+        title: "Workspace Provisioned",
+        message: `Your organization '${organization.name}' has been successfully provisioned on SecureAssess.`,
+        data: {
+          organizationId: organization._id,
+          organizationName: organization.name,
+          organizationCode: organization.code,
+          roleName: "Organization Owner",
+        },
+      }).catch(() => {});
 
       AuditLogService.createAuditLog({
         organizationId: organization._id,
@@ -371,7 +525,17 @@ export class OrganizationService {
 
     // Prepare safe update object - Protect server-controlled fields
     const safeUpdate = {};
-    if (updateData.name) safeUpdate.name = updateData.name.trim();
+    if (updateData.name) {
+      const trimmedName = updateData.name.trim();
+      const existingName = await OrganizationRepository.findByName(trimmedName);
+      if (existingName && existingName._id.toString() !== organizationId.toString()) {
+        throw new ApiError(
+          409,
+          `An organization with the name '${trimmedName}' already exists.`,
+        );
+      }
+      safeUpdate.name = trimmedName;
+    }
     if (updateData.type) safeUpdate.type = updateData.type;
     if (updateData.tenantIndustry)
       safeUpdate.tenantIndustry = updateData.tenantIndustry;
@@ -449,40 +613,59 @@ export class OrganizationService {
   }
 
   /**
-   * Soft deletes / deactivates organization (Platform Owner only)
+   * Deletes or deactivates an organization (Platform Owner/Admin only)
    */
-  static async deleteOrganization(organizationId, user) {
+  static async deleteOrganization(organizationId, user, hardDelete = false) {
     if (!mongoose.Types.ObjectId.isValid(organizationId)) {
       throw new ApiError(400, "Invalid organization ID format");
     }
 
-    const isPlatformOwner = user.platformRole === PLATFORM_ROLES.PLATFORM_OWNER;
-    if (!isPlatformOwner) {
+    const isPlatformStaff =
+      user.platformRole === PLATFORM_ROLES.PLATFORM_OWNER ||
+      user.platformRole === PLATFORM_ROLES.PLATFORM_ADMIN ||
+      user.platformRole === "PLATFORM_OWNER" ||
+      user.platformRole === "PLATFORM_ADMIN";
+
+    if (!isPlatformStaff) {
       throw new ApiError(
         403,
-        "Forbidden. Only platform owner can delete an organization.",
+        "Forbidden. Only platform administrators can delete an organization.",
       );
     }
 
-    const updatedOrg = await OrganizationRepository.updateStatus(
-      organizationId,
-      ORGANIZATION_STATUSES.DEACTIVATED,
-    );
-
-    if (!updatedOrg) {
+    const organization = await OrganizationRepository.findById(organizationId);
+    if (!organization) {
       throw new ApiError(404, "Organization not found");
+    }
+
+    if (hardDelete) {
+      // Hard delete: cascade delete organization & memberships & subscription
+      await Promise.all([
+        Organization.deleteOne({ _id: organizationId }),
+        UserMembership.deleteMany({ organizationId }),
+        Subscription.deleteMany({ organizationId }),
+      ]);
+    } else {
+      // Soft delete: set status to DEACTIVATED
+      await OrganizationRepository.updateStatus(
+        organizationId,
+        ORGANIZATION_STATUSES.DEACTIVATED,
+      );
     }
 
     AuditLogService.createAuditLog({
       organizationId,
       actorId: user.id || user._id,
-      action: "DEACTIVATE",
+      action: hardDelete ? "HARD_DELETE" : "DEACTIVATE",
       resource: "ORGANIZATION",
       resourceId: organizationId,
-      description: `Deactivated organization '${updatedOrg.name}'`,
+      description: `${hardDelete ? "Permanently deleted" : "Deactivated"} organization '${organization.name}'`,
     }).catch(() => {});
 
-    return { success: true, message: "Organization deactivated successfully" };
+    return {
+      success: true,
+      message: `Organization '${organization.name}' ${hardDelete ? "permanently deleted" : "deactivated"} successfully`,
+    };
   }
 
   /**
@@ -572,6 +755,50 @@ export class OrganizationService {
       });
     }
 
+    const organization = await OrganizationRepository.findById(organizationId);
+    let inviterUser = null;
+    if (inviterUserId) {
+      inviterUser = await User.findById(inviterUserId);
+    }
+    const inviterName = inviterUser
+      ? `${inviterUser.firstName} ${inviterUser.lastName}`.trim()
+      : null;
+
+    const rawInviteToken = crypto.randomBytes(32).toString("hex");
+    user.passwordResetTokenHash = crypto
+      .createHash("sha256")
+      .update(rawInviteToken)
+      .digest("hex");
+    user.passwordResetExpiresAt = new Date(
+      Date.now() + 7 * 24 * 60 * 60 * 1000,
+    );
+
+    const staffPlainPassword = generateTemporaryPassword();
+    user.passwordHash = await hashPassword(staffPlainPassword);
+    user.status = USER_STATUSES.ACTIVE;
+    user.emailVerified = true;
+    await user.save();
+
+    const clientUrl = ENV.CLIENT_URL || "http://localhost:5173";
+    const invitationUrl = `${clientUrl}/login?token=${rawInviteToken}&email=${encodeURIComponent(targetEmail)}&mode=invite`;
+
+    try {
+      await EmailService.sendOrganizationInvitationEmail(targetEmail, {
+        recipientName: `${user.firstName} ${user.lastName}`.trim() || targetEmail,
+        organizationName: organization?.name || "SecureAssess Workspace",
+        roleName: role.name,
+        inviterName,
+        loginEmail: targetEmail,
+        temporaryPassword: staffPlainPassword,
+        invitationUrl,
+        expiresIn: "7 days",
+      });
+    } catch (err) {
+      console.warn(
+        `[OrganizationService] Failed to dispatch staff invitation email: ${err.message}`,
+      );
+    }
+
     NotificationService.createNotification({
       organizationId,
       recipientId: user._id,
@@ -594,6 +821,77 @@ export class OrganizationService {
       email: targetEmail,
       role: role.name,
       status: "INVITED",
+      invitationUrl,
+    };
+  }
+
+  /**
+   * Resends invitation email to a pending/invited staff member with a fresh activation token
+   */
+  static async resendInvitation(organizationId, membershipId, inviterUserId) {
+    if (!mongoose.Types.ObjectId.isValid(membershipId)) {
+      throw new ApiError(400, "Invalid membership ID format");
+    }
+
+    const membership = await UserMembership.findOne({
+      _id: membershipId,
+      organizationId,
+    })
+      .populate("userId")
+      .populate("roleId");
+
+    if (!membership || !membership.userId) {
+      throw new ApiError(404, "Staff membership not found in this organization");
+    }
+
+    const user = membership.userId;
+    const role = membership.roleId;
+    const targetEmail = user.email.toLowerCase().trim();
+
+    const organization = await OrganizationRepository.findById(organizationId);
+    let inviterName = null;
+    if (inviterUserId) {
+      const inviterUser = await User.findById(inviterUserId);
+      if (inviterUser) {
+        inviterName = `${inviterUser.firstName} ${inviterUser.lastName}`.trim();
+      }
+    }
+
+    const rawInviteToken = crypto.randomBytes(32).toString("hex");
+    user.passwordResetTokenHash = crypto
+      .createHash("sha256")
+      .update(rawInviteToken)
+      .digest("hex");
+    user.passwordResetExpiresAt = new Date(
+      Date.now() + 7 * 24 * 60 * 60 * 1000,
+    );
+    await user.save();
+
+    membership.status = MEMBERSHIP_STATUSES.INVITED;
+    membership.invitedAt = new Date();
+    if (inviterUserId) membership.invitedBy = inviterUserId;
+    await membership.save();
+
+    const clientUrl = ENV.CLIENT_URL || "http://localhost:5173";
+    const invitationUrl = `${clientUrl}/login?token=${rawInviteToken}&email=${encodeURIComponent(targetEmail)}&mode=invite`;
+
+    await EmailService.sendOrganizationInvitationEmail(targetEmail, {
+      recipientName: `${user.firstName} ${user.lastName}`.trim() || targetEmail,
+      organizationName: organization?.name || "SecureAssess Workspace",
+      roleName: role?.name || "Staff Member",
+      inviterName,
+      loginEmail: targetEmail,
+      invitationUrl,
+      expiresIn: "7 days",
+    });
+
+    return {
+      success: true,
+      email: targetEmail,
+      role: role?.name || "Staff Member",
+      status: "INVITED",
+      invitationUrl,
+      message: `Invitation email sent to ${targetEmail}`,
     };
   }
 
