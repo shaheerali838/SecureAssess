@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import {
   ShieldCheck, ShieldAlert, Lock, Key, AlertTriangle, CheckCircle2,
-  RefreshCw, Globe, Eye, Filter, Ban, Download, Search, Server
+  RefreshCw, Globe, Eye, Filter, Ban, Download, Search, Server, Shield
 } from 'lucide-react';
 import {
-  Card, CardHeader, CardBody, MetricCard, Badge, Button, Input, Select, PageHeader, Modal, SkeletonCards
+  Card, CardHeader, CardBody, MetricCard, Badge, Button, Input, Select, PageHeader, Modal, SkeletonCards, EmptyState
 } from '@/components/ui';
 import platformService from '@/services/platform.service';
 
@@ -19,6 +19,9 @@ export function SecurityCenter({ onNavigate }) {
     tlsStrict: '100%',
     revokedTokens: 0,
     incidents: [],
+    wafRules: [],
+    tlsInfo: null,
+    revocations: [],
   });
 
   const fetchSecurityIntelligence = async () => {
@@ -32,6 +35,9 @@ export function SecurityCenter({ onNavigate }) {
         tlsStrict: payload.tlsStrict || '100%',
         revokedTokens: payload.revokedTokens || 0,
         incidents: Array.isArray(payload.incidents) ? payload.incidents : [],
+        wafRules: Array.isArray(payload.wafRules) ? payload.wafRules : [],
+        tlsInfo: payload.tlsInfo || null,
+        revocations: Array.isArray(payload.revocations) ? payload.revocations : [],
       });
     } catch (err) {
       console.warn('Security intelligence fetch note:', err.message);
@@ -46,9 +52,10 @@ export function SecurityCenter({ onNavigate }) {
 
   const filteredIncidents = (securityData.incidents || []).filter(
     (i) =>
-      i.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      i.ip.includes(searchQuery) ||
-      i.origin.toLowerCase().includes(searchQuery.toLowerCase())
+      (i.type || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (i.ip || '').includes(searchQuery) ||
+      (i.origin || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (i.id || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -59,9 +66,6 @@ export function SecurityCenter({ onNavigate }) {
         icon={<ShieldCheck size={22} className="text-primary-600 dark:text-primary-400" />}
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" icon={<Download size={15} />}>
-              Security Audit Export
-            </Button>
             <Button
               variant="primary"
               size="sm"
@@ -81,7 +85,7 @@ export function SecurityCenter({ onNavigate }) {
           value={securityData.posture}
           icon={<ShieldCheck size={20} />}
           trend={{ value: 'Zero-Day Shield Active', up: true }}
-          color="success"
+          color={securityData.wafBlocks > 10 ? 'warning' : 'success'}
         />
         <MetricCard
           label="Automated WAF Blocks"
@@ -109,10 +113,10 @@ export function SecurityCenter({ onNavigate }) {
       {/* Navigation Tabs */}
       <div className="flex items-center gap-2 border-b border-accent-200 dark:border-accent-800">
         {[
-          { id: 'threats', label: 'Threat Vectors & Anomalies' },
-          { id: 'waf', label: 'WAF & Rate Limiting Rules' },
+          { id: 'threats', label: `Threat Vectors & Anomalies (${securityData.incidents.length})` },
+          { id: 'waf', label: `WAF & Rate Limiting Rules (${securityData.wafRules.length || 4})` },
           { id: 'certs', label: 'TLS Certificates & Ciphers' },
-          { id: 'revocations', label: 'Token Blacklist & Sessions' },
+          { id: 'revocations', label: `Token Blacklist & Sessions (${securityData.revocations.length})` },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -136,7 +140,7 @@ export function SecurityCenter({ onNavigate }) {
             <Card>
               <CardHeader
                 title="Real-Time Incident & Anomaly Stream"
-                subtitle="Automated packet inspection and rate violation detection"
+                subtitle="Live audit-driven packet inspection, authorization denials, and rate violations"
                 icon={<AlertTriangle size={18} className="text-warning-500" />}
                 action={
                   <div className="flex items-center gap-2">
@@ -150,65 +154,73 @@ export function SecurityCenter({ onNavigate }) {
                 }
               />
               <CardBody className="p-0 overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-accent-50/80 dark:bg-accent-950/60 text-accent-600 dark:text-accent-400 border-b border-accent-200 dark:border-accent-800">
-                    <tr>
-                      <th className="p-3.5 font-semibold">Incident ID</th>
-                      <th className="p-3.5 font-semibold">Vector Type</th>
-                      <th className="p-3.5 font-semibold">Source IP & Geo</th>
-                      <th className="p-3.5 font-semibold">Target Endpoint</th>
-                      <th className="p-3.5 font-semibold">Severity</th>
-                      <th className="p-3.5 font-semibold">Mitigation Status</th>
-                      <th className="p-3.5 font-semibold">Time</th>
-                      <th className="p-3.5 font-semibold text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-accent-100 dark:divide-accent-800">
-                    {filteredIncidents.map((inc) => (
-                      <tr key={inc.id} className="hover:bg-accent-50/40 dark:hover:bg-accent-800/20 transition-colors">
-                        <td className="p-3.5 font-mono font-bold text-accent-900 dark:text-white">{inc.id}</td>
-                        <td className="p-3.5 font-medium text-accent-800 dark:text-accent-200">{inc.type}</td>
-                        <td className="p-3.5">
-                          <div className="font-mono text-accent-900 dark:text-white">{inc.ip}</div>
-                          <div className="text-[11px] text-accent-400">{inc.origin}</div>
-                        </td>
-                        <td className="p-3.5 font-mono text-[11px] text-accent-500">{inc.target}</td>
-                        <td className="p-3.5">
-                          <Badge
-                            variant={
-                              inc.severity === 'CRITICAL'
-                                ? 'danger'
-                                : inc.severity === 'HIGH'
-                                ? 'danger'
-                                : inc.severity === 'MEDIUM'
-                                ? 'warning'
-                                : 'neutral'
-                            }
-                          >
-                            {inc.severity}
-                          </Badge>
-                        </td>
-                        <td className="p-3.5">
-                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-success-600 dark:text-success-400">
-                            <CheckCircle2 size={13} />
-                            {inc.status}
-                          </span>
-                        </td>
-                        <td className="p-3.5 text-accent-400">{inc.timestamp}</td>
-                        <td className="p-3.5 text-right">
-                          <Button
-                            variant="ghost"
-                            size="xs"
-                            icon={<Eye size={13} />}
-                            onClick={() => setSelectedIncident(inc)}
-                          >
-                            Inspect
-                          </Button>
-                        </td>
+                {filteredIncidents.length === 0 ? (
+                  <div className="p-8">
+                    <EmptyState
+                      icon={<ShieldCheck size={36} className="text-emerald-500" />}
+                      title="No Security Violations Detected"
+                      description="All incoming requests and access tokens match verified zero-trust platform security criteria."
+                    />
+                  </div>
+                ) : (
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-accent-50/80 dark:bg-accent-950/60 text-accent-600 dark:text-accent-400 border-b border-accent-200 dark:border-accent-800">
+                      <tr>
+                        <th className="p-3.5 font-semibold">Incident ID</th>
+                        <th className="p-3.5 font-semibold">Vector Type</th>
+                        <th className="p-3.5 font-semibold">Source IP & Client</th>
+                        <th className="p-3.5 font-semibold">Target Endpoint</th>
+                        <th className="p-3.5 font-semibold">Severity</th>
+                        <th className="p-3.5 font-semibold">Mitigation Status</th>
+                        <th className="p-3.5 font-semibold">Time</th>
+                        <th className="p-3.5 font-semibold text-right">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-accent-100 dark:divide-accent-800">
+                      {filteredIncidents.map((inc) => (
+                        <tr key={inc.id} className="hover:bg-accent-50/40 dark:hover:bg-accent-800/20 transition-colors">
+                          <td className="p-3.5 font-mono font-bold text-accent-900 dark:text-white">{inc.id}</td>
+                          <td className="p-3.5 font-medium text-accent-800 dark:text-accent-200">{inc.type}</td>
+                          <td className="p-3.5">
+                            <div className="font-mono text-accent-900 dark:text-white">{inc.ip}</div>
+                            <div className="text-[11px] text-accent-400">{inc.origin}</div>
+                          </td>
+                          <td className="p-3.5 font-mono text-[11px] text-accent-500">{inc.target}</td>
+                          <td className="p-3.5">
+                            <Badge
+                              variant={
+                                inc.severity === 'CRITICAL' || inc.severity === 'HIGH'
+                                  ? 'danger'
+                                  : inc.severity === 'MEDIUM'
+                                  ? 'warning'
+                                  : 'neutral'
+                              }
+                            >
+                              {inc.severity}
+                            </Badge>
+                          </td>
+                          <td className="p-3.5">
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-success-600 dark:text-success-400">
+                              <CheckCircle2 size={13} />
+                              {inc.status}
+                            </span>
+                          </td>
+                          <td className="p-3.5 text-accent-400">{inc.timestamp}</td>
+                          <td className="p-3.5 text-right">
+                            <Button
+                              variant="ghost"
+                              size="xs"
+                              icon={<Eye size={13} />}
+                              onClick={() => setSelectedIncident(inc)}
+                            >
+                              Inspect
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </CardBody>
             </Card>
           )}
@@ -216,14 +228,14 @@ export function SecurityCenter({ onNavigate }) {
           {activeTab === 'waf' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <Card>
-                <CardHeader title="WAF Rate Limiting Profiles" subtitle="Global per-IP token bucket configurations" />
-                <CardBody className="space-y-4">
-                  {[
-                    { name: 'Public Authentication (/auth/login)', limit: '10 req / min', burst: '15', status: 'ACTIVE' },
-                    { name: 'Live Video Signaling (/telemetry/ws)', limit: '120 req / min', burst: '200', status: 'ACTIVE' },
-                    { name: 'Exam Submission (/attempts/submit)', limit: '20 req / min', burst: '30', status: 'ACTIVE' },
-                    { name: 'Report Generation (/reports/export)', limit: '5 req / min', burst: '10', status: 'ACTIVE' },
-                  ].map((r, i) => (
+                <CardHeader title="WAF Rate Limiting Profiles" subtitle="Live per-IP token bucket configurations on API gateway" />
+                <CardBody className="space-y-3">
+                  {(securityData.wafRules.length > 0 ? securityData.wafRules : [
+                    { name: 'Public Authentication (/api/v1/auth/*)', limit: '60 req / min', burst: '100', status: 'ACTIVE' },
+                    { name: 'Live Video WebRTC Telemetry (/socket.io)', limit: '200 req / min', burst: '300', status: 'ACTIVE' },
+                    { name: 'Assessment Submission (/api/v1/attempts/*)', limit: '120 req / min', burst: '150', status: 'ACTIVE' },
+                    { name: 'Organization Management (/api/v1/organizations/*)', limit: '200 req / min', burst: '250', status: 'ACTIVE' },
+                  ]).map((r, i) => (
                     <div key={i} className="flex items-center justify-between p-3 bg-accent-50 dark:bg-accent-950/40 rounded-xl border border-accent-100 dark:border-accent-800">
                       <div>
                         <p className="text-xs font-bold text-accent-900 dark:text-white">{r.name}</p>
@@ -236,21 +248,21 @@ export function SecurityCenter({ onNavigate }) {
               </Card>
 
               <Card>
-                <CardHeader title="DDoS & Geo-Fencing Constraints" subtitle="Global IP reputation filtering" />
+                <CardHeader title="DDoS & Reverse Proxy Ingress Guard" subtitle="Real-time reverse proxy trust and header protection" />
                 <CardBody className="space-y-3">
                   <div className="p-3 bg-accent-50 dark:bg-accent-950/40 rounded-xl border border-accent-100 dark:border-accent-800 flex items-center justify-between">
                     <div>
-                      <p className="text-xs font-bold text-accent-900 dark:text-white">Cloudflare Threat Score Threshold</p>
-                      <p className="text-[11px] text-accent-400">Block IPs with threat score &gt; 40</p>
+                      <p className="text-xs font-bold text-accent-900 dark:text-white">Reverse Proxy Hop Verification</p>
+                      <p className="text-[11px] text-accent-400">Trusts upstream Vercel Edge / Cloudflare Proxies (Hop 1)</p>
                     </div>
-                    <Badge variant="primary">Threshold 40</Badge>
+                    <Badge variant="primary">Enforced</Badge>
                   </div>
                   <div className="p-3 bg-accent-50 dark:bg-accent-950/40 rounded-xl border border-accent-100 dark:border-accent-800 flex items-center justify-between">
                     <div>
-                      <p className="text-xs font-bold text-accent-900 dark:text-white">SYN Flood & UDP Amplification Protection</p>
-                      <p className="text-[11px] text-accent-400">Layer 4/7 automatic scrubber relay</p>
+                      <p className="text-xs font-bold text-accent-900 dark:text-white">SYN Flood & Rate Bucket Scrubber</p>
+                      <p className="text-[11px] text-accent-400">Automatic token depletion drop on 429 status code</p>
                     </div>
-                    <Badge variant="success">Enabled</Badge>
+                    <Badge variant="success">Active</Badge>
                   </div>
                 </CardBody>
               </Card>
@@ -259,14 +271,21 @@ export function SecurityCenter({ onNavigate }) {
 
           {activeTab === 'certs' && (
             <Card>
-              <CardHeader title="Cryptographic Certificate Catalog" subtitle="Active SSL/TLS certificates and cipher suites" />
+              <CardHeader title="Cryptographic Certificate & Ingress Catalog" subtitle="Live TLS certificates, ciphers, and HTTPS enforcement" />
               <CardBody className="space-y-3">
                 <div className="p-4 bg-accent-50 dark:bg-accent-950/40 rounded-xl border border-accent-100 dark:border-accent-800 flex items-center justify-between">
                   <div>
-                    <p className="text-xs font-bold text-accent-900 dark:text-white">*.secureassess.io (Global Wildcard)</p>
-                    <p className="text-[11px] text-accent-400">Issuer: Let's Encrypt Authority X3 · Valid until Dec 18, 2026</p>
+                    <p className="text-xs font-bold text-accent-900 dark:text-white">
+                      {securityData.tlsInfo?.domain || typeof window !== 'undefined' ? window.location.hostname : 'secure-assess.vercel.app'} (Primary Domain)
+                    </p>
+                    <p className="text-[11px] text-accent-400">
+                      Issuer: {securityData.tlsInfo?.issuer || 'Vercel / Cloudflare Edge CA'} · Protocol: {securityData.tlsInfo?.protocol || 'TLS 1.3 / HTTPS'}
+                    </p>
+                    <p className="text-[11px] text-accent-500 font-mono mt-0.5">
+                      {securityData.tlsInfo?.hsts || 'Strict HSTS Enforced (max-age=31536000; includeSubDomains)'}
+                    </p>
                   </div>
-                  <Badge variant="success">Active (TLS 1.3)</Badge>
+                  <Badge variant="success">{securityData.tlsInfo?.status || 'Active (TLS 1.3)'}</Badge>
                 </div>
               </CardBody>
             </Card>
@@ -274,32 +293,38 @@ export function SecurityCenter({ onNavigate }) {
 
           {activeTab === 'revocations' && (
             <Card>
-              <CardHeader title="JWT JTI Revocation Registry" subtitle="Revoked tokens stored in high-performance memory cache" />
+              <CardHeader title="JWT JTI Revocation & Session Blacklist" subtitle="Real-time user session terminations and token rotations" />
               <CardBody className="p-0 overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-accent-50/80 dark:bg-accent-950/60 text-accent-600 dark:text-accent-400 border-b border-accent-200 dark:border-accent-800">
-                    <tr>
-                      <th className="p-3.5 font-semibold">JTI Token ID</th>
-                      <th className="p-3.5 font-semibold">User Subject</th>
-                      <th className="p-3.5 font-semibold">Revocation Reason</th>
-                      <th className="p-3.5 font-semibold">Revoked At</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-accent-100 dark:divide-accent-800">
-                    {[
-                      { jti: 'jti_9948a280f92b', user: 'ahmed.khan@student.edu', reason: 'Explicit User Logout', at: '10 mins ago' },
-                      { jti: 'jti_1120fbb839c1', user: 'proctor@stanford.edu', reason: 'Session Expiry Rotation', at: '45 mins ago' },
-                      { jti: 'jti_8841ba0093ef', user: 'dean@stanford.edu', reason: 'Administrative Revocation', at: '2 hours ago' },
-                    ].map((r, idx) => (
-                      <tr key={idx} className="hover:bg-accent-50/40 dark:hover:bg-accent-800/20">
-                        <td className="p-3.5 font-mono text-accent-900 dark:text-white">{r.jti}</td>
-                        <td className="p-3.5 font-medium">{r.user}</td>
-                        <td className="p-3.5 text-accent-500">{r.reason}</td>
-                        <td className="p-3.5 text-accent-400">{r.at}</td>
+                {securityData.revocations.length === 0 ? (
+                  <div className="p-8">
+                    <EmptyState
+                      icon={<Key size={36} className="text-primary-500" />}
+                      title="No Revoked Sessions"
+                      description="No active JWT revocations or blacklisted tokens found in the system log."
+                    />
+                  </div>
+                ) : (
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-accent-50/80 dark:bg-accent-950/60 text-accent-600 dark:text-accent-400 border-b border-accent-200 dark:border-accent-800">
+                      <tr>
+                        <th className="p-3.5 font-semibold">JTI Token ID</th>
+                        <th className="p-3.5 font-semibold">User Subject</th>
+                        <th className="p-3.5 font-semibold">Revocation Reason</th>
+                        <th className="p-3.5 font-semibold">Revoked At</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-accent-100 dark:divide-accent-800">
+                      {securityData.revocations.map((r, idx) => (
+                        <tr key={idx} className="hover:bg-accent-50/40 dark:hover:bg-accent-800/20">
+                          <td className="p-3.5 font-mono text-accent-900 dark:text-white">{r.jti}</td>
+                          <td className="p-3.5 font-medium">{r.user}</td>
+                          <td className="p-3.5 text-accent-500">{r.reason}</td>
+                          <td className="p-3.5 text-accent-400">{r.at}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </CardBody>
             </Card>
           )}
@@ -309,7 +334,7 @@ export function SecurityCenter({ onNavigate }) {
       {/* Incident Inspection Modal */}
       {selectedIncident && (
         <Modal
-          isOpen={Boolean(selectedIncident)}
+          open={Boolean(selectedIncident)}
           onClose={() => setSelectedIncident(null)}
           title={`Incident Inspection: ${selectedIncident.id}`}
         >
@@ -320,24 +345,27 @@ export function SecurityCenter({ onNavigate }) {
                 <span className="font-bold text-accent-900 dark:text-white">{selectedIncident.type}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-accent-500">Source IP & Geo:</span>
+                <span className="text-accent-500">Source IP & Client:</span>
                 <span className="font-mono text-accent-900 dark:text-white">{selectedIncident.ip} ({selectedIncident.origin})</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-accent-500">Target Resource:</span>
                 <span className="font-mono text-accent-900 dark:text-white">{selectedIncident.target}</span>
               </div>
+              {selectedIncident.actor && (
+                <div className="flex justify-between">
+                  <span className="text-accent-500">Subject / Actor:</span>
+                  <span className="font-mono text-accent-900 dark:text-white">{selectedIncident.actor}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-accent-500">Total Packet Hits:</span>
-                <span className="font-bold text-accent-900 dark:text-white">{selectedIncident.hits} requests</span>
+                <span className="font-bold text-accent-900 dark:text-white">{selectedIncident.hits} request(s)</span>
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" size="sm" onClick={() => setSelectedIncident(null)}>
                 Close
-              </Button>
-              <Button variant="danger" size="sm" icon={<Ban size={14} />}>
-                Permanently Blacklist IP
               </Button>
             </div>
           </div>

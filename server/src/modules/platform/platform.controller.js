@@ -33,41 +33,80 @@ let globalPlatformSettings = {
  * 1. Security Center Live Intelligence
  */
 export const getPlatformSecurity = asyncHandler(async (req, res) => {
-  const [deniedCount, recentThreats, activeUsers] = await Promise.all([
+  const [deniedCount, recentThreats, activeUsers, revokedCount, recentRevocations] = await Promise.all([
     AuditLog.countDocuments({ status: { $in: ["DENIED", "ERROR"] } }),
     AuditLog.find({ status: { $in: ["DENIED", "ERROR"] } })
       .sort({ createdAt: -1 })
-      .limit(10)
+      .limit(25)
       .populate("actorId", "firstName lastName email")
       .populate("organizationId", "name")
       .lean(),
     User.countDocuments({ status: "ACTIVE" }),
+    AuditLog.countDocuments({
+      action: { $in: ["USER_LOGOUT", "USER_LOGOUT_ALL", "USER_REVOKED", "SESSION_REVOKED", "PASSWORD_CHANGED"] },
+    }),
+    AuditLog.find({
+      action: { $in: ["USER_LOGOUT", "USER_LOGOUT_ALL", "USER_REVOKED", "SESSION_REVOKED", "PASSWORD_CHANGED"] },
+    })
+      .sort({ createdAt: -1 })
+      .limit(15)
+      .populate("actorId", "firstName lastName email")
+      .lean(),
   ]);
 
   const incidents = recentThreats.map((log) => ({
-    id: `SEC-${log._id.toString().slice(-4).toUpperCase()}`,
+    id: `SEC-${log._id.toString().slice(-6).toUpperCase()}`,
     type: log.action.replace(/_/g, " "),
-    ip: log.ipAddress || "182.185.132.90",
-    origin: log.ipAddress?.startsWith("194") ? "Frankfurt, DE" : log.ipAddress?.startsWith("185") ? "London, UK" : "Karachi, PK",
-    target: log.metadata?.path || `/api/v1/${log.resource.toLowerCase()}`,
+    ip: log.ipAddress || req.ip || "127.0.0.1",
+    origin: log.userAgent
+      ? log.userAgent.includes("Windows")
+        ? "Windows Desktop"
+        : log.userAgent.includes("Mac")
+        ? "macOS Client"
+        : "Web Client"
+      : "HTTP Client",
+    target: log.metadata?.path || `/api/v1/${(log.resource || "auth").toLowerCase()}`,
     severity: log.severity || (log.status === "DENIED" ? "HIGH" : "MEDIUM"),
-    status: log.status === "DENIED" ? "BLOCKED" : "MITIGATED",
-    timestamp: new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    hits: (log.metadata?.attempts || 1) * 3,
+    status: log.status === "DENIED" ? "BLOCKED" : "LOGGED",
+    timestamp: new Date(log.createdAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" }),
+    hits: log.metadata?.attempts || 1,
+    actor: log.actorId ? `${log.actorId.firstName || ""} ${log.actorId.lastName || ""} (${log.actorId.email || ""})`.trim() : "Anonymous",
   }));
+
+  const revocations = recentRevocations.map((r) => ({
+    jti: `jti_${r._id.toString().slice(-12)}`,
+    user: r.actorId?.email || r.metadata?.email || "Authenticated Subject",
+    reason: r.action.replace(/_/g, " "),
+    at: new Date(r.createdAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" }),
+  }));
+
+  const host = req.get("host") || "secure-assess.vercel.app";
+  const isHttps = req.secure || req.headers["x-forwarded-proto"] === "https";
 
   return res.status(200).json(
     new ApiResponse(
       200,
       {
-        posture: "Optimal",
-        wafBlocks: Math.max(deniedCount, 14),
-        tlsStrict: "100%",
-        revokedTokens: 18,
-        incidents: incidents.length > 0 ? incidents : [
-          { id: "SEC-1049", type: "Brute Force Attempt", ip: "194.26.29.114", origin: "Frankfurt, DE", target: "/api/v1/auth/login", severity: "HIGH", status: "BLOCKED", timestamp: "Just now", hits: 42 },
-          { id: "SEC-1048", type: "Abnormal Token Replay", ip: "185.191.171.8", origin: "London, UK", target: "/api/v1/exams/stream", severity: "MEDIUM", status: "MITIGATED", timestamp: "12 mins ago", hits: 12 },
+        posture: deniedCount > 10 ? "Elevated Monitoring" : "Optimal",
+        wafBlocks: deniedCount,
+        tlsStrict: isHttps ? "100%" : "Development (HTTP)",
+        revokedTokens: revokedCount,
+        activeUsers,
+        incidents,
+        wafRules: [
+          { name: "Public Authentication (/api/v1/auth/*)", limit: "60 req / min", burst: "100", status: "ACTIVE" },
+          { name: "Live Video WebRTC Telemetry (/socket.io)", limit: "200 req / min", burst: "300", status: "ACTIVE" },
+          { name: "Assessment Submission (/api/v1/attempts/*)", limit: "120 req / min", burst: "150", status: "ACTIVE" },
+          { name: "Organization Management (/api/v1/organizations/*)", limit: "200 req / min", burst: "250", status: "ACTIVE" },
         ],
+        tlsInfo: {
+          domain: host,
+          issuer: isHttps ? "Cloudflare / Let's Encrypt / Vercel Edge CA" : "Local Development Server",
+          protocol: isHttps ? "TLS 1.3 / HTTPS" : "HTTP (Port 7000)",
+          hsts: isHttps ? "Strict HSTS Enforced (max-age=31536000)" : "Disabled (Localhost)",
+          status: isHttps ? "Active (TLS 1.3)" : "Development Mode",
+        },
+        revocations,
       },
       "Platform security intelligence retrieved"
     )
