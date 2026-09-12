@@ -79,18 +79,46 @@ export function AssessmentBuilder({ onNavigate }) {
   };
 
   const handleSaveOrPublish = async (isPublish = false) => {
+    if (!title || title.trim().length < 2) {
+      setToastMessage({
+        type: 'error',
+        text: 'Please enter an assessment title (at least 2 characters).',
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
+      const typeMap = {
+        'Quiz': 'QUIZ',
+        'Examination': 'EXAMINATION',
+        'MCQ Test': 'MCQ',
+        'Knowledge Assessment': 'MCQ',
+        'Skills Assessment': 'SKILLS',
+        'Aptitude Test': 'MCQ',
+        'Scenario Assessment': 'HYBRID',
+        'Interview Assessment': 'VIDEO_INTERVIEW',
+        'Custom Assessment': 'CUSTOM'
+      };
+
+      const durationMinutes = Number(duration) || 60;
+      const normalizedPassingScore = Number(passingScore) || 60;
+      const uniqueCode = `ASM-${Date.now().toString(36).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`;
+
       const payload = {
-        title,
-        type: assessmentType,
-        duration: Number(duration),
-        passingScore: Number(passingScore),
+        title: title.trim(),
+        code: uniqueCode,
+        type: typeMap[assessmentType] || 'MCQ',
+        durationMinutes,
+        durationSeconds: durationMinutes * 60,
+        duration: { value: durationMinutes, unit: 'MINUTES' },
+        passingScore: normalizedPassingScore,
+        passingPercentage: normalizedPassingScore,
         securityLevel: securityTier,
         status: isPublish ? 'PUBLISHED' : 'DRAFT',
         questions: questions.map((q, i) => ({
           order: i + 1,
-          type: q.type,
+          type: q.type === 'Multiple Choice' ? 'MCQ' : q.type,
           content: q.content,
           options: q.options,
           correctAnswer: q.correctAnswer,

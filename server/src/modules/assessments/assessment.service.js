@@ -63,6 +63,61 @@ export class AssessmentService {
       version: 1,
     });
 
+    if (Array.isArray(data.questions) && data.questions.length > 0) {
+      try {
+        const defaultSection = await AssessmentSection.create({
+          organizationId,
+          assessmentId: assessment._id,
+          title: "General Section",
+          description: "Main assessment section",
+          order: 1,
+        });
+
+        let totalPoints = 0;
+        for (let i = 0; i < data.questions.length; i++) {
+          const q = data.questions[i];
+          const marks = Number(q.points) || Number(q.marks) || 1;
+          totalPoints += marks;
+
+          const optionsList = Array.isArray(q.options)
+            ? q.options.map((opt, oIdx) => {
+                if (typeof opt === "string") {
+                  return { id: `opt_${oIdx + 1}`, text: opt, isCorrect: q.correctAnswer === oIdx };
+                }
+                return {
+                  id: opt.id || `opt_${oIdx + 1}`,
+                  text: opt.text || opt.label || "",
+                  isCorrect: opt.isCorrect ?? (q.correctAnswer === oIdx),
+                };
+              })
+            : [];
+
+          await AssessmentQuestion.create({
+            organizationId,
+            assessmentId: assessment._id,
+            sectionId: defaultSection._id,
+            questionId: new mongoose.Types.ObjectId(),
+            order: i + 1,
+            marks,
+            points: marks,
+            title: q.content || q.title || `Question ${i + 1}`,
+            content: q.content || "",
+            type: q.type === "Multiple Choice" ? "MCQ" : (q.type || "MCQ"),
+            options: optionsList,
+            explanation: q.explanation || "",
+            difficulty: String(q.difficulty || "MEDIUM").toUpperCase(),
+          });
+        }
+
+        if (totalPoints > 0) {
+          assessment.totalPoints = totalPoints;
+          await assessment.save();
+        }
+      } catch (qErr) {
+        console.warn("Initial questions persistence warning:", qErr.message);
+      }
+    }
+
     return assessment;
   }
 
