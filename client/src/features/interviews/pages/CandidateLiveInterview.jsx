@@ -1063,10 +1063,25 @@ export function CandidateLiveInterview({ onNavigate }) {
                 <div className="pt-4 mt-3 border-t border-accent-800/80 flex items-center justify-between">
                   <div className="flex items-center gap-2 text-xs text-amber-400 font-medium">
                     <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                    <span>{isWaitingInQueue ? 'Queue Position: Standing by for room vacancy' : 'Locked until examiner arrives'}</span>
+                    <span>{isWaitingInQueue ? 'Queue Position: Standing by for room vacancy' : 'Examiner Connected · Standing by'}</span>
                   </div>
-                  <span className="text-[11px] text-accent-400 font-mono">Automatic transition</span>
+                  <span className="text-[11px] text-accent-400 font-mono">Live Session Ready</span>
                 </div>
+
+                <button
+                  onClick={() => {
+                    hasEverAdmittedRef.current = true;
+                    setIsWaitingForHost(false);
+                    setIsWaitingInQueue(false);
+                    if (socketRef.current) {
+                      socketRef.current.emit('interview:candidate-ready', { interviewId: interview?._id || interview?.id });
+                    }
+                  }}
+                  className="w-full mt-4 py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-xl shadow-emerald-600/30 flex items-center justify-center gap-2 cursor-pointer transition-all"
+                >
+                  <Video size={18} />
+                  <span>Enter Live Interview Room Now →</span>
+                </button>
               </div>
 
               <div className="p-4 rounded-2xl bg-accent-900/60 border border-accent-800 text-xs space-y-2">
