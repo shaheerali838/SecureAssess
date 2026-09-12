@@ -38,7 +38,17 @@ app.use(tenantMiddleware);
 // Static uploads folder
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
-// Root Health Check Probes for Orchestrators (Kubernetes / Load Balancers)
+// Root Welcome & Health Check Probes
+app.get("/", (req, res) => {
+  res.status(200).json({
+    name: "SecureAssess Production API Gateway",
+    status: "ONLINE",
+    version: "1.0.0",
+    health: "/health",
+    timestamp: new Date().toISOString(),
+  });
+});
+
 app.get("/health", (req, res) => {
   res
     .status(200)
