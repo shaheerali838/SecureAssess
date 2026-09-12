@@ -333,9 +333,9 @@ export function ParticipantManagement({ onNavigate }) {
           value={search}
           onChange={setSearch}
           placeholder="Search by name, email, candidate code, or assessment..."
-          className="flex-1"
+          className="flex-1 w-full"
         />
-        <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+        <div className="flex gap-2 flex-col sm:flex-row w-full sm:w-auto">
           <Select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
@@ -347,7 +347,7 @@ export function ParticipantManagement({ onNavigate }) {
               { value: 'completed', label: 'Completed' },
               { value: 'suspended', label: 'Suspended' },
             ]}
-            className="w-36"
+            className="w-full sm:w-36"
           />
           <Select
             value={departmentFilter}
@@ -359,7 +359,7 @@ export function ParticipantManagement({ onNavigate }) {
                 label: d.name || d.code,
               })),
             ]}
-            className="w-44"
+            className="w-full sm:w-44"
           />
         </div>
       </div>

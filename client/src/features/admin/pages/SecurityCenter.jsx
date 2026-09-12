@@ -58,8 +58,8 @@ export function SecurityCenter({ onNavigate }) {
         subtitle="Global threat intelligence, automated WAF policies, and zero-trust access enforcement."
         icon={<ShieldCheck size={22} className="text-primary-600 dark:text-primary-400" />}
         actions={
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" icon={<Download size={15} />}>
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <Button variant="outline" size="sm" icon={<Download size={15} />} className="w-full sm:w-auto">
               Security Audit Export
             </Button>
             <Button
@@ -67,6 +67,7 @@ export function SecurityCenter({ onNavigate }) {
               size="sm"
               icon={<RefreshCw size={15} className={loading ? 'animate-spin' : ''} />}
               onClick={fetchSecurityIntelligence}
+              className="w-full sm:w-auto"
             >
               Scan Threat Vectors
             </Button>
@@ -107,7 +108,7 @@ export function SecurityCenter({ onNavigate }) {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-accent-200 dark:border-accent-800">
+      <div className="flex items-center gap-2 border-b border-accent-200 dark:border-accent-800 overflow-x-auto no-scrollbar whitespace-nowrap pb-0.5">
         {[
           { id: 'threats', label: 'Threat Vectors & Anomalies' },
           { id: 'waf', label: 'WAF & Rate Limiting Rules' },
@@ -117,7 +118,7 @@ export function SecurityCenter({ onNavigate }) {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${
+            className={`px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors shrink-0 ${
               activeTab === tab.id
                 ? 'border-primary-600 text-primary-600 dark:text-primary-400 dark:border-primary-400'
                 : 'border-transparent text-accent-500 hover:text-accent-800 dark:hover:text-accent-200'
@@ -139,12 +140,12 @@ export function SecurityCenter({ onNavigate }) {
                 subtitle="Automated packet inspection and rate violation detection"
                 icon={<AlertTriangle size={18} className="text-warning-500" />}
                 action={
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
                     <Input
                       placeholder="Search by IP, type, country..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-64"
+                      className="w-full sm:w-64"
                     />
                   </div>
                 }

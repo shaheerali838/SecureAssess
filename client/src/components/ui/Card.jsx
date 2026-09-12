@@ -15,19 +15,19 @@ export function Card({ children, className = '', hover, onClick }) {
 
 export function CardHeader({ title, subtitle, icon, action, className = '' }) {
   return (
-    <div className={`flex items-start justify-between p-5 border-b border-accent-100 dark:border-accent-800/80 ${className}`}>
-      <div className="flex items-start gap-3">
+    <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:p-5 border-b border-accent-100 dark:border-accent-800/80 ${className}`}>
+      <div className="flex items-start gap-3 min-w-0 flex-1">
         {icon && (
           <div className="w-10 h-10 rounded-xl bg-primary-50 dark:bg-primary-950/60 text-primary-600 dark:text-primary-400 flex items-center justify-center shrink-0 shadow-soft">
             {icon}
           </div>
         )}
-        <div>
-          <h3 className="font-bold text-accent-900 dark:text-white text-base leading-snug">{title}</h3>
-          {subtitle && <p className="text-xs text-accent-500 dark:text-accent-400 mt-0.5">{subtitle}</p>}
+        <div className="min-w-0 flex-1">
+          <h3 className="font-bold text-accent-900 dark:text-white text-sm sm:text-base leading-snug break-words">{title}</h3>
+          {subtitle && <p className="text-xs text-accent-500 dark:text-accent-400 mt-0.5 break-words">{subtitle}</p>}
         </div>
       </div>
-      {action && <div className="shrink-0">{action}</div>}
+      {action && <div className="w-full sm:w-auto shrink-0 flex items-center gap-2 flex-wrap">{action}</div>}
     </div>
   );
 }

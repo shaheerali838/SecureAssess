@@ -99,15 +99,16 @@ export function Certificates({ onNavigate }) {
       />
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
         <div className="w-full sm:w-80">
           <SearchBar
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search candidate, cert # or code..."
+            className="w-full"
           />
         </div>
-        <div className="flex items-center gap-2 self-end sm:self-auto">
+        <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
           <button
             onClick={() => setStatusFilter('all')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${

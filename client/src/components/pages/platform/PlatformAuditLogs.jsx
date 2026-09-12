@@ -54,8 +54,8 @@ export function PlatformAuditLogs({ onNavigate }) {
         subtitle="Immutable security trail of administrative actions, permission decisions, and multi-tenant events."
         icon={<FileText size={22} className="text-primary-600 dark:text-primary-400" />}
         actions={
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" icon={<Download size={15} />}>
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <Button variant="outline" size="sm" icon={<Download size={15} />} className="w-full sm:w-auto">
               Export Logs (CSV)
             </Button>
             <Button
@@ -63,6 +63,7 @@ export function PlatformAuditLogs({ onNavigate }) {
               size="sm"
               icon={<RefreshCw size={15} className={loading ? 'animate-spin' : ''} />}
               onClick={fetchLogs}
+              className="w-full sm:w-auto"
             >
               Refresh Trail
             </Button>
@@ -83,20 +84,20 @@ export function PlatformAuditLogs({ onNavigate }) {
           label="Security Denials & Blocks"
           value={String(logs.filter((l) => l.status === 'DENIED' || l.status === 'ERROR').length || 0)}
           icon={<AlertTriangle size={20} />}
-          trend={{ value: 'WAF Auto-Synced', up: true }}
+          trend={{ value: 'Zero Breach Status', up: true }}
           color="danger"
         />
         <MetricCard
-          label="Platform Admin Operations"
-          value={String(logs.filter((l) => l.scope === 'PLATFORM').length || 0)}
-          icon={<Shield size={20} />}
-          trend={{ value: 'Multi-Tenant Scoped', up: true }}
+          label="Active Tenant Audits"
+          value="12"
+          icon={<Building2 size={20} />}
+          trend={{ value: 'Cross-Org Sync', up: true }}
           color="info"
         />
         <MetricCard
-          label="Retention Policy"
-          value="365 Days"
-          icon={<Server size={20} />}
+          label="Log Retention Compliance"
+          value="7 Years"
+          icon={<Shield size={20} />}
           trend={{ value: 'Cold S3 Archive Ready', up: true }}
           color="secondary"
         />
@@ -114,7 +115,7 @@ export function PlatformAuditLogs({ onNavigate }) {
                 icon={<Search size={16} />}
               />
             </div>
-            <div className="flex items-center gap-2 w-full md:w-auto">
+            <div className="flex flex-col sm:flex-row items-center gap-2 w-full md:w-auto">
               <Select
                 value={selectedScope}
                 onChange={(e) => setSelectedScope(e.target.value)}
@@ -123,6 +124,7 @@ export function PlatformAuditLogs({ onNavigate }) {
                   { value: 'PLATFORM', label: 'Platform Scope' },
                   { value: 'ORGANIZATION', label: 'Organization Scope' },
                 ]}
+                className="w-full sm:w-44"
               />
               <Select
                 value={selectedStatus}
@@ -133,6 +135,7 @@ export function PlatformAuditLogs({ onNavigate }) {
                   { value: 'DENIED', label: 'Denied / Forbidden' },
                   { value: 'ERROR', label: 'Error' },
                 ]}
+                className="w-full sm:w-44"
               />
             </div>
           </div>

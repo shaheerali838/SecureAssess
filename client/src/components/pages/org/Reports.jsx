@@ -118,16 +118,16 @@ export function Reports({ onNavigate }) {
         icon={<BarChart3 size={22} className="text-primary-600 dark:text-primary-400" />}
         breadcrumbs={[{ label: 'Dashboard', onClick: () => onNavigate('org-dashboard') }, { label: 'Reports' }]}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <Select
               options={[
                 { value: '30d', label: 'Last 30 days' },
                 { value: '90d', label: 'Last 90 days' },
                 { value: 'year', label: 'Academic Year' },
               ]}
-              className="w-36"
+              className="w-full sm:w-36"
             />
-            <Button variant="primary" size="sm" icon={<Download size={15} />} onClick={handleExportGradebookCSV}>
+            <Button variant="primary" size="sm" icon={<Download size={15} />} onClick={handleExportGradebookCSV} className="w-full sm:w-auto">
               Export All CSV
             </Button>
           </div>

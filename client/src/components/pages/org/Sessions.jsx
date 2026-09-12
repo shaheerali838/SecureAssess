@@ -224,9 +224,9 @@ export function Sessions({ onNavigate }) {
           value={search}
           onChange={setSearch}
           placeholder="Search by candidate name, email, or assessment title..."
-          className="flex-1"
+          className="flex-1 w-full"
         />
-        <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+        <div className="flex gap-2 flex-col sm:flex-row w-full sm:w-auto">
           <Select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
@@ -237,7 +237,7 @@ export function Sessions({ onNavigate }) {
               { value: 'flagged', label: 'Flagged' },
               { value: 'submitted', label: 'Submitted' },
             ]}
-            className="w-40"
+            className="w-full sm:w-40"
           />
           <Select
             value={riskFilter}
@@ -248,7 +248,7 @@ export function Sessions({ onNavigate }) {
               { value: 'medium', label: 'Medium Risk' },
               { value: 'high', label: 'High Risk' },
             ]}
-            className="w-40"
+            className="w-full sm:w-40"
           />
         </div>
       </div>

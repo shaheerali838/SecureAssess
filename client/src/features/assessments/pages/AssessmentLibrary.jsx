@@ -100,8 +100,8 @@ export function AssessmentLibrary({ onNavigate }) {
 
       {/* Search & Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
-        <SearchBar value={search} onChange={setSearch} placeholder="Search by title or topic..." className="flex-1" />
-        <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+        <SearchBar value={search} onChange={setSearch} placeholder="Search by title or topic..." className="flex-1 w-full" />
+        <div className="flex gap-2 flex-col sm:flex-row w-full sm:w-auto">
           <Select
             value={formatFilter}
             onChange={(e) => setFormatFilter(e.target.value)}
@@ -112,7 +112,7 @@ export function AssessmentLibrary({ onNavigate }) {
               { value: 'quiz', label: 'Quiz' },
               { value: 'skill', label: 'Skills Lab' },
             ]}
-            className="w-36"
+            className="w-full sm:w-36"
           />
           <Select
             value={statusFilter}
@@ -123,7 +123,7 @@ export function AssessmentLibrary({ onNavigate }) {
               { value: 'draft', label: 'Draft' },
               { value: 'scheduled', label: 'Scheduled' },
             ]}
-            className="w-36"
+            className="w-full sm:w-36"
           />
         </div>
       </div>

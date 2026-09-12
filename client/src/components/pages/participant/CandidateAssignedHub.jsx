@@ -383,7 +383,7 @@ export function CandidateAssignedHub({ onNavigate }) {
               placeholder="Search by title, course code, or examiner name..."
               className="w-full flex-1"
             />
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               <Select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -393,7 +393,7 @@ export function CandidateAssignedHub({ onNavigate }) {
                   { value: 'scheduled', label: 'Scheduled' },
                   { value: 'completed', label: 'Completed' },
                 ]}
-                className="w-40"
+                className="w-full sm:w-40"
               />
             </div>
           </div>

@@ -209,16 +209,17 @@ export function Organizations({ onNavigate }) {
         icon={<Building2 size={22} className="text-primary-600 dark:text-primary-400" />}
         breadcrumbs={[{ label: 'Platform Hub', onClick: () => onNavigate('platform-dashboard') }, { label: 'Organizations' }]}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <Button
               variant="outline"
               size="sm"
               icon={<RefreshCw size={14} className={loading ? 'animate-spin' : ''} />}
               onClick={fetchOrgs}
+              className="w-full sm:w-auto"
             >
               Refresh
             </Button>
-            <Button variant="outline" size="sm" icon={<Download size={14} />} onClick={handleExportCSV}>
+            <Button variant="outline" size="sm" icon={<Download size={14} />} onClick={handleExportCSV} className="w-full sm:w-auto">
               Export CSV
             </Button>
             <Button
@@ -226,6 +227,7 @@ export function Organizations({ onNavigate }) {
               size="sm"
               icon={<Plus size={14} />}
               onClick={() => onNavigate('platform-onboarding')}
+              className="w-full sm:w-auto"
             >
               Provision Tenant
             </Button>
@@ -254,9 +256,9 @@ export function Organizations({ onNavigate }) {
           value={search}
           onChange={setSearch}
           placeholder="Search by organization name or domain..."
-          className="flex-1"
+          className="flex-1 w-full"
         />
-        <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+        <div className="flex gap-2 flex-col sm:flex-row w-full sm:w-auto">
           <Select
             value={industryFilter}
             onChange={(e) => setIndustryFilter(e.target.value)}
@@ -267,7 +269,7 @@ export function Organizations({ onNavigate }) {
               { value: 'aviation', label: 'Aviation & Defense' },
               { value: 'recruitment', label: 'Recruitment & Agency' },
             ]}
-            className="w-44"
+            className="w-full sm:w-44"
           />
           <Select
             value={statusFilter}
@@ -277,7 +279,7 @@ export function Organizations({ onNavigate }) {
               { value: 'active', label: 'Active' },
               { value: 'suspended', label: 'Suspended' },
             ]}
-            className="w-36"
+            className="w-full sm:w-36"
           />
         </div>
       </div>

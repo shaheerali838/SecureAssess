@@ -438,7 +438,7 @@ export function OrgUsers({ onNavigate }) {
           value={search}
           onChange={setSearch}
           placeholder="Search by team member name or email address..."
-          className="flex-1"
+          className="flex-1 w-full"
         />
         <Select
           value={statusFilter}
@@ -449,7 +449,7 @@ export function OrgUsers({ onNavigate }) {
             { value: 'invited', label: 'Pending Invitation' },
             { value: 'suspended', label: 'Suspended Access' },
           ]}
-          className="w-44"
+          className="w-full sm:w-48"
         />
       </div>
 

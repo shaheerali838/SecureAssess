@@ -29,7 +29,7 @@ export const QuestionAnalysisTable = ({ questions = [], difficultySummary = {} }
         </div>
 
         {difficultySummary && (
-          <div className="flex items-center gap-2 text-xs">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
             <span className="text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">Easy: {difficultySummary.easyAverage || 0}%</span>
             <span className="text-amber-400 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">Med: {difficultySummary.mediumAverage || 0}%</span>
             <span className="text-red-400 bg-red-500/10 px-2 py-1 rounded border border-red-500/20">Hard: {difficultySummary.hardAverage || 0}%</span>

@@ -181,17 +181,17 @@ export function Interviews({ onNavigate }) {
       />
 
       {/* Info Notice Banner for Ended Interviews */}
-      <div className="flex items-center justify-between p-3.5 bg-accent-50 dark:bg-accent-900/40 border border-accent-200 dark:border-accent-800 rounded-xl text-xs text-accent-700 dark:text-accent-300">
-        <div className="flex items-center gap-2.5">
-          <MonitorPlay size={16} className="text-primary-600 dark:text-primary-400 shrink-0" />
-          <span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 bg-accent-50 dark:bg-accent-900/40 border border-accent-200 dark:border-accent-800 rounded-2xl text-xs text-accent-700 dark:text-accent-300">
+        <div className="flex items-start sm:items-center gap-2.5 min-w-0">
+          <MonitorPlay size={16} className="text-primary-600 dark:text-primary-400 shrink-0 mt-0.5 sm:mt-0" />
+          <span className="leading-relaxed">
             <strong>Concluded Sessions:</strong> Once an interview is ended, it is automatically archived to <strong>Session Recordings</strong> with multi-stream video playback and evaluation logs.
           </span>
         </div>
         <button
           type="button"
           onClick={() => onNavigate('org-sessions')}
-          className="flex items-center gap-1 font-semibold text-primary-600 dark:text-primary-400 hover:text-primary-700 transition-colors ml-4 shrink-0"
+          className="flex items-center gap-1 font-semibold text-primary-600 dark:text-primary-400 hover:text-primary-700 transition-colors self-start sm:self-auto shrink-0"
         >
           View Session Recordings <ArrowRight size={13} />
         </button>
@@ -199,7 +199,7 @@ export function Interviews({ onNavigate }) {
 
       {/* Filter Toolbar */}
       <div className="flex flex-col sm:flex-row gap-3">
-        <SearchBar value={search} onChange={setSearch} placeholder="Search by interview title or candidate..." className="flex-1" />
+        <SearchBar value={search} onChange={setSearch} placeholder="Search by interview title or candidate..." className="flex-1 w-full" />
         <Select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
@@ -210,7 +210,7 @@ export function Interviews({ onNavigate }) {
             { value: 'panel', label: 'Panel Oral' },
             { value: 'behavioral', label: 'Behavioral' },
           ]}
-          className="w-40"
+          className="w-full sm:w-40"
         />
         <Select
           value={statusFilter}
@@ -223,7 +223,7 @@ export function Interviews({ onNavigate }) {
             { value: 'completed', label: 'Completed (Archived)' },
             { value: 'cancelled', label: 'Cancelled' },
           ]}
-          className="w-48"
+          className="w-full sm:w-48"
         />
       </div>
 
