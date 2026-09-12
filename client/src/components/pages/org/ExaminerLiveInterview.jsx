@@ -4,12 +4,18 @@ import { io } from 'socket.io-client';
 import {
   Shield, Mic, MicOff, Video, VideoOff, ScreenShare, MessageSquare,
   Users, PhoneOff, Volume2, VolumeX, Send, Plus, StickyNote, Star,
-  Clock, Monitor, Award, X, CheckCircle, CheckCircle2, ArrowRight, FileText, BarChart3
+  Clock, Monitor, Award, X, CheckCircle, CheckCircle2, ArrowRight, FileText, BarChart3, Radio
 } from 'lucide-react';
 import { Button, Avatar, ConfirmModal } from '@/components/ui';
 import interviewService from '@/services/interview.service';
 
-const SOCKET_SERVER_URL = import.meta.env.VITE_SOCKET_URL || (import.meta.env.PROD ? window.location.origin : 'http://localhost:7000');
+const getSocketUrl = () => {
+  if (import.meta.env.VITE_SOCKET_URL) return import.meta.env.VITE_SOCKET_URL;
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return window.location.origin;
+  }
+  return 'http://localhost:7000';
+};
 
 const ICE_SERVERS = {
   iceServers: [
@@ -420,21 +426,31 @@ export function ExaminerLiveInterview({ onNavigate }) {
       '';
     const token = localStorage.getItem('secureassess_access_token');
 
-    const socket = io(`${SOCKET_SERVER_URL}/interviews`, {
-      auth: { token },
+    const socketUrl = getSocketUrl();
+    const socket = io(`${socketUrl}/interviews`, {
+      auth: {
+        token,
+        role: 'EXAMINER',
+        interviewId: currentInterviewId,
+        organizationId: currentOrgId,
+      },
       transports: ['websocket', 'polling'],
       reconnection: true,
-      reconnectionAttempts: 10,
+      reconnectionAttempts: 20,
       reconnectionDelay: 1000,
     });
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      console.log('[Signaling Examiner] Connected to /interviews:', socket.id);
+      console.log('[Signaling Examiner] Connected to /interviews socket:', socket.id);
       socket.emit('interview:join', {
         interviewId: currentInterviewId,
         organizationId: currentOrgId,
       });
+    });
+
+    socket.on('connect_error', (err) => {
+      console.warn('[Signaling Examiner] Socket connection notice:', err.message);
     });
 
     socket.on('room:peers', async ({ peers }) => {
@@ -464,19 +480,70 @@ export function ExaminerLiveInterview({ onNavigate }) {
 
     socket.on('participant:joined', async (peer) => {
       console.log('[Signaling Examiner] Candidate joined room:', peer);
-      if (peer.socketId) {
+      if (peer.socketId && peer.socketId !== socket.id) {
         targetPeerSocketIdRef.current = peer.socketId;
         setActiveRoomPeers((prev) => [...prev.filter((p) => p.socketId !== peer.socketId), peer]);
-        createPeerConnection(peer.socketId);
+        try {
+          const pc = createPeerConnection(peer.socketId);
+          const offer = await pc.createOffer({
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: true,
+          });
+          await pc.setLocalDescription(offer);
+          socket.emit('webrtc:offer', {
+            targetSocketId: peer.socketId,
+            sdp: offer,
+          });
+          socket.emit('interview:admit-candidate', {
+            candidateSocketId: peer.socketId,
+            interviewId: currentInterviewId,
+          });
+        } catch (offerErr) {
+          console.warn('[WebRTC Examiner] Offer error on candidate join:', offerErr);
+        }
+      }
+    });
+
+    socket.on('interview:candidate-ready', async ({ candidateSocketId }) => {
+      console.log('[Signaling Examiner] Candidate announced ready:', candidateSocketId);
+      const targetId = candidateSocketId || targetPeerSocketIdRef.current;
+      if (targetId && targetId !== socket.id) {
+        targetPeerSocketIdRef.current = targetId;
+        try {
+          const pc = createPeerConnection(targetId);
+          const offer = await pc.createOffer({
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: true,
+          });
+          await pc.setLocalDescription(offer);
+          socket.emit('webrtc:offer', {
+            targetSocketId: targetId,
+            sdp: offer,
+          });
+          socket.emit('interview:admit-candidate', {
+            candidateSocketId: targetId,
+            interviewId: currentInterviewId,
+          });
+        } catch (err) {
+          console.warn('[WebRTC Examiner] Error generating offer on candidate ready:', err);
+        }
       }
     });
 
     socket.on('webrtc:offer', async ({ senderSocketId, sdp }) => {
+      console.log('[WebRTC Examiner] Received offer from:', senderSocketId);
       try {
         let pc = peerConnectionRef.current;
         if (!pc || targetPeerSocketIdRef.current !== senderSocketId) {
           pc = createPeerConnection(senderSocketId);
         }
+
+        if (pc.signalingState !== 'stable') {
+          try {
+            await pc.setLocalDescription({ type: 'rollback' });
+          } catch (rb) {}
+        }
+
         await pc.setRemoteDescription(new RTCSessionDescription(sdp));
 
         if (pendingIceCandidatesRef.current.length > 0) {
@@ -498,6 +565,7 @@ export function ExaminerLiveInterview({ onNavigate }) {
     });
 
     socket.on('webrtc:answer', async ({ senderSocketId, sdp }) => {
+      console.log('[WebRTC Examiner] Received answer from:', senderSocketId);
       try {
         if (peerConnectionRef.current) {
           await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(sdp));
@@ -760,6 +828,37 @@ export function ExaminerLiveInterview({ onNavigate }) {
     setNewQuestionTitle('');
     setNewQuestionPrompt('');
     setShowAddQuestionModal(false);
+  };
+
+  const handleAdmitCandidate = async (targetSocketId = null) => {
+    const peerSocketId =
+      targetSocketId ||
+      targetPeerSocketIdRef.current ||
+      activeRoomPeers.find((p) => p.socketId !== socketRef.current?.id)?.socketId;
+
+    if (socketRef.current) {
+      socketRef.current.emit('interview:admit-candidate', {
+        candidateSocketId: peerSocketId,
+        interviewId: interview?._id || interview?.id,
+      });
+
+      if (peerSocketId) {
+        try {
+          const pc = createPeerConnection(peerSocketId);
+          const offer = await pc.createOffer({
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: true,
+          });
+          await pc.setLocalDescription(offer);
+          socketRef.current.emit('webrtc:offer', {
+            targetSocketId: peerSocketId,
+            sdp: offer,
+          });
+        } catch (err) {
+          console.warn('[Examiner] Admit & connect error:', err);
+        }
+      }
+    }
   };
 
   const cleanupMedia = () => {
@@ -1130,10 +1229,18 @@ export function ExaminerLiveInterview({ onNavigate }) {
                         remoteStreamActive ? 'bg-emerald-500' : 'bg-amber-500 animate-ping'
                       }`} />
                     </div>
-                    <p className="text-base font-bold text-white">{examineeName}</p>
                     <p className="text-xs text-accent-400 mt-0.5">
                       {remoteStreamActive ? 'Candidate Feed Active (1080p)' : 'Waiting for candidate video feed...'}
                     </p>
+                    {!remoteStreamActive && (
+                      <button
+                        onClick={() => handleAdmitCandidate()}
+                        className="mt-3.5 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-xs font-bold transition-all shadow-lg shadow-primary-600/30 flex items-center gap-2 mx-auto cursor-pointer"
+                      >
+                        <Radio size={14} className="animate-pulse" />
+                        <span>Admit / Connect Candidate Feed</span>
+                      </button>
+                    )}
                   </div>
                 )}
 

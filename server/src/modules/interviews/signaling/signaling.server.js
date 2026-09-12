@@ -18,40 +18,72 @@ export const attachInterviewSignaling = (io) => {
         socket.handshake.auth?.token ||
         socket.handshake.headers?.authorization?.replace(/^Bearer\s+/i, "");
 
-      if (!token) {
-        return next(new Error("Authentication token required for live interview signaling"));
+      if (token) {
+        try {
+          const decoded = verifyAccessToken(token);
+
+          if (decoded.isGuest) {
+            socket.user = {
+              _id: decoded.sub || decoded.id || `guest_${socket.id}`,
+              id: decoded.sub || decoded.id || `guest_${socket.id}`,
+              firstName: decoded.name || decoded.firstName || "Candidate",
+              lastName: decoded.lastName || "",
+              email: decoded.email || "",
+              role: "CANDIDATE",
+              isGuest: true,
+              status: "ACTIVE",
+              organizationId: decoded.organizationId,
+            };
+            return next();
+          }
+
+          const user = await User.findById(decoded.sub || decoded.id).lean();
+          if (user && user.status === "ACTIVE") {
+            socket.user = {
+              ...user,
+              id: user._id.toString(),
+            };
+            return next();
+          }
+        } catch (tokenErr) {
+          logger.warn(`[SignalingServer] Token verification notice: ${tokenErr.message}`);
+        }
       }
 
-      const decoded = verifyAccessToken(token);
+      // Guest / Candidate entry fallback (for scheduled entry links, public tokens, or direct candidate access)
+      const candidateName =
+        socket.handshake.auth?.candidateName ||
+        socket.handshake.auth?.name ||
+        "Candidate";
+      const candidateId =
+        socket.handshake.auth?.candidateId ||
+        socket.handshake.auth?.userId ||
+        `guest_${socket.id}`;
+      const candidateEmail =
+        socket.handshake.auth?.candidateEmail ||
+        socket.handshake.auth?.email ||
+        "";
 
-      if (decoded.isGuest) {
-        socket.user = {
-          _id: decoded.sub || decoded.id || `guest_${socket.id}`,
-          id: decoded.sub || decoded.id || `guest_${socket.id}`,
-          firstName: decoded.name || decoded.firstName || "Candidate",
-          lastName: decoded.lastName || "",
-          role: "CANDIDATE",
-          isGuest: true,
-          status: "ACTIVE",
-          organizationId: decoded.organizationId,
-        };
-        return next();
-      }
-
-      const user = await User.findById(decoded.sub || decoded.id).lean();
-      if (!user || user.status !== "ACTIVE") {
-        return next(new Error("User account is inactive or not found"));
-      }
-
-      socket.user = user;
-      next();
+      socket.user = {
+        _id: candidateId,
+        id: candidateId,
+        firstName: candidateName.split(" ")[0] || "Candidate",
+        lastName: candidateName.split(" ").slice(1).join(" ") || "",
+        email: candidateEmail,
+        role: "CANDIDATE",
+        isGuest: true,
+        status: "ACTIVE",
+        organizationId: socket.handshake.auth?.organizationId,
+      };
+      return next();
     } catch (err) {
+      logger.error(`[SignalingServer] Handshake middleware exception: ${err.message}`);
       return next(new Error(`Authentication failed: ${err.message}`));
     }
   });
 
   interviewNamespace.on("connection", (socket) => {
-    logger.info(`[SignalingServer] Connected socket: ${socket.id} (User: ${socket.user._id})`);
+    logger.info(`[SignalingServer] Connected socket: ${socket.id} (User: ${socket.user?._id})`);
 
     // 1. Join Interview Room
     socket.on(SIGNALING_EVENTS.INTERVIEW_JOIN, async ({ interviewId, organizationId }) => {
@@ -59,7 +91,8 @@ export const attachInterviewSignaling = (io) => {
         const authCheck = await SignalingService.authorizeConnection(
           interviewId,
           socket.user,
-          organizationId
+          organizationId,
+          interviewNamespace
         );
 
         if (!authCheck.authorized) {
@@ -87,6 +120,7 @@ export const attachInterviewSignaling = (io) => {
           id: socket.user._id,
           firstName: socket.user.firstName,
           lastName: socket.user.lastName,
+          email: socket.user.email,
           role: authCheck.role,
         });
 
@@ -99,19 +133,31 @@ export const attachInterviewSignaling = (io) => {
         socket.to(roomId).emit(SIGNALING_EVENTS.PARTICIPANT_JOINED, {
           socketId: socket.id,
           userId: socket.user._id,
-          name: `${socket.user.firstName} ${socket.user.lastName}`.trim(),
+          name: `${socket.user.firstName || ""} ${socket.user.lastName || ""}`.trim() || (isHost ? "Examiner" : "Candidate"),
           role: authCheck.role,
         });
 
-        // If the joining user is the host/examiner, admit all waiting candidates immediately
+        // If the joining user is the host/examiner, immediately admit all waiting candidates
         if (isHost) {
           interviewNamespace.to(roomId).emit("interview:host-joined", {
             host: {
               socketId: socket.id,
               userId: socket.user._id,
-              name: `${socket.user.firstName} ${socket.user.lastName}`.trim(),
+              name: `${socket.user.firstName || ""} ${socket.user.lastName || ""}`.trim() || "Examiner",
               role: authCheck.role,
             },
+          });
+          interviewNamespace.to(roomId).emit("interview:admitted", {
+            admittedBy: socket.user._id,
+          });
+        } else if (hasHost) {
+          // If host is already present, immediately tell candidate that host is present
+          const hostPeer = activePeers.find((p) => p.role !== "CANDIDATE");
+          socket.emit("interview:host-joined", {
+            host: hostPeer || { role: "EXAMINER", name: "Examiner" },
+          });
+          socket.emit("interview:admitted", {
+            admitted: true,
           });
         }
 
@@ -135,11 +181,26 @@ export const attachInterviewSignaling = (io) => {
       }
     });
 
+    // Candidate announces readiness for WebRTC offer from Examiner
+    socket.on("interview:candidate-ready", ({ interviewId }) => {
+      const roomId = `interview_${interviewId || socket.interviewId}`;
+      socket.to(roomId).emit("interview:candidate-ready", {
+        candidateSocketId: socket.id,
+        candidateUserId: socket.user?._id,
+        name: `${socket.user?.firstName || ""} ${socket.user?.lastName || ""}`.trim() || "Candidate",
+      });
+    });
+
     // Examiner manually admits candidate from waiting room
-    socket.on("interview:admit-candidate", ({ candidateSocketId }) => {
+    socket.on("interview:admit-candidate", ({ candidateSocketId, interviewId }) => {
+      const roomId = `interview_${interviewId || socket.interviewId}`;
       if (candidateSocketId) {
         interviewNamespace.to(candidateSocketId).emit("interview:admitted", {
-          admittedBy: socket.user._id,
+          admittedBy: socket.user?._id,
+        });
+      } else {
+        interviewNamespace.to(roomId).emit("interview:admitted", {
+          admittedBy: socket.user?._id,
         });
       }
     });

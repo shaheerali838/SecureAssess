@@ -9,7 +9,13 @@ import {
 import { Button, Avatar, ConfirmModal } from '@/components/ui';
 import interviewService from '@/services/interview.service';
 
-const SOCKET_SERVER_URL = import.meta.env.VITE_SOCKET_URL || (import.meta.env.PROD ? window.location.origin : 'http://localhost:7000');
+const getSocketUrl = () => {
+  if (import.meta.env.VITE_SOCKET_URL) return import.meta.env.VITE_SOCKET_URL;
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return window.location.origin;
+  }
+  return 'http://localhost:7000';
+};
 
 const ICE_SERVERS = {
   iceServers: [
@@ -381,6 +387,9 @@ export function CandidateLiveInterview({ onNavigate }) {
       }
       setRemoteStreamActive(true);
       setConnectionStatus('connected');
+      setIsWaitingForHost(false);
+      setIsWaitingInQueue(false);
+      hasEverAdmittedRef.current = true;
     };
 
     pc.onconnectionstatechange = () => {
@@ -388,6 +397,9 @@ export function CandidateLiveInterview({ onNavigate }) {
       if (pc.connectionState === 'connected') {
         setConnectionStatus('connected');
         setRemoteStreamActive(true);
+        setIsWaitingForHost(false);
+        setIsWaitingInQueue(false);
+        hasEverAdmittedRef.current = true;
       } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
         setConnectionStatus('disconnected');
         setRemoteStreamActive(false);
@@ -417,32 +429,44 @@ export function CandidateLiveInterview({ onNavigate }) {
       '';
     const token = localStorage.getItem('secureassess_access_token');
 
-    const socket = io(`${SOCKET_SERVER_URL}/interviews`, {
-      auth: { token },
+    const socketUrl = getSocketUrl();
+    const socket = io(`${socketUrl}/interviews`, {
+      auth: {
+        token,
+        entryToken: pathToken,
+        interviewId: currentInterviewId,
+        candidateName: examineeName,
+        candidateEmail: examineeEmail,
+        organizationId: currentOrgId,
+        role: 'CANDIDATE',
+      },
       transports: ['websocket', 'polling'],
       reconnection: true,
-      reconnectionAttempts: 10,
+      reconnectionAttempts: 20,
       reconnectionDelay: 1000,
     });
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      console.log('[Signaling Candidate] Connected to /interviews:', socket.id);
+      console.log('[Signaling Candidate] Connected to /interviews socket:', socket.id);
       socket.emit('interview:join', {
         interviewId: currentInterviewId,
         organizationId: currentOrgId,
       });
     });
 
+    socket.on('connect_error', (err) => {
+      console.warn('[Signaling Candidate] Socket connection notice:', err.message);
+    });
+
     socket.on('room:occupied', ({ message, occupied, activeCandidate }) => {
       console.log('[Signaling Candidate] Room occupied by another candidate:', activeCandidate);
       setIsWaitingInQueue(true);
-      setIsWaitingForHost(true);
       setQueueOccupiedBy(activeCandidate || 'Another candidate');
     });
 
     socket.on('interview:room_available', () => {
-      console.log('[Signaling Candidate] Room available for next examinee, connecting...');
+      console.log('[Signaling Candidate] Room available for examinee, connecting...');
       setIsWaitingInQueue(false);
       socket.emit('interview:join', {
         interviewId: currentInterviewId,
@@ -460,7 +484,6 @@ export function CandidateLiveInterview({ onNavigate }) {
         msg.toLowerCase().includes('queue')
       ) {
         setIsWaitingInQueue(true);
-        setIsWaitingForHost(true);
         setQueueOccupiedBy(err?.activeCandidate || 'Another candidate');
         return;
       }
@@ -482,40 +505,19 @@ export function CandidateLiveInterview({ onNavigate }) {
     socket.on('room:peers', async ({ peers, hasHost }) => {
       console.log('[Signaling Candidate] Room peers:', peers, 'hasHost:', hasHost);
       if (Array.isArray(peers)) {
-        if (hasEverAdmittedRef.current) {
-          if (!peers.some((p) => p.socketId !== socket.id)) {
-            setSessionEnded(true);
-            setIsWaitingForHost(false);
-            setSessionEndedReason('The examiner has left and concluded the interview session.');
-            if (localStreamRef.current) {
-              localStreamRef.current.getTracks().forEach((t) => t.stop());
-            }
-          }
-        } else {
-          const hostPresent = hasHost || peers.some((p) => p.socketId !== socket.id);
-          if (hostPresent) {
-            hasEverAdmittedRef.current = true;
-            setIsWaitingForHost(false);
-          }
+        const hostPresent = hasHost || peers.some((p) => p.role !== 'CANDIDATE' || p.socketId !== socket.id);
+        if (hostPresent) {
+          hasEverAdmittedRef.current = true;
+          setIsWaitingForHost(false);
+          setIsWaitingInQueue(false);
         }
 
-        const otherPeer = peers.find((p) => p.socketId && p.socketId !== socket.id);
-        if (otherPeer) {
-          targetPeerSocketIdRef.current = otherPeer.socketId;
-          try {
-            const pc = createPeerConnection(otherPeer.socketId);
-            const offer = await pc.createOffer({
-              offerToReceiveAudio: true,
-              offerToReceiveVideo: true,
-            });
-            await pc.setLocalDescription(offer);
-            socket.emit('webrtc:offer', {
-              targetSocketId: otherPeer.socketId,
-              sdp: offer,
-            });
-          } catch (offerErr) {
-            console.warn('[WebRTC Candidate] Offer creation error:', offerErr);
-          }
+        const examinerPeer = peers.find((p) => p.socketId && p.socketId !== socket.id);
+        if (examinerPeer) {
+          targetPeerSocketIdRef.current = examinerPeer.socketId;
+          createPeerConnection(examinerPeer.socketId);
+          // Notify Examiner that candidate is ready to receive WebRTC offer
+          socket.emit('interview:candidate-ready', { interviewId: currentInterviewId });
         }
       }
     });
@@ -524,21 +526,32 @@ export function CandidateLiveInterview({ onNavigate }) {
       console.log('[Signaling Candidate] Examiner host joined:', data);
       hasEverAdmittedRef.current = true;
       setIsWaitingForHost(false);
+      setIsWaitingInQueue(false);
+      const hostSocketId = data?.host?.socketId;
+      if (hostSocketId && hostSocketId !== socket.id) {
+        targetPeerSocketIdRef.current = hostSocketId;
+        createPeerConnection(hostSocketId);
+        socket.emit('interview:candidate-ready', { interviewId: currentInterviewId });
+      }
     });
 
     socket.on('interview:admitted', () => {
       console.log('[Signaling Candidate] Candidate admitted by examiner');
       hasEverAdmittedRef.current = true;
       setIsWaitingForHost(false);
+      setIsWaitingInQueue(false);
+      socket.emit('interview:candidate-ready', { interviewId: currentInterviewId });
     });
 
     socket.on('participant:joined', async (peer) => {
       console.log('[Signaling Candidate] Participant joined:', peer);
-      if (peer.socketId) {
+      if (peer.socketId && peer.socketId !== socket.id) {
         targetPeerSocketIdRef.current = peer.socketId;
         hasEverAdmittedRef.current = true;
         setIsWaitingForHost(false);
+        setIsWaitingInQueue(false);
         createPeerConnection(peer.socketId);
+        socket.emit('interview:candidate-ready', { interviewId: currentInterviewId });
       }
     });
 
@@ -546,11 +559,22 @@ export function CandidateLiveInterview({ onNavigate }) {
       console.log('[WebRTC Candidate] Received offer:', senderSocketId);
       hasEverAdmittedRef.current = true;
       setIsWaitingForHost(false);
+      setIsWaitingInQueue(false);
       try {
         let pc = peerConnectionRef.current;
         if (!pc || targetPeerSocketIdRef.current !== senderSocketId) {
           pc = createPeerConnection(senderSocketId);
         }
+
+        // Polite rollback on glare
+        if (pc.signalingState !== 'stable') {
+          try {
+            await pc.setLocalDescription({ type: 'rollback' });
+          } catch (rbErr) {
+            console.warn('[WebRTC Candidate] Rollback notice:', rbErr);
+          }
+        }
+
         await pc.setRemoteDescription(new RTCSessionDescription(sdp));
 
         if (pendingIceCandidatesRef.current.length > 0) {
@@ -575,6 +599,7 @@ export function CandidateLiveInterview({ onNavigate }) {
       console.log('[WebRTC Candidate] Received answer:', senderSocketId);
       hasEverAdmittedRef.current = true;
       setIsWaitingForHost(false);
+      setIsWaitingInQueue(false);
       try {
         if (peerConnectionRef.current) {
           await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(sdp));

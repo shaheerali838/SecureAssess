@@ -123,11 +123,9 @@ export class InterviewService {
     const targetName = metadata?.candidateName || `${candidate.firstName || ''} ${candidate.lastName || ''}`.trim() || 'Candidate';
     const clientBaseUrl = ENV.CLIENT_URL || "https://secure-assess.vercel.app";
     let roomUrl = metadata?.entryLink || `${clientBaseUrl}/interview/entry/${interview._id}`;
-    if (ENV.NODE_ENV === "production" || process.env.VERCEL) {
-      roomUrl = roomUrl
-        .replace(/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?/, clientBaseUrl)
-        .replace(/^https:\/\/secureassess\.io/, clientBaseUrl);
-    }
+    roomUrl = roomUrl
+      .replace(/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?/, clientBaseUrl)
+      .replace(/^https:\/\/secureassess\.io/, clientBaseUrl);
 
     if (targetEmail) {
       EmailService.sendInterviewInvitation(targetEmail, {

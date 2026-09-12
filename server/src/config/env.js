@@ -31,13 +31,10 @@ export const ENV = Object.freeze({
   CORS_ORIGIN: process.env.CORS_ORIGIN || "*",
   CLIENT_URL: (() => {
     const raw = process.env.CLIENT_URL || process.env.FRONTEND_URL || process.env.APP_URL;
-    if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
-      if (!raw || raw.includes("localhost") || raw.includes("127.0.0.1")) {
-        return "https://secure-assess.vercel.app";
-      }
+    if (raw && !raw.includes("localhost") && !raw.includes("127.0.0.1")) {
       return raw.replace(/\/$/, "");
     }
-    return raw || "http://localhost:5173";
+    return "https://secure-assess.vercel.app";
   })(),
 
   // Storage & Media

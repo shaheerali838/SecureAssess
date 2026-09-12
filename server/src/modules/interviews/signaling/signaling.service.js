@@ -4,15 +4,16 @@ import InterviewEvent from "../interviewEvent.model.js";
 import { INTERVIEW_EVENT_TYPES } from "../interview.constants.js";
 import { logger } from "../../../config/logger.js";
 
-// In-memory active presence map: interviewId -> Set of { socketId, userId, role }
+// In-memory active presence map: interviewId -> Map of socketId -> participant
 const activeRooms = new Map();
 
 export class SignalingService {
   /**
    * Authorizes user to join a specific interview room
    */
-  static async authorizeConnection(interviewId, user, organizationId) {
+  static async authorizeConnection(interviewId, user, organizationId, ioNamespace = null) {
     const userId = user?._id || user?.id || user;
+    const userEmail = user?.email || "";
     const userRole = user?.role || (String(userId).startsWith("guest_") ? "CANDIDATE" : "EXAMINER");
 
     try {
@@ -31,15 +32,40 @@ export class SignalingService {
       const isGuest = String(userId).startsWith("guest_") || user?.isGuest === true;
       const isCandidateRole = isGuest || userRole === "CANDIDATE";
 
-      // 1. If Candidate, enforce strict Single-Seat Viva policy (No 2 candidates in room simultaneously)
+      // 1. If Candidate, check active participants in room
       if (isCandidateRole) {
         const strId = interviewId.toString();
         const roomMap = activeRooms.get(strId);
+
         if (roomMap && roomMap.size > 0) {
-          const activeCandidate = Array.from(roomMap.values()).find(
-            (p) => p.role === "CANDIDATE" && String(p.userId) !== String(userId)
+          // Clean up stale sockets that are no longer connected
+          if (ioNamespace && ioNamespace.sockets) {
+            for (const [sId] of roomMap.entries()) {
+              if (!ioNamespace.sockets.has(sId)) {
+                roomMap.delete(sId);
+              }
+            }
+          }
+
+          // Check if there is another truly distinct candidate currently in the room
+          const activeCandidate = Array.from(roomMap.values()).find((p) => {
+            if (p.role !== "CANDIDATE") return false;
+            // Same user ID
+            if (String(p.userId) === String(userId)) return false;
+            // Same candidate email
+            if (userEmail && p.email && p.email.toLowerCase() === userEmail.toLowerCase()) return false;
+            // Same guest session prefix for this interview
+            if (String(p.userId).startsWith(`guest_${strId}`) && String(userId).startsWith(`guest_${strId}`)) return false;
+            return true;
+          });
+
+          // If this is the specific assigned candidate for this scheduled interview, always permit entry
+          const isAssignedCandidate = interview && (
+            (interview.candidateId && String(interview.candidateId._id || interview.candidateId) === String(userId)) ||
+            (interview.candidateEmail && userEmail && interview.candidateEmail.toLowerCase() === userEmail.toLowerCase())
           );
-          if (activeCandidate) {
+
+          if (activeCandidate && !isAssignedCandidate) {
             return {
               authorized: false,
               isRoomOccupied: true,
@@ -100,14 +126,24 @@ export class SignalingService {
       activeRooms.set(strId, new Map());
     }
     const roomMap = activeRooms.get(strId);
+
+    // If same user or guest candidate had an older socket in this room, remove the old entry
+    const uId = user.id || user._id;
+    for (const [sId, p] of roomMap.entries()) {
+      if (sId !== socketId && (String(p.userId) === String(uId) || (user.email && p.email === user.email))) {
+        roomMap.delete(sId);
+      }
+    }
+
     roomMap.set(socketId, {
       socketId,
-      userId: user.id || user._id,
-      name: `${user.firstName || ""} ${user.lastName || ""}`.trim() || "User",
+      userId: uId,
+      email: user.email || "",
+      name: `${user.firstName || ""} ${user.lastName || ""}`.trim() || (user.role === "CANDIDATE" ? "Candidate" : "Examiner"),
       role: user.role || "CANDIDATE",
       joinedAt: new Date(),
     });
-    logger.info(`[SignalingService] Socket ${socketId} registered in room ${strId}`);
+    logger.info(`[SignalingService] Socket ${socketId} registered in room ${strId} (User: ${uId}, Role: ${user.role})`);
   }
 
   /**

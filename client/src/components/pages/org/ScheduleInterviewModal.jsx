@@ -12,15 +12,6 @@ import interviewService from '@/services/interview.service';
 import { InterviewQuestionsBuilder } from './InterviewQuestionsBuilder';
 
 const getCandidateLinkOrigin = () => {
-  if (typeof window !== 'undefined') {
-    const isLocalhost =
-      window.location.hostname === 'localhost' ||
-      window.location.hostname === '127.0.0.1';
-    if (isLocalhost) {
-      return import.meta.env.VITE_APP_URL || 'https://secure-assess.vercel.app';
-    }
-    return window.location.origin;
-  }
   return 'https://secure-assess.vercel.app';
 };
 
