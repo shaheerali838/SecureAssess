@@ -12,7 +12,7 @@ import interviewService from '@/services/interview.service';
 const getSocketUrl = () => {
   if (import.meta.env.VITE_SOCKET_URL) return import.meta.env.VITE_SOCKET_URL;
   if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return window.location.origin;
+    return 'https://secure-assess-server.vercel.app';
   }
   return 'http://localhost:7000';
 };
@@ -360,7 +360,7 @@ export function ExaminerLiveInterview({ onNavigate }) {
 
   // 3. WebRTC Peer Connection Factory
   const createPeerConnection = (targetSocketId) => {
-    if (peerConnectionRef.current) {
+    if (peerConnectionRef.current && peerConnectionRef.current.signalingState !== 'closed') {
       try {
         peerConnectionRef.current.close();
       } catch (e) {}
@@ -414,6 +414,48 @@ export function ExaminerLiveInterview({ onNavigate }) {
     return pc;
   };
 
+  const initiateOfferToPeer = async (targetSocketId) => {
+    if (!targetSocketId || !socketRef.current) return;
+    if (targetSocketId === socketRef.current.id) return;
+
+    targetPeerSocketIdRef.current = targetSocketId;
+
+    let pc = peerConnectionRef.current;
+    if (!pc || pc.signalingState === 'closed') {
+      pc = createPeerConnection(targetSocketId);
+    } else if (localStreamRef.current) {
+      const senders = pc.getSenders();
+      localStreamRef.current.getTracks().forEach((track) => {
+        if (!senders.some((s) => s.track?.id === track.id)) {
+          pc.addTrack(track, localStreamRef.current);
+        }
+      });
+    }
+
+    if (pc.signalingState === 'have-local-offer') {
+      console.log('[WebRTC Examiner] Offer already pending for peer:', targetSocketId);
+      return;
+    }
+
+    try {
+      const offer = await pc.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: true,
+      });
+      await pc.setLocalDescription(offer);
+      socketRef.current.emit('webrtc:offer', {
+        targetSocketId,
+        sdp: offer,
+      });
+      socketRef.current.emit('interview:admit-candidate', {
+        candidateSocketId: targetSocketId,
+        interviewId: interview?._id || interview?.id,
+      });
+    } catch (err) {
+      console.warn('[WebRTC Examiner] Error initiating offer:', err);
+    }
+  };
+
   // 4. Socket.io Signaling Connection
   useEffect(() => {
     if (!interview || !mediaReady) return;
@@ -454,26 +496,12 @@ export function ExaminerLiveInterview({ onNavigate }) {
     });
 
     socket.on('room:peers', async ({ peers }) => {
-      console.log('[Signaling Examiner] Room peers:', peers);
+      console.log('[Signaling Examiner] Room peers received:', peers);
       if (Array.isArray(peers)) {
         setActiveRoomPeers(peers);
         const otherPeer = peers.find((p) => p.socketId && p.socketId !== socket.id);
         if (otherPeer) {
-          targetPeerSocketIdRef.current = otherPeer.socketId;
-          try {
-            const pc = createPeerConnection(otherPeer.socketId);
-            const offer = await pc.createOffer({
-              offerToReceiveAudio: true,
-              offerToReceiveVideo: true,
-            });
-            await pc.setLocalDescription(offer);
-            socket.emit('webrtc:offer', {
-              targetSocketId: otherPeer.socketId,
-              sdp: offer,
-            });
-          } catch (offerErr) {
-            console.warn('[WebRTC Examiner] Offer error:', offerErr);
-          }
+          initiateOfferToPeer(otherPeer.socketId);
         }
       }
     });
@@ -481,26 +509,8 @@ export function ExaminerLiveInterview({ onNavigate }) {
     socket.on('participant:joined', async (peer) => {
       console.log('[Signaling Examiner] Candidate joined room:', peer);
       if (peer.socketId && peer.socketId !== socket.id) {
-        targetPeerSocketIdRef.current = peer.socketId;
         setActiveRoomPeers((prev) => [...prev.filter((p) => p.socketId !== peer.socketId), peer]);
-        try {
-          const pc = createPeerConnection(peer.socketId);
-          const offer = await pc.createOffer({
-            offerToReceiveAudio: true,
-            offerToReceiveVideo: true,
-          });
-          await pc.setLocalDescription(offer);
-          socket.emit('webrtc:offer', {
-            targetSocketId: peer.socketId,
-            sdp: offer,
-          });
-          socket.emit('interview:admit-candidate', {
-            candidateSocketId: peer.socketId,
-            interviewId: currentInterviewId,
-          });
-        } catch (offerErr) {
-          console.warn('[WebRTC Examiner] Offer error on candidate join:', offerErr);
-        }
+        initiateOfferToPeer(peer.socketId);
       }
     });
 
@@ -508,25 +518,7 @@ export function ExaminerLiveInterview({ onNavigate }) {
       console.log('[Signaling Examiner] Candidate announced ready:', candidateSocketId);
       const targetId = candidateSocketId || targetPeerSocketIdRef.current;
       if (targetId && targetId !== socket.id) {
-        targetPeerSocketIdRef.current = targetId;
-        try {
-          const pc = createPeerConnection(targetId);
-          const offer = await pc.createOffer({
-            offerToReceiveAudio: true,
-            offerToReceiveVideo: true,
-          });
-          await pc.setLocalDescription(offer);
-          socket.emit('webrtc:offer', {
-            targetSocketId: targetId,
-            sdp: offer,
-          });
-          socket.emit('interview:admit-candidate', {
-            candidateSocketId: targetId,
-            interviewId: currentInterviewId,
-          });
-        } catch (err) {
-          console.warn('[WebRTC Examiner] Error generating offer on candidate ready:', err);
-        }
+        initiateOfferToPeer(targetId);
       }
     });
 

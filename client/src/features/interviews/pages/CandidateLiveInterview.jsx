@@ -12,7 +12,7 @@ import interviewService from '@/services/interview.service';
 const getSocketUrl = () => {
   if (import.meta.env.VITE_SOCKET_URL) return import.meta.env.VITE_SOCKET_URL;
   if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return window.location.origin;
+    return 'https://secure-assess-server.vercel.app';
   }
   return 'http://localhost:7000';
 };
@@ -349,7 +349,7 @@ export function CandidateLiveInterview({ onNavigate }) {
 
   // 3. WebRTC Peer Connection Factory
   const createPeerConnection = (targetSocketId) => {
-    if (peerConnectionRef.current) {
+    if (peerConnectionRef.current && peerConnectionRef.current.signalingState !== 'closed') {
       try {
         peerConnectionRef.current.close();
       } catch (e) {}
@@ -515,8 +515,10 @@ export function CandidateLiveInterview({ onNavigate }) {
         const examinerPeer = peers.find((p) => p.socketId && p.socketId !== socket.id);
         if (examinerPeer) {
           targetPeerSocketIdRef.current = examinerPeer.socketId;
-          createPeerConnection(examinerPeer.socketId);
-          // Notify Examiner that candidate is ready to receive WebRTC offer
+          let pc = peerConnectionRef.current;
+          if (!pc || pc.signalingState === 'closed') {
+            createPeerConnection(examinerPeer.socketId);
+          }
           socket.emit('interview:candidate-ready', { interviewId: currentInterviewId });
         }
       }
@@ -530,7 +532,10 @@ export function CandidateLiveInterview({ onNavigate }) {
       const hostSocketId = data?.host?.socketId;
       if (hostSocketId && hostSocketId !== socket.id) {
         targetPeerSocketIdRef.current = hostSocketId;
-        createPeerConnection(hostSocketId);
+        let pc = peerConnectionRef.current;
+        if (!pc || pc.signalingState === 'closed') {
+          createPeerConnection(hostSocketId);
+        }
         socket.emit('interview:candidate-ready', { interviewId: currentInterviewId });
       }
     });
@@ -550,20 +555,31 @@ export function CandidateLiveInterview({ onNavigate }) {
         hasEverAdmittedRef.current = true;
         setIsWaitingForHost(false);
         setIsWaitingInQueue(false);
-        createPeerConnection(peer.socketId);
+        let pc = peerConnectionRef.current;
+        if (!pc || pc.signalingState === 'closed') {
+          createPeerConnection(peer.socketId);
+        }
         socket.emit('interview:candidate-ready', { interviewId: currentInterviewId });
       }
     });
 
     socket.on('webrtc:offer', async ({ senderSocketId, sdp }) => {
-      console.log('[WebRTC Candidate] Received offer:', senderSocketId);
+      console.log('[WebRTC Candidate] Received offer from:', senderSocketId);
       hasEverAdmittedRef.current = true;
       setIsWaitingForHost(false);
       setIsWaitingInQueue(false);
+      targetPeerSocketIdRef.current = senderSocketId;
       try {
         let pc = peerConnectionRef.current;
-        if (!pc || targetPeerSocketIdRef.current !== senderSocketId) {
+        if (!pc || pc.signalingState === 'closed') {
           pc = createPeerConnection(senderSocketId);
+        } else if (localStreamRef.current) {
+          const senders = pc.getSenders();
+          localStreamRef.current.getTracks().forEach((track) => {
+            if (!senders.some((s) => s.track?.id === track.id)) {
+              pc.addTrack(track, localStreamRef.current);
+            }
+          });
         }
 
         // Polite rollback on glare
