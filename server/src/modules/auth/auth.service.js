@@ -299,7 +299,7 @@ export class AuthService {
     user.passwordResetExpiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
     await user.save();
 
-    const clientUrl = ENV.CLIENT_URL || "http://localhost:5173";
+    const clientUrl = ENV.CLIENT_URL || "https://secure-assess.vercel.app";
     const resetUrl = `${clientUrl}/login?token=${rawToken}&email=${encodeURIComponent(normalizedEmail)}&mode=reset`;
 
     try {

@@ -51,6 +51,7 @@ export function ExaminerLiveInterview({ onNavigate }) {
   // Examiner Evaluation Tabs: 'rubric' | 'notes' | 'chat' | 'participants'
   const [activeTab, setActiveTab] = useState('rubric');
   const [activeQuestion, setActiveQuestion] = useState(0);
+  const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
 
   // Evaluation Questions & Scoring Rubric
   const [questions, setQuestions] = useState([
@@ -1224,84 +1225,96 @@ export function ExaminerLiveInterview({ onNavigate }) {
               <ScreenShare size={20} />
             </button>
 
-            <div className="w-px h-8 bg-accent-800 mx-1" />
+            <div className="w-px h-8 bg-accent-800 mx-0.5 sm:mx-1" />
 
             {/* Sidebar Tabs */}
             <button
-              onClick={() => setActiveTab('rubric')}
-              className={`px-4 h-12 rounded-2xl flex items-center gap-2 text-xs font-bold transition-all shadow-lg ${
-                activeTab === 'rubric' ? 'bg-primary-600 text-white' : 'bg-accent-800 text-accent-300 hover:bg-accent-700'
+              onClick={() => { setActiveTab('rubric'); setMobilePanelOpen(true); }}
+              className={`px-3 sm:px-4 h-11 sm:h-12 rounded-2xl flex items-center gap-1.5 sm:gap-2 text-xs font-bold transition-all shadow-lg cursor-pointer ${
+                activeTab === 'rubric' && mobilePanelOpen ? 'bg-primary-600 text-white' : 'bg-accent-800 text-accent-300 hover:bg-accent-700'
               }`}
             >
               <Award size={16} />
-              <span>Rubric & Scoring</span>
+              <span className="hidden md:inline">Rubric & Scoring</span>
             </button>
 
             <button
-              onClick={() => setActiveTab('notes')}
-              className={`px-4 h-12 rounded-2xl flex items-center gap-2 text-xs font-bold transition-all shadow-lg ${
-                activeTab === 'notes' ? 'bg-primary-600 text-white' : 'bg-accent-800 text-accent-300 hover:bg-accent-700'
+              onClick={() => { setActiveTab('notes'); setMobilePanelOpen(true); }}
+              className={`px-3 sm:px-4 h-11 sm:h-12 rounded-2xl flex items-center gap-1.5 sm:gap-2 text-xs font-bold transition-all shadow-lg cursor-pointer ${
+                activeTab === 'notes' && mobilePanelOpen ? 'bg-primary-600 text-white' : 'bg-accent-800 text-accent-300 hover:bg-accent-700'
               }`}
             >
               <StickyNote size={16} />
-              <span>Private Notes ({savedNotes.length})</span>
+              <span className="hidden md:inline">Notes ({savedNotes.length})</span>
             </button>
 
             <button
-              onClick={() => setActiveTab('chat')}
-              className={`px-4 h-12 rounded-2xl flex items-center gap-2 text-xs font-bold transition-all shadow-lg ${
-                activeTab === 'chat' ? 'bg-primary-600 text-white' : 'bg-accent-800 text-accent-300 hover:bg-accent-700'
+              onClick={() => { setActiveTab('chat'); setMobilePanelOpen(true); }}
+              className={`px-3 sm:px-4 h-11 sm:h-12 rounded-2xl flex items-center gap-1.5 sm:gap-2 text-xs font-bold transition-all shadow-lg cursor-pointer ${
+                activeTab === 'chat' && mobilePanelOpen ? 'bg-primary-600 text-white' : 'bg-accent-800 text-accent-300 hover:bg-accent-700'
               }`}
             >
               <MessageSquare size={16} />
-              <span>In-Room Chat</span>
+              <span className="hidden md:inline">Chat</span>
             </button>
 
             <button
-              onClick={() => setActiveTab('participants')}
-              className={`px-4 h-12 rounded-2xl flex items-center gap-2 text-xs font-bold transition-all shadow-lg ${
-                activeTab === 'participants' ? 'bg-primary-600 text-white' : 'bg-accent-800 text-accent-300 hover:bg-accent-700'
+              onClick={() => { setActiveTab('participants'); setMobilePanelOpen(true); }}
+              className={`px-3 sm:px-4 h-11 sm:h-12 rounded-2xl flex items-center gap-1.5 sm:gap-2 text-xs font-bold transition-all shadow-lg cursor-pointer ${
+                activeTab === 'participants' && mobilePanelOpen ? 'bg-primary-600 text-white' : 'bg-accent-800 text-accent-300 hover:bg-accent-700'
               }`}
             >
               <Users size={16} />
-              <span>Roster ({activeRoomPeers.length > 0 ? activeRoomPeers.length + 1 : 2})</span>
+              <span className="hidden md:inline">Roster ({activeRoomPeers.length > 0 ? activeRoomPeers.length + 1 : 2})</span>
             </button>
 
-            <div className="w-px h-8 bg-accent-800 mx-1" />
+            <div className="w-px h-8 bg-accent-800 mx-0.5 sm:mx-1" />
 
             <button
               onClick={handleEndInterview}
-              className="px-5 h-12 rounded-2xl bg-danger-600 hover:bg-danger-500 text-white flex items-center gap-2 transition-all font-bold text-xs shadow-lg shadow-danger-600/20"
+              className="px-3.5 sm:px-5 h-11 sm:h-12 rounded-2xl bg-danger-600 hover:bg-danger-500 text-white flex items-center gap-1.5 sm:gap-2 transition-all font-bold text-xs shadow-lg shadow-danger-600/20 cursor-pointer"
             >
               <PhoneOff size={18} />
-              <span>End & Conclude Interview</span>
+              <span className="hidden sm:inline">End Interview</span>
             </button>
           </div>
         </div>
 
-        {/* Right: Examiner Cockpit Sidebar */}
-        <div className="w-96 bg-accent-900 border-l border-accent-800 flex flex-col shrink-0 overflow-hidden shadow-2xl">
+        {/* Right: Examiner Cockpit Sidebar (Desktop side-by-side, Tablet/Mobile slide-over drawer) */}
+        <div className={`w-full sm:w-96 bg-accent-900 border-l border-accent-800 flex flex-col shrink-0 overflow-hidden shadow-2xl transition-all ${
+          mobilePanelOpen ? 'fixed inset-y-0 right-0 z-50 flex' : 'hidden lg:flex'
+        }`}>
           <div className="px-4 h-12 border-b border-accent-800 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {activeTab === 'rubric' && <Award size={16} className="text-primary-400" />}
-              {activeTab === 'notes' && <StickyNote size={16} className="text-primary-400" />}
-              {activeTab === 'chat' && <MessageSquare size={16} className="text-primary-400" />}
-              {activeTab === 'participants' && <Users size={16} className="text-primary-400" />}
-              <span className="text-xs font-bold text-white uppercase tracking-wider">
-                {activeTab === 'rubric' && 'Evaluation Rubric & Scoring'}
-                {activeTab === 'notes' && 'Examiner Private Notes'}
+            <div className="flex items-center gap-2 min-w-0">
+              {activeTab === 'rubric' && <Award size={16} className="text-primary-400 shrink-0" />}
+              {activeTab === 'notes' && <StickyNote size={16} className="text-primary-400 shrink-0" />}
+              {activeTab === 'chat' && <MessageSquare size={16} className="text-primary-400 shrink-0" />}
+              {activeTab === 'participants' && <Users size={16} className="text-primary-400 shrink-0" />}
+              <span className="text-xs font-bold text-white uppercase tracking-wider truncate">
+                {activeTab === 'rubric' && 'Evaluation Rubric'}
+                {activeTab === 'notes' && 'Private Notes'}
                 {activeTab === 'chat' && 'Live In-Room Chat'}
-                {activeTab === 'participants' && 'Active Participants & Roster'}
+                {activeTab === 'participants' && 'Active Roster'}
               </span>
             </div>
-            {activeTab === 'rubric' && (
+            <div className="flex items-center gap-2">
+              {activeTab === 'rubric' && (
+                <button
+                  onClick={() => setShowAddQuestionModal(true)}
+                  className="text-xs text-primary-400 hover:text-primary-300 flex items-center gap-1 font-semibold cursor-pointer"
+                >
+                  <Plus size={14} /> Add
+                </button>
+              )}
+              {/* Close Mobile Panel Button */}
               <button
-                onClick={() => setShowAddQuestionModal(true)}
-                className="text-xs text-primary-400 hover:text-primary-300 flex items-center gap-1 font-semibold"
+                onClick={() => setMobilePanelOpen(false)}
+                className="lg:hidden text-accent-400 hover:text-white p-1 rounded-lg hover:bg-accent-800 cursor-pointer"
+                title="Close Evaluation Panel"
               >
-                <Plus size={14} /> Add Question
+                <X size={18} />
               </button>
-            )}
+            </div>
           </div>
 
           {/* TAB 1: RUBRIC */}

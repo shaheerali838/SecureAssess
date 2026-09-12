@@ -19,6 +19,7 @@ import { ApiError } from "../../utils/ApiError.js";
 import { EmailService } from "../../services/email/email.service.js";
 import { generateAccessToken } from "../../utils/token.js";
 import { SignalingService } from "./signaling/signaling.service.js";
+import { ENV } from "../../config/env.js";
 import crypto from "crypto";
 
 export class InterviewService {
@@ -120,7 +121,13 @@ export class InterviewService {
     // Send 1-Time Entry / Scheduled Interview Invitation Email
     const targetEmail = metadata?.candidateEmail || candidate.email;
     const targetName = metadata?.candidateName || `${candidate.firstName || ''} ${candidate.lastName || ''}`.trim() || 'Candidate';
-    const roomUrl = metadata?.entryLink || `https://secureassess.io/interview/entry/${interview._id}`;
+    const clientBaseUrl = ENV.CLIENT_URL || "https://secure-assess.vercel.app";
+    let roomUrl = metadata?.entryLink || `${clientBaseUrl}/interview/entry/${interview._id}`;
+    if (ENV.NODE_ENV === "production" || process.env.VERCEL) {
+      roomUrl = roomUrl
+        .replace(/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?/, clientBaseUrl)
+        .replace(/^https:\/\/secureassess\.io/, clientBaseUrl);
+    }
 
     if (targetEmail) {
       EmailService.sendInterviewInvitation(targetEmail, {

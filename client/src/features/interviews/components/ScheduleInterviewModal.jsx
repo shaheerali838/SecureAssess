@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Video, Users, Building2, BookOpen, GraduationCap, Link2,
   Calendar, Clock, Copy, Check, AlertCircle, CheckCircle2,
@@ -9,6 +10,19 @@ import candidateService from '@/services/candidate.service';
 import organizationService from '@/services/organization.service';
 import interviewService from '@/services/interview.service';
 import { InterviewQuestionsBuilder } from './InterviewQuestionsBuilder';
+
+const getCandidateLinkOrigin = () => {
+  if (typeof window !== 'undefined') {
+    const isLocalhost =
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1';
+    if (isLocalhost) {
+      return import.meta.env.VITE_APP_URL || 'https://secure-assess.vercel.app';
+    }
+    return window.location.origin;
+  }
+  return 'https://secure-assess.vercel.app';
+};
 
 export function ScheduleInterviewModal({
   isOpen,
@@ -240,7 +254,7 @@ export function ScheduleInterviewModal({
   // Generate 1-Time Entry Link
   const handleGenerateEntryLink = () => {
     const token = Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
-    const origin = window.location.origin || 'https://secureassess.io';
+    const origin = getCandidateLinkOrigin();
     const link = `${origin}/interview/entry/${token}?purpose=${interviewPurpose.toLowerCase()}`;
     setGeneratedEntryLink(link);
     setStatusFeedback({
@@ -292,7 +306,7 @@ export function ScheduleInterviewModal({
         }
 
         const token = Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
-        const origin = window.location.origin || 'https://secureassess.io';
+        const origin = getCandidateLinkOrigin();
         const roomLink = `${origin}/interview/entry/${token}?purpose=${interviewPurpose.toLowerCase()}`;
         setGeneratedEntryLink(roomLink);
 
@@ -533,11 +547,20 @@ export function ScheduleInterviewModal({
     }
   };
 
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-accent-900 border border-accent-200 dark:border-accent-800 rounded-2xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] w-screen h-screen min-h-screen bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-white dark:bg-accent-900 border border-accent-200 dark:border-accent-800 rounded-2xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden my-auto animate-scale-in">
         {/* Header */}
         <div className="p-5 border-b border-accent-100 dark:border-accent-800 flex items-center justify-between shrink-0 bg-accent-50/50 dark:bg-accent-900/50">
           <div className="flex items-center gap-3">
@@ -964,7 +987,7 @@ export function ScheduleInterviewModal({
                       readOnly
                       value={
                         generatedEntryLink ||
-                        `${window.location.origin || 'https://secureassess.io'}/interview/entry/1-time-${Math.random().toString(36).substring(7)}`
+                        `${getCandidateLinkOrigin()}/interview/entry/1-time-${Math.random().toString(36).substring(7)}`
                       }
                       className="flex-1 text-xs h-8 px-3 rounded-lg bg-white dark:bg-accent-900 border border-accent-300 dark:border-accent-700 font-mono text-accent-800 dark:text-accent-200 select-all"
                     />
@@ -976,7 +999,7 @@ export function ScheduleInterviewModal({
                       onClick={() => {
                         const link =
                           generatedEntryLink ||
-                          `${window.location.origin || 'https://secureassess.io'}/interview/entry/1-time-${Math.random().toString(36).substring(7)}`;
+                          `${getCandidateLinkOrigin()}/interview/entry/1-time-${Math.random().toString(36).substring(7)}`;
                         navigator.clipboard.writeText(link);
                         setCopiedLink(true);
                         setTimeout(() => setCopiedLink(false), 2000);
@@ -1195,6 +1218,8 @@ export function ScheduleInterviewModal({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 }
 
 export default ScheduleInterviewModal;

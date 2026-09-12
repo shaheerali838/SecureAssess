@@ -54,6 +54,17 @@ export function AppShell({
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
 
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileOpen]);
+
   const currentKey = activeView || currentPage || 'org-dashboard';
 
   const isPlatformUser = Boolean(
@@ -313,23 +324,24 @@ export function AppShell({
 
   return (
     <div className="min-h-screen bg-accent-50 dark:bg-accent-950 text-accent-900 dark:text-accent-100 flex transition-colors duration-200 font-sans">
-      {/* Desktop Sidebar */}
-      <aside className="w-64 fixed inset-y-0 left-0 z-30 hidden md:flex flex-col shadow-soft">
+      {/* Desktop Sidebar (Only on large screens) */}
+      <aside className="w-64 fixed inset-y-0 left-0 z-30 hidden lg:flex flex-col shadow-soft">
         {sidebarContent}
       </aside>
 
-      {/* Mobile Sidebar Overlay */}
+      {/* Mobile / Tablet Drawer Sidebar (Shown only when hamburger is clicked) */}
       {mobileOpen && (
         <>
           <div
-            className="fixed inset-0 bg-accent-950/60 backdrop-blur-sm z-40 md:hidden animate-fade-in"
+            className="fixed inset-0 bg-accent-950/70 backdrop-blur-sm z-40 lg:hidden animate-fade-in"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="w-64 fixed inset-y-0 left-0 z-50 md:hidden animate-slide-in-left shadow-strong">
+          <aside className="w-72 max-w-[85vw] fixed inset-y-0 left-0 z-50 lg:hidden animate-slide-in-left shadow-2xl flex flex-col">
             <button
               type="button"
               onClick={() => setMobileOpen(false)}
-              className="absolute top-4 right-4 text-accent-400 hover:text-accent-700 dark:hover:text-white z-10 p-1 cursor-pointer"
+              className="absolute top-4 right-4 text-accent-400 hover:text-accent-700 dark:hover:text-white z-10 p-1.5 rounded-lg hover:bg-accent-100 dark:hover:bg-accent-800 transition-colors cursor-pointer"
+              aria-label="Close navigation drawer"
             >
               <X size={18} />
             </button>
@@ -339,50 +351,67 @@ export function AppShell({
       )}
 
       {/* Main Content Area */}
-      <div className="flex-1 md:pl-64 flex flex-col min-w-0">
-        {/* Mobile Header */}
-        <header className="md:hidden sticky top-0 z-20 flex items-center justify-between px-4 h-14 bg-white/90 dark:bg-accent-900/90 backdrop-blur-md border-b border-accent-200 dark:border-accent-800">
-          <button
-            type="button"
-            onClick={() => setMobileOpen(true)}
-            className="text-accent-600 dark:text-accent-300 hover:text-accent-900 dark:hover:text-white p-1.5 rounded-lg cursor-pointer"
-            aria-label="Open mobile menu"
-          >
-            <Menu size={20} />
-          </button>
+      <div className="flex-1 lg:pl-64 flex flex-col min-w-0">
+        {/* Mobile & Tablet Top Bar (Visible ONLY when sidebar is hidden into hamburger) */}
+        <header className="lg:hidden sticky top-0 z-30 flex items-center justify-between px-3 sm:px-5 h-14 bg-white/95 dark:bg-accent-900/95 backdrop-blur-md border-b border-accent-200 dark:border-accent-800 shadow-xs">
+          <div className="flex items-center gap-2.5">
+            {/* Hamburger Button */}
+            <button
+              type="button"
+              onClick={() => setMobileOpen(true)}
+              className="flex items-center justify-center p-2 rounded-xl bg-accent-100/80 dark:bg-accent-800/80 hover:bg-accent-200 dark:hover:bg-accent-700 text-accent-700 dark:text-accent-200 transition-colors cursor-pointer"
+              aria-label="Open navigation menu"
+              title="Open Navigation Menu"
+            >
+              <Menu size={20} />
+            </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              const defaultKey = isPlatform
-                ? 'platform-dashboard'
-                : isCandidate
-                ? 'candidate-dashboard'
-                : 'org-dashboard';
-              onNavigate(defaultKey);
-            }}
-            className="flex items-center gap-2 cursor-pointer group"
-          >
-            <div className="w-7 h-7 rounded-lg bg-primary-600 flex items-center justify-center shadow-soft group-hover:scale-105 transition-transform">
-              <Shield size={15} className="text-white" />
+            {/* Brand Logo & Context */}
+            <button
+              type="button"
+              onClick={() => {
+                const defaultKey = isPlatform
+                  ? 'platform-dashboard'
+                  : isCandidate
+                  ? 'candidate-dashboard'
+                  : 'org-dashboard';
+                onNavigate(defaultKey);
+              }}
+              className="flex items-center gap-2 cursor-pointer group text-left"
+            >
+              <div className="w-7 h-7 rounded-lg bg-primary-600 flex items-center justify-center shadow-soft group-hover:scale-105 transition-transform shrink-0">
+                <Shield size={15} className="text-white" />
+              </div>
+              <div className="min-w-0 max-w-[140px] sm:max-w-[220px]">
+                <span className="font-bold text-xs text-accent-900 dark:text-white truncate block">
+                  {isPlatform ? 'SecureAssess' : displayOrgName}
+                </span>
+                <span className="text-[10px] text-accent-500 dark:text-accent-400 font-medium truncate block leading-none">
+                  {isCandidate ? 'Candidate Portal' : isProctor ? 'Proctor Workspace' : isExaminer ? 'Examiner Cockpit' : 'Workspace'}
+                </span>
+              </div>
+            </button>
+          </div>
+
+          {/* Quick Actions in Mobile Header */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <button
+              type="button"
+              onClick={handleToggleClick}
+              className="p-1.5 rounded-xl text-accent-500 hover:text-accent-900 dark:hover:text-white hover:bg-accent-100 dark:hover:bg-accent-800 cursor-pointer transition-colors"
+              title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              aria-label="Toggle theme"
+            >
+              {isDark ? <Sun size={17} className="text-warning-400" /> : <Moon size={17} />}
+            </button>
+
+            <div className="pl-1 border-l border-accent-200 dark:border-accent-800 flex items-center">
+              <Avatar name={displayUserName} size="xs" color={isPlatform ? '#2563eb' : '#0d9488'} />
             </div>
-            <span className="font-bold text-xs text-accent-900 dark:text-white truncate max-w-[150px]">
-              {isPlatform ? 'SecureAssess' : displayOrgName}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleToggleClick}
-            className="p-1.5 rounded-xl text-accent-500 hover:bg-accent-100 dark:hover:bg-accent-800 cursor-pointer"
-            title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-            aria-label="Toggle theme"
-          >
-            {isDark ? <Sun size={17} className="text-warning-400" /> : <Moon size={17} />}
-          </button>
+          </div>
         </header>
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1400px] w-full mx-auto animate-fade-in overflow-x-hidden">
+        <main className="flex-1 p-3 sm:p-6 lg:p-8 max-w-[1400px] w-full mx-auto animate-fade-in overflow-x-hidden">
           {children}
         </main>
       </div>

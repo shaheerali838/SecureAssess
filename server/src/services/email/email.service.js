@@ -185,8 +185,7 @@ export class EmailService {
       interviewTitle: interviewTitle || "Live Technical Interview",
       interviewDate: interviewDate || "Scheduled Date",
       interviewTime: interviewTime || "Scheduled Time",
-      interviewType: interviewType || "TECHNICAL",
-      interviewRoomUrl: interviewRoomUrl || "https://secureassess.io/interview/entry",
+      interviewRoomUrl: interviewRoomUrl || `${ENV.CLIENT_URL || "https://secure-assess.vercel.app"}/interview/entry`,
     });
   }
 
@@ -219,8 +218,7 @@ export class EmailService {
         industry,
         tierName,
         loginEmail: loginEmail || to,
-        temporaryPassword: temporaryPassword || "Use your existing account password",
-        actionUrl: actionUrl || "https://secureassess.io/login",
+        actionUrl: actionUrl || `${ENV.CLIENT_URL || "https://secure-assess.vercel.app"}/login`,
         actionText,
         currentYear: new Date().getFullYear(),
       }
@@ -251,8 +249,7 @@ export class EmailService {
         roleName: roleName || "Staff Member",
         inviterText,
         loginEmail: loginEmail || to,
-        temporaryPassword: temporaryPassword || "Use your existing account password",
-        invitationUrl: invitationUrl || "https://secureassess.io/login",
+        invitationUrl: invitationUrl || `${ENV.CLIENT_URL || "https://secure-assess.vercel.app"}/login`,
         expiresIn,
         currentYear: new Date().getFullYear(),
       }

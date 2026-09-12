@@ -1,9 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, CheckCircle, AlertCircle, Info, Check } from 'lucide-react';
 import { Card, CardHeader, CardBody } from './Card';
 
 export function Modal({ open, isOpen, onClose, title, subtitle, children, footer, size = 'md' }) {
   const isModalOpen = open ?? isOpen ?? false;
+
+  useEffect(() => {
+    if (isModalOpen) {
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isModalOpen]);
+
   if (!isModalOpen) return null;
   const sizes = {
     sm: 'max-w-md',
@@ -12,10 +23,9 @@ export function Modal({ open, isOpen, onClose, title, subtitle, children, footer
     xl: 'max-w-4xl',
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-accent-950/60 backdrop-blur-sm transition-opacity" onClick={onClose} />
-      <div className={`relative w-full ${sizes[size]} bg-white dark:bg-accent-900 rounded-2xl border border-accent-200 dark:border-accent-800 shadow-strong overflow-hidden animate-scale-in`}>
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] w-screen h-screen min-h-screen bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+      <div className={`relative w-full ${sizes[size]} bg-white dark:bg-accent-900 rounded-2xl border border-accent-200 dark:border-accent-800 shadow-2xl overflow-hidden my-auto animate-scale-in`}>
         {(title || subtitle) && (
           <div className="flex items-start justify-between p-6 border-b border-accent-100 dark:border-accent-800">
             <div>
@@ -32,6 +42,8 @@ export function Modal({ open, isOpen, onClose, title, subtitle, children, footer
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 }
 
 export function Tabs({ tabs, active, onChange, size = 'md' }) {

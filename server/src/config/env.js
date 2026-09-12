@@ -29,11 +29,16 @@ export const ENV = Object.freeze({
     process.env.REFRESH_TOKEN_SECRET || "default_refresh_secret",
   REFRESH_TOKEN_EXPIRES_IN: process.env.REFRESH_TOKEN_EXPIRES_IN || "7d",
   CORS_ORIGIN: process.env.CORS_ORIGIN || "*",
-  CLIENT_URL:
-    process.env.CLIENT_URL ||
-    process.env.FRONTEND_URL ||
-    process.env.APP_URL ||
-    "http://localhost:5173",
+  CLIENT_URL: (() => {
+    const raw = process.env.CLIENT_URL || process.env.FRONTEND_URL || process.env.APP_URL;
+    if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
+      if (!raw || raw.includes("localhost") || raw.includes("127.0.0.1")) {
+        return "https://secure-assess.vercel.app";
+      }
+      return raw.replace(/\/$/, "");
+    }
+    return raw || "http://localhost:5173";
+  })(),
 
   // Storage & Media
   STORAGE_PROVIDER: process.env.STORAGE_PROVIDER || "local",

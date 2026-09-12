@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, AlertCircle, CheckCircle2, Info, X, Trash2, HelpCircle } from 'lucide-react';
 import { Button } from './Button';
 
@@ -19,6 +20,16 @@ export function ConfirmModal({
   icon,
 }) {
   const isVisible = isOpen ?? open ?? false;
+
+  useEffect(() => {
+    if (isVisible) {
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isVisible]);
+
   if (!isVisible) return null;
 
   const content = description || message || children;
@@ -63,16 +74,10 @@ export function ConfirmModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      {/* Glassmorphic Backdrop */}
-      <div
-        className="fixed inset-0 bg-accent-950/70 backdrop-blur-sm transition-opacity animate-fade-in"
-        onClick={loading ? undefined : onClose}
-      />
-
+  const modalContent = (
+    <div className="fixed inset-0 z-[10000] w-screen h-screen min-h-screen bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
       {/* Modal Dialog Card */}
-      <div className="relative w-full max-w-md bg-white dark:bg-accent-900 rounded-2xl border border-accent-200 dark:border-accent-800 shadow-2xl overflow-hidden animate-scale-in z-10">
+      <div className="relative w-full max-w-md bg-white dark:bg-accent-900 rounded-2xl border border-accent-200 dark:border-accent-800 shadow-2xl overflow-hidden my-auto animate-scale-in z-10">
         <div className="p-6">
           <div className="flex items-start gap-4">
             {/* Variant Icon */}
@@ -132,6 +137,8 @@ export function ConfirmModal({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 }
 
 export default ConfirmModal;

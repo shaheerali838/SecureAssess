@@ -1202,81 +1202,81 @@ export function CandidateLiveInterview({ onNavigate }) {
           </div>
 
           {/* Minimalist Floating Bottom Dock */}
-          <div className="mt-4 flex items-center justify-center gap-3 shrink-0 py-2">
+          <div className="mt-3 sm:mt-4 flex items-center justify-center gap-1.5 sm:gap-3 shrink-0 py-2">
             <button
               onClick={toggleMicrophone}
               title={micOn ? 'Mute Microphone' : 'Unmute Microphone'}
-              className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-lg ${
+              className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center transition-all shadow-lg cursor-pointer ${
                 micOn ? 'bg-accent-800 text-white hover:bg-accent-700' : 'bg-danger-600 text-white hover:bg-danger-500 ring-2 ring-danger-400'
               }`}
             >
-              {micOn ? <Mic size={20} /> : <MicOff size={20} />}
+              {micOn ? <Mic size={18} /> : <MicOff size={18} />}
             </button>
 
             <button
               onClick={toggleCamera}
               title={camOn ? 'Turn Off Camera' : 'Turn On Camera'}
-              className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-lg ${
+              className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center transition-all shadow-lg cursor-pointer ${
                 camOn ? 'bg-accent-800 text-white hover:bg-accent-700' : 'bg-danger-600 text-white hover:bg-danger-500 ring-2 ring-danger-400'
               }`}
             >
-              {camOn ? <Video size={20} /> : <VideoOff size={20} />}
+              {camOn ? <Video size={18} /> : <VideoOff size={18} />}
             </button>
 
             <button
               onClick={toggleScreenShare}
               title="Share Screen"
-              className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-lg ${
+              className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center transition-all shadow-lg cursor-pointer ${
                 screenSharing ? 'bg-emerald-600 text-white ring-2 ring-emerald-400' : 'bg-accent-800 text-white hover:bg-accent-700'
               }`}
             >
-              <ScreenShare size={20} />
+              <ScreenShare size={18} />
             </button>
 
             <button
               onClick={handleToggleHand}
               title="Raise Hand"
-              className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-lg ${
+              className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center transition-all shadow-lg cursor-pointer ${
                 handRaised ? 'bg-amber-500 text-white ring-2 ring-amber-300' : 'bg-accent-800 text-white hover:bg-accent-700'
               }`}
             >
-              <Hand size={20} />
+              <Hand size={18} />
             </button>
 
-            <div className="w-px h-8 bg-accent-800 mx-1" />
+            <div className="w-px h-8 bg-accent-800 mx-0.5 sm:mx-1" />
 
             {/* In-Room Chat Drawer Toggle */}
             <button
               onClick={() => setIsChatOpen(!isChatOpen)}
-              className={`px-4 h-12 rounded-2xl flex items-center gap-2 text-xs font-bold transition-all shadow-lg ${
+              className={`px-3 sm:px-4 h-10 sm:h-12 rounded-2xl flex items-center gap-1.5 sm:gap-2 text-xs font-bold transition-all shadow-lg cursor-pointer ${
                 isChatOpen ? 'bg-emerald-600 text-white' : 'bg-accent-800 text-accent-300 hover:bg-accent-700'
               }`}
             >
               <MessageSquare size={16} />
-              <span>In-Room Chat</span>
+              <span className="hidden sm:inline">In-Room Chat</span>
             </button>
 
-            <div className="w-px h-8 bg-accent-800 mx-1" />
+            <div className="w-px h-8 bg-accent-800 mx-0.5 sm:mx-1" />
 
             <button
               onClick={handleLeaveInterview}
-              className="px-5 h-12 rounded-2xl bg-danger-600 hover:bg-danger-500 text-white flex items-center gap-2 transition-all font-bold text-xs shadow-lg shadow-danger-600/20"
+              className="px-3.5 sm:px-5 h-10 sm:h-12 rounded-2xl bg-danger-600 hover:bg-danger-500 text-white flex items-center gap-1.5 sm:gap-2 transition-all font-bold text-xs shadow-lg shadow-danger-600/20 cursor-pointer"
             >
               <PhoneOff size={18} />
-              <span>Leave Call</span>
+              <span className="hidden sm:inline">Leave Call</span>
             </button>
           </div>
         </div>
 
         {/* Slide-over Clean In-Room Chat Panel */}
         {isChatOpen && (
-          <div className="w-80 md:w-96 bg-accent-900 border-l border-accent-800 flex flex-col shrink-0 overflow-hidden shadow-2xl z-30 animate-in slide-in-from-right duration-200">
+          <div className="w-full sm:w-80 md:w-96 bg-accent-900 border-l border-accent-800 flex flex-col shrink-0 overflow-hidden shadow-2xl z-30 absolute right-0 top-0 bottom-0 animate-slide-in-right duration-200">
             <div className="px-4 h-12 border-b border-accent-800 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <MessageSquare size={16} className="text-emerald-400" />
                 <span className="text-xs font-bold text-white uppercase tracking-wider">In-Room Live Chat</span>
               </div>
-              <button onClick={() => setIsChatOpen(false)} className="text-accent-400 hover:text-white p-1">
+              <button onClick={() => setIsChatOpen(false)} className="text-accent-400 hover:text-white p-1 rounded-lg hover:bg-accent-800 cursor-pointer">
                 <X size={16} />
               </button>
             </div>

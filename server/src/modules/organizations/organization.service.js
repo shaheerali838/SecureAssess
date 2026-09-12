@@ -310,7 +310,7 @@ export class OrganizationService {
       await session.commitTransaction();
 
       // Resolve action URL for owner onboarding
-      const clientUrl = ENV.CLIENT_URL || "http://localhost:5173";
+      const clientUrl = ENV.CLIENT_URL || "https://secure-assess.vercel.app";
       const actionUrl = `${clientUrl}/login?token=${rawSetupToken}&email=${encodeURIComponent(ownerEmail)}&mode=setup`;
       const actionText = "Sign In & Access Workspace";
 
@@ -779,7 +779,7 @@ export class OrganizationService {
     user.emailVerified = true;
     await user.save();
 
-    const clientUrl = ENV.CLIENT_URL || "http://localhost:5173";
+    const clientUrl = ENV.CLIENT_URL || "https://secure-assess.vercel.app";
     const invitationUrl = `${clientUrl}/login?token=${rawInviteToken}&email=${encodeURIComponent(targetEmail)}&mode=invite`;
 
     try {
@@ -872,7 +872,7 @@ export class OrganizationService {
     if (inviterUserId) membership.invitedBy = inviterUserId;
     await membership.save();
 
-    const clientUrl = ENV.CLIENT_URL || "http://localhost:5173";
+    const clientUrl = ENV.CLIENT_URL || "https://secure-assess.vercel.app";
     const invitationUrl = `${clientUrl}/login?token=${rawInviteToken}&email=${encodeURIComponent(targetEmail)}&mode=invite`;
 
     await EmailService.sendOrganizationInvitationEmail(targetEmail, {

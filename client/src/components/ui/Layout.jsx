@@ -22,21 +22,21 @@ export function Breadcrumbs({ items }) {
 
 export function PageHeader({ title, subtitle, icon, actions, breadcrumbs }) {
   return (
-    <div className="mb-6">
-      {breadcrumbs && <div className="mb-2"><Breadcrumbs items={breadcrumbs} /></div>}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex items-start gap-3">
+    <div className="mb-5 sm:mb-6">
+      {breadcrumbs && <div className="mb-2 overflow-x-auto no-scrollbar"><Breadcrumbs items={breadcrumbs} /></div>}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="flex items-start sm:items-center gap-3 min-w-0">
           {icon && (
-            <div className="w-11 h-11 rounded-2xl bg-primary-50 dark:bg-primary-950/60 text-primary-600 dark:text-primary-400 flex items-center justify-center shrink-0 border border-primary-100 dark:border-primary-900/40 shadow-soft">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-primary-50 dark:bg-primary-950/60 text-primary-600 dark:text-primary-400 flex items-center justify-center shrink-0 border border-primary-100 dark:border-primary-900/40 shadow-soft">
               {icon}
             </div>
           )}
-          <div>
-            <h1 className="text-2xl font-bold font-display text-accent-900 dark:text-white tracking-tight">{title}</h1>
-            {subtitle && <p className="text-xs sm:text-sm text-accent-500 dark:text-accent-400 mt-1">{subtitle}</p>}
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold font-display text-accent-900 dark:text-white tracking-tight truncate">{title}</h1>
+            {subtitle && <p className="text-xs sm:text-sm text-accent-500 dark:text-accent-400 mt-0.5 sm:mt-1 leading-relaxed">{subtitle}</p>}
           </div>
         </div>
-        {actions && <div className="flex items-center gap-2 flex-wrap">{actions}</div>}
+        {actions && <div className="flex items-center gap-2 flex-wrap shrink-0">{actions}</div>}
       </div>
     </div>
   );
