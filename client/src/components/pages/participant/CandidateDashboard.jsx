@@ -214,8 +214,8 @@ export function CandidateDashboard({ onNavigate }) {
         <div className="absolute -right-16 -bottom-16 w-64 h-64 bg-primary-500/20 rounded-full blur-3xl pointer-events-none" />
       </div>
 
-      {/* Candidate High-Level Metrics */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* KPI Metric Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <MetricCard
           label="Directly Assigned Exams"
           value={String(activeAssignedList.length)}

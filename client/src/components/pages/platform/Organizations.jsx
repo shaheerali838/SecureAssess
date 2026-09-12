@@ -236,16 +236,16 @@ export function Organizations({ onNavigate }) {
       />
 
       {/* Metrics Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {[
           { label: 'Total Organizations', value: organizationsList.length, color: 'text-primary-600 dark:text-primary-400' },
           { label: 'Active Workspaces', value: organizationsList.filter((o) => o.status === 'ACTIVE').length, color: 'text-emerald-500' },
           { label: 'Suspended Tenancies', value: organizationsList.filter((o) => o.status === 'SUSPENDED').length, color: 'text-danger-500' },
           { label: 'Enterprise Tier', value: organizationsList.filter((o) => (o.tier || '').toLowerCase().includes('enterprise')).length || 1, color: 'text-secondary-600 dark:text-secondary-400' },
         ].map((s, i) => (
-          <Card key={i} className="p-4">
-            <p className={`text-2xl font-bold font-display ${s.color}`}>{s.value}</p>
-            <p className="text-xs text-accent-500 dark:text-accent-400 mt-1 font-medium">{s.label}</p>
+          <Card key={i} className="p-4 sm:p-5">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-accent-500 dark:text-accent-400">{s.label}</p>
+            <p className={`text-xl sm:text-2xl font-bold font-display ${s.color} mt-1`}>{s.value}</p>
           </Card>
         ))}
       </div>

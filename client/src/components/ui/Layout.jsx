@@ -33,7 +33,6 @@ export function PageHeader({ title, subtitle, icon, actions, breadcrumbs }) {
           )}
           <div className="min-w-0 flex-1">
             <h1 className="text-xl sm:text-2xl font-bold font-display text-accent-900 dark:text-white tracking-tight break-words leading-tight">{title}</h1>
-            {subtitle && <p className="text-xs sm:text-sm text-accent-500 dark:text-accent-400 mt-1 leading-relaxed break-words">{subtitle}</p>}
           </div>
         </div>
         {actions && <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto shrink-0">{actions}</div>}

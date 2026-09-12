@@ -169,12 +169,13 @@ export function AssessmentBuilder({ onNavigate }) {
           { label: 'Builder' },
         ]}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <Button
               variant="ghost"
               size="sm"
               icon={<Eye size={15} />}
               onClick={() => setShowPreview(!showPreview)}
+              className="w-full sm:w-auto"
             >
               {showPreview ? 'Exit Preview' : 'Interactive Preview'}
             </Button>
@@ -184,6 +185,7 @@ export function AssessmentBuilder({ onNavigate }) {
               icon={<Save size={15} />}
               loading={isSubmitting}
               onClick={() => handleSaveOrPublish(false)}
+              className="flex-1 sm:flex-initial"
             >
               Save Draft
             </Button>
@@ -193,6 +195,7 @@ export function AssessmentBuilder({ onNavigate }) {
               icon={<Check size={15} />}
               loading={isSubmitting}
               onClick={() => handleSaveOrPublish(true)}
+              className="flex-1 sm:flex-initial"
             >
               Publish Assessment
             </Button>

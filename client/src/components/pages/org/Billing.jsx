@@ -10,9 +10,11 @@ import {
   Modal, EmptyState, SkeletonCards, SkeletonTable
 } from '@/components/ui';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useAuth } from '@/contexts/AuthContext';
 import subscriptionService from '@/services/subscription.service';
 
 export function Billing({ onNavigate }) {
+  const { user } = useAuth();
   const { currentOrganization, currentOrgId } = useOrganization();
 
   // State
@@ -419,6 +421,7 @@ export function Billing({ onNavigate }) {
                       );
                       if (nextPlan) setSelectedPlanForUpgrade(nextPlan);
                     }}
+                    className="w-full sm:w-auto"
                   >
                     Change Plan
                   </Button>
@@ -429,7 +432,7 @@ export function Billing({ onNavigate }) {
 
           {/* Authoritative Resource Quota Metering */}
           <div>
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
               <div>
                 <h3 className="text-xs font-bold text-accent-700 dark:text-accent-300 uppercase tracking-wider">
                   Authoritative Resource Quota Metering
@@ -438,7 +441,7 @@ export function Billing({ onNavigate }) {
                   Dynamic consumption metrics calculated directly from database records.
                 </p>
               </div>
-              <Badge variant="outline" className="text-[11px] font-mono">
+              <Badge variant="outline" className="text-[11px] font-mono shrink-0 self-start sm:self-auto">
                 Real-time MongoDB Sync
               </Badge>
             </div>

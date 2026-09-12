@@ -74,45 +74,51 @@ export function MetricCard({ label, value, icon, trend, color = 'primary', onCli
   return (
     <Card
       onClick={onClick}
-      className={`p-5 transition-all duration-200 ${
+      className={`p-4 sm:p-5 transition-all duration-200 min-w-0 ${
         onClick
           ? 'cursor-pointer hover:border-primary-400/80 dark:hover:border-primary-500/80 hover:shadow-md active:scale-[0.99] group'
           : ''
       } ${className}`}
     >
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-accent-500 dark:text-accent-400 truncate">
+            {label}
+          </p>
+          <h3 className="text-xl sm:text-2xl font-bold font-display text-accent-900 dark:text-white mt-1 tracking-tight">
+            {value}
+          </h3>
+          {trend && (
+            <div className="flex items-center gap-1 mt-1.5">
+              <span
+                className={`text-[10px] font-semibold px-1.5 py-0.5 rounded leading-none ${
+                  trend.up
+                    ? 'bg-success-50 dark:bg-success-950/60 text-success-600 dark:text-success-400 border border-success-200 dark:border-success-800/40'
+                    : 'bg-danger-50 dark:bg-danger-950/60 text-danger-600 dark:text-danger-400 border border-danger-200 dark:border-danger-800/40'
+                }`}
+              >
+                {trend.up ? '↑' : '↓'} {trend.value}
+              </span>
+            </div>
+          )}
+        </div>
         {icon && (
           <div
-            className={`w-10 h-10 rounded-xl ${c.bg} ${c.text} flex items-center justify-center ring-4 ${c.ring} shadow-soft ${
+            className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl ${c.bg} ${c.text} flex items-center justify-center ring-4 ${c.ring} shadow-soft shrink-0 ${
               onClick ? 'group-hover:scale-105 transition-transform' : ''
             }`}
           >
             {icon}
           </div>
         )}
-        {trend && (
-          <span
-            className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-              trend.up
-                ? 'bg-success-50 dark:bg-success-950/60 text-success-600 dark:text-success-400 border border-success-200 dark:border-success-800/40'
-                : 'bg-danger-50 dark:bg-danger-950/60 text-danger-600 dark:text-danger-400 border border-danger-200 dark:border-danger-800/40'
-            }`}
-          >
-            {trend.up ? '↑' : '↓'} {trend.value}
+      </div>
+      {onClick && (
+        <div className="mt-1 text-right">
+          <span className="text-[11px] font-semibold text-primary-600 dark:text-primary-400 opacity-0 group-hover:opacity-100 transition-opacity">
+            View →
           </span>
-        )}
-      </div>
-      <div>
-        <p className="text-2xl font-bold font-display text-accent-900 dark:text-white tracking-tight">{value}</p>
-        <div className="flex items-center justify-between mt-1">
-          <p className="text-xs text-accent-500 dark:text-accent-400 font-medium">{label}</p>
-          {onClick && (
-            <span className="text-[11px] font-semibold text-primary-600 dark:text-primary-400 opacity-0 group-hover:opacity-100 transition-opacity">
-              View →
-            </span>
-          )}
         </div>
-      </div>
+      )}
     </Card>
   );
 }

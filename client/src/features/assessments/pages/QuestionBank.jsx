@@ -132,7 +132,7 @@ export function QuestionBank({ onNavigate }) {
       />
 
       {/* Metrics Header */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {[
           { label: 'Total Questions', value: questionsList.length, color: 'text-primary-600 dark:text-primary-400' },
           { label: 'Domain Categories', value: 8, color: 'text-secondary-600 dark:text-secondary-400' },
