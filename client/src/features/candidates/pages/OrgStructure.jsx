@@ -809,16 +809,16 @@ export function OrgStructure({ onNavigate }) {
             <>
               {/* Desktop/Tablet Table */}
               <Card className="hidden sm:block overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs text-left">
+                <div className="overflow-x-auto w-full no-scrollbar">
+                  <table className="w-full min-w-[720px] text-xs text-left">
                     <thead className="bg-accent-50/80 dark:bg-accent-800/60 text-accent-600 dark:text-accent-400 font-semibold border-b border-accent-200 dark:border-accent-800">
                       <tr>
-                        <th className="py-3 px-4">{subjSingular} Name & Code</th>
-                        <th className="py-3 px-4">Associated {progSingular}</th>
-                        <th className="py-3 px-4">Assigned Examiner</th>
-                        <th className="py-3 px-4">{creditsLabel}</th>
-                        <th className="py-3 px-4">Status</th>
-                        <th className="py-3 px-4 text-right">Actions</th>
+                        <th className="py-3 px-4 whitespace-nowrap min-w-[220px]">{subjSingular} Name & Code</th>
+                        <th className="py-3 px-4 whitespace-nowrap min-w-[160px]">Associated {progSingular}</th>
+                        <th className="py-3 px-4 whitespace-nowrap min-w-[180px]">Assigned Examiner</th>
+                        <th className="py-3 px-4 whitespace-nowrap min-w-[80px]">{creditsLabel}</th>
+                        <th className="py-3 px-4 whitespace-nowrap min-w-[100px]">Status</th>
+                        <th className="py-3 px-4 text-right whitespace-nowrap min-w-[90px]">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-accent-100 dark:divide-accent-800">

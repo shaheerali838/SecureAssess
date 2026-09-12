@@ -205,28 +205,28 @@ export function Reports({ onNavigate }) {
               />
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="overflow-x-auto w-full no-scrollbar">
+              <table className="w-full min-w-[750px]">
                 <thead>
                   <tr className="border-b border-accent-100 dark:border-accent-800 bg-accent-50/50 dark:bg-accent-900/50">
-                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-5 py-3">Candidate</th>
-                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 hidden sm:table-cell">Assessment</th>
-                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3">Test Score</th>
-                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 hidden md:table-cell">Interview Score</th>
-                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3">Overall</th>
-                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 hidden lg:table-cell">Integrity</th>
-                    <th className="text-right text-xs font-semibold text-accent-600 dark:text-accent-400 px-5 py-3">Certificate</th>
+                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-5 py-3 whitespace-nowrap min-w-[180px]">Candidate</th>
+                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 hidden sm:table-cell whitespace-nowrap min-w-[160px]">Assessment</th>
+                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 whitespace-nowrap min-w-[100px]">Test Score</th>
+                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 hidden md:table-cell whitespace-nowrap min-w-[120px]">Interview Score</th>
+                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 whitespace-nowrap min-w-[90px]">Overall</th>
+                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 hidden lg:table-cell whitespace-nowrap min-w-[110px]">Integrity</th>
+                    <th className="text-right text-xs font-semibold text-accent-600 dark:text-accent-400 px-5 py-3 whitespace-nowrap min-w-[130px]">Certificate</th>
                   </tr>
                 </thead>
                 <tbody>
                   {gradebookList.map((r, i) => (
                     <tr key={i} className="border-b border-accent-50 dark:border-accent-800/40 hover:bg-accent-50/50 dark:hover:bg-accent-800/40 transition-colors">
-                      <td className="px-5 py-3.5 text-xs font-semibold text-accent-900 dark:text-white">{r.name}</td>
-                      <td className="px-3 py-3.5 hidden sm:table-cell text-xs text-accent-700 dark:text-accent-300">{r.assessment}</td>
-                      <td className="px-3 py-3.5 text-xs font-mono font-bold text-accent-900 dark:text-white">{r.aScore}%</td>
-                      <td className="px-3 py-3.5 hidden md:table-cell text-xs font-mono text-accent-500">{r.iScore !== 'N/A' ? `${r.iScore}%` : '—'}</td>
-                      <td className="px-3 py-3.5 text-xs font-mono font-bold text-primary-600 dark:text-primary-400">{r.overall}%</td>
-                      <td className="px-3 py-3.5 hidden lg:table-cell">
+                      <td className="px-5 py-3.5 text-xs font-bold text-accent-900 dark:text-white whitespace-nowrap">{r.name}</td>
+                      <td className="px-3 py-3.5 hidden sm:table-cell text-xs text-accent-700 dark:text-accent-300 whitespace-nowrap">{r.assessment}</td>
+                      <td className="px-3 py-3.5 text-xs font-mono font-bold text-accent-900 dark:text-white whitespace-nowrap">{r.aScore}%</td>
+                      <td className="px-3 py-3.5 hidden md:table-cell text-xs font-mono text-accent-500 whitespace-nowrap">{r.iScore !== 'N/A' ? `${r.iScore}%` : '—'}</td>
+                      <td className="px-3 py-3.5 text-xs font-mono font-bold text-primary-600 dark:text-primary-400 whitespace-nowrap">{r.overall}%</td>
+                      <td className="px-3 py-3.5 hidden lg:table-cell whitespace-nowrap">
                         <Badge variant={r.integrity === 'Low' ? 'success' : 'warning'}>{r.integrity} Risk</Badge>
                       </td>
                       <td className="px-5 py-3.5 text-right">

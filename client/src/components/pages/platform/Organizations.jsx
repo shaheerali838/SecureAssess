@@ -300,16 +300,16 @@ export function Organizations({ onNavigate }) {
         </Card>
       ) : (
         <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+          <div className="overflow-x-auto w-full no-scrollbar">
+            <table className="w-full min-w-[760px] text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-accent-200 dark:border-accent-800 bg-accent-50/50 dark:bg-accent-950/50 text-accent-500 dark:text-accent-400 uppercase tracking-wider font-semibold">
-                  <th className="py-3.5 px-4">Organization & Contact</th>
-                  <th className="py-3.5 px-4">Industry Niche</th>
-                  <th className="py-3.5 px-4">Tenant Code</th>
-                  <th className="py-3.5 px-4">Subscription Plan</th>
-                  <th className="py-3.5 px-4">Status</th>
-                  <th className="py-3.5 px-4 text-right">Actions</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[240px]">Organization & Contact</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[140px]">Industry Niche</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[120px]">Tenant Code</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[150px]">Subscription Plan</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[100px]">Status</th>
+                  <th className="py-3.5 px-4 text-right whitespace-nowrap min-w-[110px]">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-accent-100 dark:divide-accent-800">
@@ -321,12 +321,12 @@ export function Organizations({ onNavigate }) {
                       className="hover:bg-accent-50/50 dark:hover:bg-accent-900/40 transition-colors cursor-pointer"
                       onClick={() => handleInspectTenant(org)}
                     >
-                      <td className="py-3.5 px-4">
+                      <td className="py-3.5 px-4 whitespace-nowrap min-w-[240px]">
                         <div className="flex items-center gap-3">
                           <Avatar name={org.name} color={org.brandColor || '#2563eb'} size="sm" />
                           <div>
-                            <p className="font-bold text-accent-900 dark:text-white text-xs">{org.name}</p>
-                            <p className="text-[11px] text-accent-500 dark:text-accent-400 font-mono">
+                            <p className="font-bold text-accent-900 dark:text-white text-xs whitespace-nowrap">{org.name}</p>
+                            <p className="text-[11px] text-accent-500 dark:text-accent-400 font-mono whitespace-nowrap">
                               {org.contact?.email || org.owner?.email || org.createdBy?.email || org.domain || '—'}
                             </p>
                           </div>

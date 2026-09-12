@@ -153,7 +153,7 @@ export function SecurityCenter({ onNavigate }) {
                   </div>
                 }
               />
-              <CardBody className="p-0 overflow-x-auto">
+              <CardBody className="p-0 overflow-x-auto w-full no-scrollbar">
                 {filteredIncidents.length === 0 ? (
                   <div className="p-8">
                     <EmptyState
@@ -163,30 +163,30 @@ export function SecurityCenter({ onNavigate }) {
                     />
                   </div>
                 ) : (
-                  <table className="w-full text-left text-xs">
+                  <table className="w-full min-w-[780px] text-left text-xs">
                     <thead className="bg-accent-50/80 dark:bg-accent-950/60 text-accent-600 dark:text-accent-400 border-b border-accent-200 dark:border-accent-800">
                       <tr>
-                        <th className="p-3.5 font-semibold">Incident ID</th>
-                        <th className="p-3.5 font-semibold">Vector Type</th>
-                        <th className="p-3.5 font-semibold">Source IP & Client</th>
-                        <th className="p-3.5 font-semibold">Target Endpoint</th>
-                        <th className="p-3.5 font-semibold">Severity</th>
-                        <th className="p-3.5 font-semibold">Mitigation Status</th>
-                        <th className="p-3.5 font-semibold">Time</th>
-                        <th className="p-3.5 font-semibold text-right">Actions</th>
+                        <th className="p-3.5 font-semibold whitespace-nowrap min-w-[100px]">Incident ID</th>
+                        <th className="p-3.5 font-semibold whitespace-nowrap min-w-[140px]">Vector Type</th>
+                        <th className="p-3.5 font-semibold whitespace-nowrap min-w-[150px]">Source IP & Client</th>
+                        <th className="p-3.5 font-semibold whitespace-nowrap min-w-[150px]">Target Endpoint</th>
+                        <th className="p-3.5 font-semibold whitespace-nowrap min-w-[100px]">Severity</th>
+                        <th className="p-3.5 font-semibold whitespace-nowrap min-w-[130px]">Mitigation Status</th>
+                        <th className="p-3.5 font-semibold whitespace-nowrap min-w-[110px]">Time</th>
+                        <th className="p-3.5 font-semibold text-right whitespace-nowrap min-w-[80px]">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-accent-100 dark:divide-accent-800">
                       {filteredIncidents.map((inc) => (
                         <tr key={inc.id} className="hover:bg-accent-50/40 dark:hover:bg-accent-800/20 transition-colors">
-                          <td className="p-3.5 font-mono font-bold text-accent-900 dark:text-white">{inc.id}</td>
-                          <td className="p-3.5 font-medium text-accent-800 dark:text-accent-200">{inc.type}</td>
-                          <td className="p-3.5">
+                          <td className="p-3.5 font-mono font-bold text-accent-900 dark:text-white whitespace-nowrap">{inc.id}</td>
+                          <td className="p-3.5 font-medium text-accent-800 dark:text-accent-200 whitespace-nowrap">{inc.type}</td>
+                          <td className="p-3.5 whitespace-nowrap">
                             <div className="font-mono text-accent-900 dark:text-white">{inc.ip}</div>
                             <div className="text-[11px] text-accent-400">{inc.origin}</div>
                           </td>
-                          <td className="p-3.5 font-mono text-[11px] text-accent-500">{inc.target}</td>
-                          <td className="p-3.5">
+                          <td className="p-3.5 font-mono text-[11px] text-accent-500 whitespace-nowrap">{inc.target}</td>
+                          <td className="p-3.5 whitespace-nowrap">
                             <Badge
                               variant={
                                 inc.severity === 'CRITICAL' || inc.severity === 'HIGH'
@@ -294,7 +294,7 @@ export function SecurityCenter({ onNavigate }) {
           {activeTab === 'revocations' && (
             <Card>
               <CardHeader title="JWT JTI Revocation & Session Blacklist" subtitle="Real-time user session terminations and token rotations" />
-              <CardBody className="p-0 overflow-x-auto">
+              <CardBody className="p-0 overflow-x-auto w-full no-scrollbar">
                 {securityData.revocations.length === 0 ? (
                   <div className="p-8">
                     <EmptyState
@@ -304,22 +304,22 @@ export function SecurityCenter({ onNavigate }) {
                     />
                   </div>
                 ) : (
-                  <table className="w-full text-left text-xs">
+                  <table className="w-full min-w-[650px] text-left text-xs">
                     <thead className="bg-accent-50/80 dark:bg-accent-950/60 text-accent-600 dark:text-accent-400 border-b border-accent-200 dark:border-accent-800">
                       <tr>
-                        <th className="p-3.5 font-semibold">JTI Token ID</th>
-                        <th className="p-3.5 font-semibold">User Subject</th>
-                        <th className="p-3.5 font-semibold">Revocation Reason</th>
-                        <th className="p-3.5 font-semibold">Revoked At</th>
+                        <th className="p-3.5 font-semibold whitespace-nowrap min-w-[140px]">JTI Token ID</th>
+                        <th className="p-3.5 font-semibold whitespace-nowrap min-w-[160px]">User Subject</th>
+                        <th className="p-3.5 font-semibold whitespace-nowrap min-w-[180px]">Revocation Reason</th>
+                        <th className="p-3.5 font-semibold whitespace-nowrap min-w-[120px]">Revoked At</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-accent-100 dark:divide-accent-800">
                       {securityData.revocations.map((r, idx) => (
                         <tr key={idx} className="hover:bg-accent-50/40 dark:hover:bg-accent-800/20">
-                          <td className="p-3.5 font-mono text-accent-900 dark:text-white">{r.jti}</td>
-                          <td className="p-3.5 font-medium">{r.user}</td>
-                          <td className="p-3.5 text-accent-500">{r.reason}</td>
-                          <td className="p-3.5 text-accent-400">{r.at}</td>
+                          <td className="p-3.5 font-mono text-accent-900 dark:text-white whitespace-nowrap">{r.jti}</td>
+                          <td className="p-3.5 font-medium whitespace-nowrap">{r.user}</td>
+                          <td className="p-3.5 text-accent-500 whitespace-nowrap">{r.reason}</td>
+                          <td className="p-3.5 text-accent-400 whitespace-nowrap">{r.at}</td>
                         </tr>
                       ))}
                     </tbody>

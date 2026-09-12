@@ -477,23 +477,23 @@ export function OrgUsers({ onNavigate }) {
       ) : (
         <Card>
           <CardBody className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="overflow-x-auto w-full no-scrollbar">
+              <table className="w-full min-w-[680px]">
                 <thead>
                   <tr className="border-b border-accent-100 dark:border-accent-800 bg-accent-50/50 dark:bg-accent-900/50">
-                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-5 py-3">
+                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-5 py-3 whitespace-nowrap min-w-[240px]">
                       Team Member
                     </th>
-                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 hidden sm:table-cell">
+                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 hidden sm:table-cell whitespace-nowrap min-w-[140px]">
                       Assigned Role
                     </th>
-                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3">
+                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 whitespace-nowrap min-w-[100px]">
                       Status
                     </th>
-                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 hidden md:table-cell">
+                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 hidden md:table-cell whitespace-nowrap min-w-[120px]">
                       Last Active
                     </th>
-                    <th className="text-right text-xs font-semibold text-accent-600 dark:text-accent-400 px-5 py-3">
+                    <th className="text-right text-xs font-semibold text-accent-600 dark:text-accent-400 px-5 py-3 whitespace-nowrap min-w-[120px]">
                       Actions
                     </th>
                   </tr>
@@ -515,14 +515,14 @@ export function OrgUsers({ onNavigate }) {
                         key={id}
                         className="hover:bg-accent-50/50 dark:hover:bg-accent-800/40 transition-colors"
                       >
-                        <td className="px-5 py-3.5">
+                        <td className="px-5 py-3.5 min-w-[240px] whitespace-nowrap">
                           <div className="flex items-center gap-3">
                             <Avatar name={memberName} size="sm" />
                             <div>
-                              <p className="text-xs font-semibold text-accent-900 dark:text-white truncate">
+                              <p className="text-xs font-bold text-accent-900 dark:text-white whitespace-nowrap">
                                 {memberName}
                               </p>
-                              <p className="text-[11px] text-accent-500 dark:text-accent-400 truncate">
+                              <p className="text-[11px] text-accent-500 dark:text-accent-400 whitespace-nowrap">
                                 {u.email}
                               </p>
                             </div>

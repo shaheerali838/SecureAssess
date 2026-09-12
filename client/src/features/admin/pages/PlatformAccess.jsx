@@ -130,40 +130,40 @@ export function PlatformAccess({ onNavigate }) {
                 subtitle="Personnel with system-wide oversight across multi-tenant clusters"
                 icon={<Users size={18} />}
               />
-              <CardBody className="p-0 overflow-x-auto">
-                <table className="w-full text-left text-xs">
+              <CardBody className="p-0 overflow-x-auto w-full no-scrollbar">
+                <table className="w-full min-w-[720px] text-left text-xs">
                   <thead className="bg-accent-50/80 dark:bg-accent-950/60 text-accent-600 dark:text-accent-400 border-b border-accent-200 dark:border-accent-800">
                     <tr>
-                      <th className="p-3.5 font-semibold">Administrator</th>
-                      <th className="p-3.5 font-semibold">Assigned Role</th>
-                      <th className="p-3.5 font-semibold">MFA Status</th>
-                      <th className="p-3.5 font-semibold">Last Active</th>
-                      <th className="p-3.5 font-semibold">Status</th>
-                      <th className="p-3.5 font-semibold text-right">Actions</th>
+                      <th className="p-3.5 font-semibold whitespace-nowrap min-w-[200px]">Administrator</th>
+                      <th className="p-3.5 font-semibold whitespace-nowrap min-w-[140px]">Assigned Role</th>
+                      <th className="p-3.5 font-semibold whitespace-nowrap min-w-[110px]">MFA Status</th>
+                      <th className="p-3.5 font-semibold whitespace-nowrap min-w-[120px]">Last Active</th>
+                      <th className="p-3.5 font-semibold whitespace-nowrap min-w-[90px]">Status</th>
+                      <th className="p-3.5 font-semibold text-right whitespace-nowrap min-w-[100px]">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-accent-100 dark:divide-accent-800">
                     {platformAdmins.map((admin) => (
                       <tr key={admin.id} className="hover:bg-accent-50/40 dark:hover:bg-accent-800/20">
-                        <td className="p-3.5">
-                          <p className="font-bold text-accent-900 dark:text-white">{admin.name}</p>
-                          <p className="text-[11px] text-accent-400">{admin.email}</p>
+                        <td className="p-3.5 whitespace-nowrap min-w-[200px]">
+                          <p className="font-bold text-accent-900 dark:text-white whitespace-nowrap">{admin.name}</p>
+                          <p className="text-[11px] text-accent-400 whitespace-nowrap">{admin.email}</p>
                         </td>
-                        <td className="p-3.5">
+                        <td className="p-3.5 whitespace-nowrap">
                           <Badge variant={admin.role === 'PLATFORM_OWNER' ? 'primary' : 'info'}>
                             {admin.role}
                           </Badge>
                         </td>
-                        <td className="p-3.5">
+                        <td className="p-3.5 whitespace-nowrap">
                           <span className="inline-flex items-center gap-1 text-xs text-success-600 dark:text-success-400 font-semibold">
                             <CheckCircle2 size={13} /> {admin.mfa}
                           </span>
                         </td>
-                        <td className="p-3.5 text-accent-400">{admin.lastLogin}</td>
-                        <td className="p-3.5">
+                        <td className="p-3.5 text-accent-400 whitespace-nowrap">{admin.lastLogin}</td>
+                        <td className="p-3.5 whitespace-nowrap">
                           <Badge variant="success">{admin.status}</Badge>
                         </td>
-                        <td className="p-3.5 text-right">
+                        <td className="p-3.5 text-right whitespace-nowrap">
                           {admin.role !== 'PLATFORM_OWNER' && (
                             <Button variant="ghost" size="xs" className="text-danger-600 hover:text-danger-700">
                               Revoke Access
@@ -185,17 +185,17 @@ export function PlatformAccess({ onNavigate }) {
                 subtitle="Machine-to-machine credentials for ingestion daemons and billing webhooks"
                 icon={<Key size={18} />}
               />
-              <CardBody className="p-0 overflow-x-auto">
-                <table className="w-full text-left text-xs">
+              <CardBody className="p-0 overflow-x-auto w-full no-scrollbar">
+                <table className="w-full min-w-[720px] text-left text-xs">
                   <thead className="bg-accent-50/80 dark:bg-accent-950/60 text-accent-600 dark:text-accent-400 border-b border-accent-200 dark:border-accent-800">
                     <tr>
-                      <th className="p-3.5 font-semibold">Key Identifier</th>
-                      <th className="p-3.5 font-semibold">Service Name</th>
-                      <th className="p-3.5 font-semibold">Granted Scope</th>
-                      <th className="p-3.5 font-semibold">Created Date</th>
-                      <th className="p-3.5 font-semibold">Last Used</th>
-                      <th className="p-3.5 font-semibold">Status</th>
-                      <th className="p-3.5 font-semibold text-right">Actions</th>
+                      <th className="p-3.5 font-semibold whitespace-nowrap min-w-[130px]">Key Identifier</th>
+                      <th className="p-3.5 font-semibold whitespace-nowrap min-w-[150px]">Service Name</th>
+                      <th className="p-3.5 font-semibold whitespace-nowrap min-w-[110px]">Granted Scope</th>
+                      <th className="p-3.5 font-semibold whitespace-nowrap min-w-[110px]">Created Date</th>
+                      <th className="p-3.5 font-semibold whitespace-nowrap min-w-[110px]">Last Used</th>
+                      <th className="p-3.5 font-semibold whitespace-nowrap min-w-[90px]">Status</th>
+                      <th className="p-3.5 font-semibold text-right whitespace-nowrap min-w-[90px]">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-accent-100 dark:divide-accent-800">

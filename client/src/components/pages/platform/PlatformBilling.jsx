@@ -125,18 +125,18 @@ export function PlatformBilling({ onNavigate }) {
               </div>
             }
           />
-          <CardBody className="p-0 overflow-x-auto">
-            <table className="w-full text-left text-xs">
+          <CardBody className="p-0 overflow-x-auto w-full no-scrollbar">
+            <table className="w-full min-w-[780px] text-left text-xs">
               <thead className="bg-accent-50/80 dark:bg-accent-950/60 text-accent-600 dark:text-accent-400 border-b border-accent-200 dark:border-accent-800">
                 <tr>
-                  <th className="p-3.5 font-semibold">Invoice #</th>
-                  <th className="p-3.5 font-semibold">Tenant Organization</th>
-                  <th className="p-3.5 font-semibold">Subscribed Plan</th>
-                  <th className="p-3.5 font-semibold">Amount</th>
-                  <th className="p-3.5 font-semibold">Billing Cycle</th>
-                  <th className="p-3.5 font-semibold">Status</th>
-                  <th className="p-3.5 font-semibold">Due / Paid Date</th>
-                  <th className="p-3.5 font-semibold text-right">Receipt</th>
+                  <th className="p-3.5 font-semibold whitespace-nowrap min-w-[110px]">Invoice #</th>
+                  <th className="p-3.5 font-semibold whitespace-nowrap min-w-[200px]">Tenant Organization</th>
+                  <th className="p-3.5 font-semibold whitespace-nowrap min-w-[130px]">Subscribed Plan</th>
+                  <th className="p-3.5 font-semibold whitespace-nowrap min-w-[100px]">Amount</th>
+                  <th className="p-3.5 font-semibold whitespace-nowrap min-w-[120px]">Billing Cycle</th>
+                  <th className="p-3.5 font-semibold whitespace-nowrap min-w-[90px]">Status</th>
+                  <th className="p-3.5 font-semibold whitespace-nowrap min-w-[120px]">Due / Paid Date</th>
+                  <th className="p-3.5 font-semibold text-right whitespace-nowrap min-w-[90px]">Receipt</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-accent-100 dark:divide-accent-800">

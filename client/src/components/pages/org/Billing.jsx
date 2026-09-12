@@ -652,16 +652,16 @@ export function Billing({ onNavigate }) {
                   />
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-xs">
+                <div className="overflow-x-auto w-full no-scrollbar">
+                  <table className="w-full min-w-[650px] text-left border-collapse text-xs">
                     <thead>
                       <tr className="border-b border-accent-100 dark:border-accent-800 bg-accent-50/50 dark:bg-accent-900/30 text-accent-500 dark:text-accent-400 font-semibold">
-                        <th className="p-4">Invoice ID</th>
-                        <th className="p-4">Billing Period</th>
-                        <th className="p-4">Amount</th>
-                        <th className="p-4">Status</th>
-                        <th className="p-4">Date Issued</th>
-                        <th className="p-4 text-right">Receipt</th>
+                        <th className="p-4 whitespace-nowrap min-w-[130px]">Invoice ID</th>
+                        <th className="p-4 whitespace-nowrap min-w-[150px]">Billing Period</th>
+                        <th className="p-4 whitespace-nowrap min-w-[100px]">Amount</th>
+                        <th className="p-4 whitespace-nowrap min-w-[90px]">Status</th>
+                        <th className="p-4 whitespace-nowrap min-w-[110px]">Date Issued</th>
+                        <th className="p-4 text-right whitespace-nowrap min-w-[90px]">Receipt</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-accent-100 dark:divide-accent-800">

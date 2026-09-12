@@ -383,26 +383,26 @@ export function ParticipantManagement({ onNavigate }) {
       ) : (
         <Card>
           <CardBody className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="overflow-x-auto w-full no-scrollbar">
+              <table className="w-full min-w-[760px]">
                 <thead>
                   <tr className="border-b border-accent-100 dark:border-accent-800 bg-accent-50/50 dark:bg-accent-900/50">
-                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-5 py-3">
+                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-5 py-3 whitespace-nowrap min-w-[260px]">
                       Candidate & ID
                     </th>
-                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 hidden md:table-cell">
+                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 hidden md:table-cell whitespace-nowrap min-w-[160px]">
                       Department / Program
                     </th>
-                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 hidden lg:table-cell">
+                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 hidden lg:table-cell whitespace-nowrap min-w-[150px]">
                       Cohort / Context
                     </th>
-                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3">
+                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 whitespace-nowrap min-w-[100px]">
                       Status
                     </th>
-                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 hidden sm:table-cell">
+                    <th className="text-left text-xs font-semibold text-accent-600 dark:text-accent-400 px-3 py-3 hidden sm:table-cell whitespace-nowrap min-w-[110px]">
                       Score / Attempts
                     </th>
-                    <th className="text-right text-xs font-semibold text-accent-600 dark:text-accent-400 px-5 py-3">
+                    <th className="text-right text-xs font-semibold text-accent-600 dark:text-accent-400 px-5 py-3 whitespace-nowrap min-w-[120px]">
                       Actions
                     </th>
                   </tr>
@@ -442,19 +442,21 @@ export function ParticipantManagement({ onNavigate }) {
                         onClick={() => onNavigate('org-participant-profile')}
                       >
                         {/* Candidate Name & Code */}
-                        <td className="px-5 py-3.5">
+                        <td className="px-5 py-3.5 min-w-[260px] whitespace-nowrap">
                           <div className="flex items-center gap-3">
                             <Avatar name={candidateName} color={p.avatarColor || '#2563eb'} size="sm" />
                             <div className="min-w-0">
                               <div className="flex items-center gap-2">
-                                <p className="text-xs font-semibold text-accent-900 dark:text-white truncate">
+                                <span className="text-xs font-bold text-accent-900 dark:text-white whitespace-nowrap">
                                   {candidateName}
-                                </p>
-                                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-accent-100 dark:bg-accent-800 text-accent-700 dark:text-accent-300 font-medium">
-                                  {code}
                                 </span>
+                                {code && (
+                                  <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-accent-100 dark:bg-accent-800 text-accent-700 dark:text-accent-300 font-medium whitespace-nowrap shrink-0 border border-accent-200 dark:border-accent-700">
+                                    {code}
+                                  </span>
+                                )}
                               </div>
-                              <p className="text-[11px] text-accent-500 dark:text-accent-400 truncate">
+                              <p className="text-[11px] text-accent-500 dark:text-accent-400 whitespace-nowrap">
                                 {candidateEmail}
                               </p>
                             </div>
@@ -462,10 +464,10 @@ export function ParticipantManagement({ onNavigate }) {
                         </td>
 
                         {/* Department / Program */}
-                        <td className="px-3 py-3.5 text-xs text-accent-600 dark:text-accent-300 hidden md:table-cell">
+                        <td className="px-3 py-3.5 text-xs text-accent-600 dark:text-accent-300 hidden md:table-cell whitespace-nowrap min-w-[150px]">
                           <div className="flex items-center gap-1.5">
                             <Building2 size={13} className="text-accent-400 shrink-0" />
-                            <span className="truncate max-w-[160px] font-medium">{deptName}</span>
+                            <span className="font-medium truncate max-w-[180px]">{deptName || '—'}</span>
                           </div>
                           {progName && (
                             <p className="text-[10px] text-accent-400 ml-4 font-mono truncate">{progName}</p>
@@ -473,25 +475,25 @@ export function ParticipantManagement({ onNavigate }) {
                         </td>
 
                         {/* Cohort */}
-                        <td className="px-3 py-3.5 text-xs text-accent-700 dark:text-accent-200 hidden lg:table-cell font-medium">
+                        <td className="px-3 py-3.5 text-xs text-accent-700 dark:text-accent-200 hidden lg:table-cell font-medium whitespace-nowrap min-w-[140px]">
                           <div className="flex items-center gap-1.5">
                             <Layers size={13} className="text-accent-400 shrink-0" />
-                            <span className="truncate max-w-[150px]">{cohortName}</span>
+                            <span className="truncate max-w-[180px]">{cohortName}</span>
                           </div>
                         </td>
 
                         {/* Status */}
-                        <td className="px-3 py-3.5">
+                        <td className="px-3 py-3.5 whitespace-nowrap">
                           <StatusBadge status={status} />
                         </td>
 
                         {/* Score / Attempts */}
-                        <td className="px-3 py-3.5 text-xs font-mono font-bold text-accent-900 dark:text-white hidden sm:table-cell">
+                        <td className="px-3 py-3.5 text-xs font-mono font-bold text-accent-900 dark:text-white hidden sm:table-cell whitespace-nowrap">
                           {score}
                         </td>
 
                         {/* Actions */}
-                        <td className="px-5 py-3.5 text-right">
+                        <td className="px-5 py-3.5 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                             <button
                               type="button"

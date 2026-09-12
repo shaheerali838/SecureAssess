@@ -26,17 +26,17 @@ export const AuditLogTable = ({
 
   return (
     <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs">
+      <div className="overflow-x-auto w-full no-scrollbar">
+        <table className="w-full min-w-[750px] text-left text-xs">
           <thead>
             <tr className="border-b border-slate-800 bg-slate-950/60 text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
-              <th className="py-3 px-4">Time</th>
-              <th className="py-3 px-4">Actor</th>
-              <th className="py-3 px-4">Action</th>
-              <th className="py-3 px-4">Resource</th>
-              <th className="py-3 px-4">Status</th>
-              <th className="py-3 px-4">Request ID</th>
-              <th className="py-3 px-4 text-right">Details</th>
+              <th className="py-3 px-4 whitespace-nowrap min-w-[140px]">Time</th>
+              <th className="py-3 px-4 whitespace-nowrap min-w-[180px]">Actor</th>
+              <th className="py-3 px-4 whitespace-nowrap min-w-[130px]">Action</th>
+              <th className="py-3 px-4 whitespace-nowrap min-w-[120px]">Resource</th>
+              <th className="py-3 px-4 whitespace-nowrap min-w-[100px]">Status</th>
+              <th className="py-3 px-4 whitespace-nowrap min-w-[110px]">Request ID</th>
+              <th className="py-3 px-4 text-right whitespace-nowrap min-w-[80px]">Details</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/60">

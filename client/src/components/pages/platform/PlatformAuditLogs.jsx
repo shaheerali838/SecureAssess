@@ -149,18 +149,18 @@ export function PlatformAuditLogs({ onNavigate }) {
             subtitle={`Displaying ${filteredLogs.length} verified immutable audit entries`}
             icon={<Shield size={18} />}
           />
-          <CardBody className="p-0 overflow-x-auto">
-            <table className="w-full text-left text-xs">
+          <CardBody className="p-0 overflow-x-auto w-full no-scrollbar">
+            <table className="w-full min-w-[850px] text-left text-xs">
               <thead className="bg-accent-50/80 dark:bg-accent-950/60 text-accent-600 dark:text-accent-400 border-b border-accent-200 dark:border-accent-800">
                 <tr>
-                  <th className="p-3.5 font-semibold">Event ID</th>
-                  <th className="p-3.5 font-semibold">Actor & Role</th>
-                  <th className="p-3.5 font-semibold">Action & Resource</th>
-                  <th className="p-3.5 font-semibold">Scope</th>
-                  <th className="p-3.5 font-semibold">Status</th>
-                  <th className="p-3.5 font-semibold">Source IP</th>
-                  <th className="p-3.5 font-semibold">Timestamp</th>
-                  <th className="p-3.5 font-semibold text-right">Details</th>
+                  <th className="p-3.5 font-semibold whitespace-nowrap min-w-[110px]">Event ID</th>
+                  <th className="p-3.5 font-semibold whitespace-nowrap min-w-[160px]">Actor & Role</th>
+                  <th className="p-3.5 font-semibold whitespace-nowrap min-w-[160px]">Action & Resource</th>
+                  <th className="p-3.5 font-semibold whitespace-nowrap min-w-[100px]">Scope</th>
+                  <th className="p-3.5 font-semibold whitespace-nowrap min-w-[100px]">Status</th>
+                  <th className="p-3.5 font-semibold whitespace-nowrap min-w-[110px]">Source IP</th>
+                  <th className="p-3.5 font-semibold whitespace-nowrap min-w-[140px]">Timestamp</th>
+                  <th className="p-3.5 font-semibold text-right whitespace-nowrap min-w-[80px]">Details</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-accent-100 dark:divide-accent-800">

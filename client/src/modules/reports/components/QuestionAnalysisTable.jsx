@@ -37,18 +37,18 @@ export const QuestionAnalysisTable = ({ questions = [], difficultySummary = {} }
         )}
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs">
+      <div className="overflow-x-auto w-full no-scrollbar">
+        <table className="w-full min-w-[650px] text-left text-xs">
           <thead>
             <tr className="border-b border-slate-800 text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
-              <th className="pb-3 px-2">#</th>
-              <th className="pb-3 px-2">Attempts</th>
-              <th className="pb-3 px-2">Correct</th>
-              <th className="pb-3 px-2">Incorrect</th>
-              <th className="pb-3 px-2">Skipped</th>
-              <th className="pb-3 px-2">Accuracy</th>
-              <th className="pb-3 px-2">Avg Marks</th>
-              <th className="pb-3 px-2">Difficulty</th>
+              <th className="pb-3 px-2 whitespace-nowrap min-w-[50px]">#</th>
+              <th className="pb-3 px-2 whitespace-nowrap min-w-[80px]">Attempts</th>
+              <th className="pb-3 px-2 whitespace-nowrap min-w-[80px]">Correct</th>
+              <th className="pb-3 px-2 whitespace-nowrap min-w-[80px]">Incorrect</th>
+              <th className="pb-3 px-2 whitespace-nowrap min-w-[80px]">Skipped</th>
+              <th className="pb-3 px-2 whitespace-nowrap min-w-[80px]">Accuracy</th>
+              <th className="pb-3 px-2 whitespace-nowrap min-w-[90px]">Avg Marks</th>
+              <th className="pb-3 px-2 whitespace-nowrap min-w-[90px]">Difficulty</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/60">

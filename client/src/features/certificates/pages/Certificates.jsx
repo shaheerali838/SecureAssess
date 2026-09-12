@@ -156,17 +156,17 @@ export function Certificates({ onNavigate }) {
             </p>
           </CardBody>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+          <div className="overflow-x-auto w-full no-scrollbar">
+            <table className="w-full min-w-[780px] text-left text-xs">
               <thead className="bg-accent-50 dark:bg-accent-900/50 border-b border-accent-200 dark:border-accent-800 text-accent-600 dark:text-accent-400 font-semibold">
                 <tr>
-                  <th className="p-3.5">Certificate #</th>
-                  <th className="p-3.5">Recipient Candidate</th>
-                  <th className="p-3.5">Assessment</th>
-                  <th className="p-3.5">Verification Code</th>
-                  <th className="p-3.5">Issue Date</th>
-                  <th className="p-3.5">Status</th>
-                  <th className="p-3.5 text-right">Actions</th>
+                  <th className="p-3.5 whitespace-nowrap min-w-[130px]">Certificate #</th>
+                  <th className="p-3.5 whitespace-nowrap min-w-[220px]">Recipient Candidate</th>
+                  <th className="p-3.5 whitespace-nowrap min-w-[180px]">Assessment</th>
+                  <th className="p-3.5 whitespace-nowrap min-w-[130px]">Verification Code</th>
+                  <th className="p-3.5 whitespace-nowrap min-w-[110px]">Issue Date</th>
+                  <th className="p-3.5 whitespace-nowrap min-w-[100px]">Status</th>
+                  <th className="p-3.5 text-right whitespace-nowrap min-w-[140px]">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-accent-200 dark:divide-accent-800 text-accent-900 dark:text-white">
@@ -174,12 +174,12 @@ export function Certificates({ onNavigate }) {
                   const isRevoked = cert.status === 'REVOKED';
                   return (
                     <tr key={cert._id} className="hover:bg-accent-50/50 dark:hover:bg-accent-900/20">
-                      <td className="p-3.5 font-mono font-bold text-primary-600 dark:text-primary-400">
+                      <td className="p-3.5 font-mono font-bold text-primary-600 dark:text-primary-400 whitespace-nowrap">
                         {cert.certificateNumber}
                       </td>
-                      <td className="p-3.5">
-                        <div className="font-semibold">{cert.recipientName || 'Candidate'}</div>
-                        <div className="text-[11px] text-accent-500">{cert.recipientEmail}</div>
+                      <td className="p-3.5 whitespace-nowrap min-w-[220px]">
+                        <div className="font-bold text-accent-900 dark:text-white whitespace-nowrap">{cert.recipientName || 'Candidate'}</div>
+                        <div className="text-[11px] text-accent-500 whitespace-nowrap">{cert.recipientEmail}</div>
                       </td>
                       <td className="p-3.5 max-w-xs truncate font-medium">
                         {cert.assessmentTitle}

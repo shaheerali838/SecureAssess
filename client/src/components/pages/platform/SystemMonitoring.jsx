@@ -150,29 +150,29 @@ export function SystemMonitoring({ onNavigate }) {
               subtitle="Real-time status of distributed containers and replicas"
               icon={<Server size={18} />}
             />
-            <CardBody className="p-0 overflow-x-auto">
-              <table className="w-full text-left text-xs">
+            <CardBody className="p-0 overflow-x-auto w-full no-scrollbar">
+              <table className="w-full min-w-[700px] text-left text-xs">
                 <thead className="bg-accent-50/80 dark:bg-accent-950/60 text-accent-600 dark:text-accent-400 border-b border-accent-200 dark:border-accent-800">
                   <tr>
-                    <th className="p-3.5 font-semibold">Instance ID</th>
-                    <th className="p-3.5 font-semibold">Service Role</th>
-                    <th className="p-3.5 font-semibold">Region / Zone</th>
-                    <th className="p-3.5 font-semibold">CPU</th>
-                    <th className="p-3.5 font-semibold">RAM</th>
-                    <th className="p-3.5 font-semibold">Uptime</th>
-                    <th className="p-3.5 font-semibold">Health</th>
+                    <th className="p-3.5 font-semibold whitespace-nowrap min-w-[130px]">Instance ID</th>
+                    <th className="p-3.5 font-semibold whitespace-nowrap min-w-[150px]">Service Role</th>
+                    <th className="p-3.5 font-semibold whitespace-nowrap min-w-[120px]">Region / Zone</th>
+                    <th className="p-3.5 font-semibold whitespace-nowrap min-w-[80px]">CPU</th>
+                    <th className="p-3.5 font-semibold whitespace-nowrap min-w-[80px]">RAM</th>
+                    <th className="p-3.5 font-semibold whitespace-nowrap min-w-[100px]">Uptime</th>
+                    <th className="p-3.5 font-semibold whitespace-nowrap min-w-[90px]">Health</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-accent-100 dark:divide-accent-800">
                   {monitoringData.nodes.map((w) => (
                     <tr key={w.id} className="hover:bg-accent-50/40 dark:hover:bg-accent-800/20">
-                      <td className="p-3.5 font-mono font-bold text-accent-900 dark:text-white">{w.id}</td>
-                      <td className="p-3.5 font-medium">{w.role}</td>
-                      <td className="p-3.5 font-mono text-accent-400">{w.zone}</td>
-                      <td className="p-3.5 font-mono">{w.cpu}</td>
-                      <td className="p-3.5 font-mono">{w.ram}</td>
-                      <td className="p-3.5 text-accent-400">{w.uptime}</td>
-                      <td className="p-3.5">
+                      <td className="p-3.5 font-mono font-bold text-accent-900 dark:text-white whitespace-nowrap">{w.id}</td>
+                      <td className="p-3.5 font-medium whitespace-nowrap">{w.role}</td>
+                      <td className="p-3.5 font-mono text-accent-400 whitespace-nowrap">{w.zone}</td>
+                      <td className="p-3.5 font-mono whitespace-nowrap">{w.cpu}</td>
+                      <td className="p-3.5 font-mono whitespace-nowrap">{w.ram}</td>
+                      <td className="p-3.5 text-accent-400 whitespace-nowrap">{w.uptime}</td>
+                      <td className="p-3.5 whitespace-nowrap">
                         <Badge variant="success">{w.status}</Badge>
                       </td>
                     </tr>

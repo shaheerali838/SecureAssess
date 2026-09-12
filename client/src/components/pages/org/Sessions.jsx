@@ -270,16 +270,16 @@ export function Sessions({ onNavigate }) {
         />
       ) : (
         <Card className="overflow-hidden border border-accent-200 dark:border-accent-800 shadow-soft">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+          <div className="overflow-x-auto w-full no-scrollbar">
+            <table className="w-full min-w-[780px] text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-accent-50/80 dark:bg-accent-800/60 border-b border-accent-200 dark:border-accent-700 text-[11px] font-bold uppercase tracking-wider text-accent-500 dark:text-accent-400">
-                  <th className="py-3.5 px-4">Candidate & Profile</th>
-                  <th className="py-3.5 px-4">Assessment</th>
-                  <th className="py-3.5 px-4">Status</th>
-                  <th className="py-3.5 px-4">Risk Profile</th>
-                  <th className="py-3.5 px-4">Duration & Date</th>
-                  <th className="py-3.5 px-4 text-right">Actions</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[240px]">Candidate & Profile</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[180px]">Assessment</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[100px]">Status</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[130px]">Risk Profile</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[140px]">Duration & Date</th>
+                  <th className="py-3.5 px-4 text-right whitespace-nowrap min-w-[100px]">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-accent-100 dark:divide-accent-800">
@@ -292,14 +292,14 @@ export function Sessions({ onNavigate }) {
                       onNavigate('org-session-review');
                     }}
                   >
-                    <td className="py-3.5 px-4">
+                    <td className="py-3.5 px-4 whitespace-nowrap min-w-[240px]">
                       <div className="flex items-center gap-3">
                         <Avatar name={session.participant} size="sm" />
                         <div>
-                          <p className="font-bold text-accent-900 dark:text-white leading-tight">
+                          <p className="font-bold text-accent-900 dark:text-white leading-tight whitespace-nowrap">
                             {session.participant}
                           </p>
-                          <p className="text-[11px] text-accent-500 dark:text-accent-400">
+                          <p className="text-[11px] text-accent-500 dark:text-accent-400 whitespace-nowrap">
                             {session.email}
                           </p>
                         </div>
