@@ -1230,16 +1230,13 @@ export function ExaminerLiveInterview({ onNavigate }) {
                       }`} />
                     </div>
                     <p className="text-xs text-accent-400 mt-0.5">
-                      {remoteStreamActive ? 'Candidate Feed Active (1080p)' : 'Waiting for candidate video feed...'}
+                      {remoteStreamActive ? 'Candidate Feed Active (1080p)' : 'Connecting automatically... Ready when candidate joins'}
                     </p>
                     {!remoteStreamActive && (
-                      <button
-                        onClick={() => handleAdmitCandidate()}
-                        className="mt-3.5 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-xs font-bold transition-all shadow-lg shadow-primary-600/30 flex items-center gap-2 mx-auto cursor-pointer"
-                      >
-                        <Radio size={14} className="animate-pulse" />
-                        <span>Admit / Connect Candidate Feed</span>
-                      </button>
+                      <div className="mt-3.5 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-accent-800/80 border border-accent-700/60 text-accent-300 text-xs font-medium">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                        <span>Auto-Connecting WebRTC Stream...</span>
+                      </div>
                     )}
                   </div>
                 )}
