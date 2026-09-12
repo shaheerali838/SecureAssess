@@ -1,6 +1,23 @@
 import { io } from 'socket.io-client';
 
 const getSocketServerUrl = () => {
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    const isLocalhost =
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '0.0.0.0' ||
+      hostname.endsWith('.local');
+
+    if (!isLocalhost) {
+      const envUrl = import.meta.env.VITE_SOCKET_URL;
+      if (envUrl && (envUrl.startsWith('https://') || envUrl.startsWith('wss://')) && !envUrl.includes('localhost')) {
+        return envUrl;
+      }
+      return window.location.origin;
+    }
+  }
+
   const envUrl = import.meta.env.VITE_SOCKET_URL;
   if (import.meta.env.PROD) {
     if (!envUrl || envUrl.includes('localhost') || envUrl.includes('127.0.0.1')) {

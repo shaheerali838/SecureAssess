@@ -1,6 +1,25 @@
 import axios from 'axios';
 
 const getApiBaseUrl = () => {
+  // Runtime browser hostname check (prevents any localhost calls on hosted/deployed sites)
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    const isLocalhost =
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '0.0.0.0' ||
+      hostname.endsWith('.local');
+
+    if (!isLocalhost) {
+      const envUrl = import.meta.env.VITE_API_URL;
+      if (envUrl && envUrl.startsWith('https://') && !envUrl.includes('localhost')) {
+        return envUrl.replace(/\/$/, '');
+      }
+      return '/api/v1';
+    }
+  }
+
+  // Fallback for build time / local development
   const envUrl = import.meta.env.VITE_API_URL;
   if (import.meta.env.PROD) {
     if (!envUrl || envUrl.includes('localhost') || envUrl.includes('127.0.0.1')) {
