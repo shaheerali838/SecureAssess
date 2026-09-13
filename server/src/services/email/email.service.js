@@ -34,6 +34,13 @@ const isTestOrMockAddress = (to) => {
   return testPatterns.some((pattern) => pattern.test(lower));
 };
 
+const ipv4Lookup = (hostname, options, callback) => {
+  return dns.lookup(hostname, { family: 4, all: false }, (err, address, family) => {
+    if (err) return callback(err);
+    callback(null, address, 4);
+  });
+};
+
 const createSmtpTransporter = (port = 465, secure = true) => {
   const user = (emailConfig.auth?.user || "").trim();
   const pass = (emailConfig.auth?.pass || "").toString().replace(/\s+/g, "");
@@ -47,9 +54,10 @@ const createSmtpTransporter = (port = 465, secure = true) => {
     secure,
     auth: { user, pass },
     family: 4,
-    connectionTimeout: 15000,
-    greetingTimeout: 15000,
-    socketTimeout: 20000,
+    lookup: ipv4Lookup,
+    connectionTimeout: 8000,
+    greetingTimeout: 8000,
+    socketTimeout: 10000,
     tls: { rejectUnauthorized: false },
   });
 };

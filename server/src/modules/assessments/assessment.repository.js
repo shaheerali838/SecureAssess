@@ -30,7 +30,7 @@ export class AssessmentRepository {
     return Assessment.findOneAndUpdate(
       { _id: id, organizationId },
       updateData,
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     ).populate("createdBy", "name email");
   }
 

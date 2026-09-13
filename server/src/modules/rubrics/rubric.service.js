@@ -79,7 +79,7 @@ export class RubricService {
     const rubric = await Rubric.findOneAndUpdate(
       { _id: rubricId, organizationId },
       { $set: data },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     );
 
     if (!rubric) {
@@ -100,7 +100,7 @@ export class RubricService {
     const rubric = await Rubric.findOneAndUpdate(
       { _id: rubricId, organizationId },
       { $set: { status: "ARCHIVED" } },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (!rubric) {

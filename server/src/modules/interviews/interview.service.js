@@ -147,7 +147,7 @@ export class InterviewService {
             role: PARTICIPANT_ROLES.INTERVIEWER,
             status: PARTICIPANT_STATUSES.INVITED,
           },
-          { upsert: true, returnDocument: 'after', new: true }
+          { upsert: true, returnDocument: 'after' }
         );
 
         if (intUserId !== createdByUserId.toString()) {
@@ -530,7 +530,7 @@ export class InterviewService {
               organizationId,
               status: PARTICIPANT_STATUSES.INVITED,
             },
-            { upsert: true, returnDocument: 'after', new: true }
+            { upsert: true, returnDocument: 'after' }
           ).catch(() => {});
         }
       }
@@ -656,7 +656,7 @@ export class InterviewService {
         role: role || PARTICIPANT_ROLES.INTERVIEWER,
         status: PARTICIPANT_STATUSES.INVITED,
       },
-      { upsert: true, returnDocument: 'after', new: true }
+      { upsert: true, returnDocument: 'after' }
     );
 
     return participant;

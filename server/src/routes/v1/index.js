@@ -31,6 +31,22 @@ import { ApiResponse } from "../../utils/ApiResponse.js";
 
 const router = express.Router();
 
+// Root API v1 Information Endpoint
+router.get("/", (req, res) => {
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        version: "v1",
+        name: "SecureAssess Production API v1",
+        status: "ONLINE",
+        timestamp: new Date().toISOString(),
+      },
+      "SecureAssess API v1 Gateway Online"
+    )
+  );
+});
+
 // Health Check Endpoints (General, Liveness & Readiness)
 router.get("/health", (req, res) => {
   const isDbConnected = mongoose.connection.readyState === 1;
