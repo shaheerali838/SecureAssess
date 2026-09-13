@@ -31,7 +31,9 @@ const getOrgId = async (req) => {
     }
   }
 
-  const firstOrg = await Organization.findOne({ status: { $ne: "DELETED" } }).select("_id").lean();
+  const firstOrg = await Organization.findOne({ status: { $ne: "DELETED" } })
+    .select("_id")
+    .lean();
   return firstOrg?._id || null;
 };
 
@@ -42,7 +44,7 @@ export const createInterview = asyncHandler(async (req, res) => {
   const result = await InterviewService.createInterview(
     organizationId,
     userId,
-    req.body
+    req.body,
   );
 
   return res
@@ -58,7 +60,7 @@ export const getInterviews = asyncHandler(async (req, res) => {
     organizationId,
     userId,
     false,
-    req.query
+    req.query,
   );
 
   return res
@@ -74,7 +76,7 @@ export const getMyInterviews = asyncHandler(async (req, res) => {
     organizationId,
     userId,
     true,
-    req.query
+    req.query,
   );
 
   return res
@@ -87,15 +89,19 @@ export const getInterviewById = asyncHandler(async (req, res) => {
   const organizationId = await getOrgId(req);
   const { interviewId } = req.params;
 
-  const isCandidate = req.user?.platformRole === "CANDIDATE" || !req.user?.memberships?.some(
-    (m) => m.organizationId?.toString() === organizationId?.toString() && m.roleName !== "Candidate"
-  );
+  const isCandidate =
+    req.user?.platformRole === "CANDIDATE" ||
+    !req.user?.memberships?.some(
+      (m) =>
+        m.organizationId?.toString() === organizationId?.toString() &&
+        m.roleName !== "Candidate",
+    );
 
   const result = await InterviewService.getInterviewById(
     organizationId,
     interviewId,
     userId,
-    isCandidate
+    isCandidate,
   );
 
   return res
@@ -108,15 +114,19 @@ export const joinInterview = asyncHandler(async (req, res) => {
   const organizationId = await getOrgId(req);
   const { interviewId } = req.params;
 
-  const isCandidate = req.user?.platformRole === "CANDIDATE" || !req.user?.memberships?.some(
-    (m) => m.organizationId?.toString() === organizationId?.toString() && m.roleName !== "Candidate"
-  );
+  const isCandidate =
+    req.user?.platformRole === "CANDIDATE" ||
+    !req.user?.memberships?.some(
+      (m) =>
+        m.organizationId?.toString() === organizationId?.toString() &&
+        m.roleName !== "Candidate",
+    );
 
   const result = await InterviewService.joinInterview(
     organizationId,
     interviewId,
     userId,
-    isCandidate
+    isCandidate,
   );
 
   return res
@@ -132,7 +142,7 @@ export const endInterview = asyncHandler(async (req, res) => {
   const result = await InterviewService.endInterview(
     organizationId,
     interviewId,
-    userId
+    userId,
   );
 
   return res
@@ -149,7 +159,7 @@ export const updateInterview = asyncHandler(async (req, res) => {
     organizationId,
     interviewId,
     req.body,
-    userId
+    userId,
   );
 
   return res
@@ -167,7 +177,7 @@ export const cancelInterview = asyncHandler(async (req, res) => {
     organizationId,
     interviewId,
     userId,
-    reason
+    reason,
   );
 
   return res
@@ -182,7 +192,7 @@ export const addParticipant = asyncHandler(async (req, res) => {
   const result = await InterviewService.addParticipant(
     organizationId,
     interviewId,
-    req.body
+    req.body,
   );
 
   return res
@@ -197,7 +207,7 @@ export const removeParticipant = asyncHandler(async (req, res) => {
   const result = await InterviewService.removeParticipant(
     organizationId,
     interviewId,
-    userId
+    userId,
   );
 
   return res
@@ -214,7 +224,7 @@ export const addNote = asyncHandler(async (req, res) => {
     organizationId,
     interviewId,
     userId,
-    req.body
+    req.body,
   );
 
   return res
@@ -226,13 +236,15 @@ export const getNotes = asyncHandler(async (req, res) => {
   const organizationId = await getOrgId(req);
   const { interviewId } = req.params;
   const userId = req.user?.id || req.user?._id;
-  const isCandidate = Boolean(req.user?.role === "CANDIDATE" || req.path?.includes("candidate"));
+  const isCandidate = Boolean(
+    req.user?.role === "CANDIDATE" || req.path?.includes("candidate"),
+  );
 
   const result = await InterviewService.getNotes(
     organizationId,
     interviewId,
     userId,
-    isCandidate
+    isCandidate,
   );
 
   return res
@@ -248,4 +260,3 @@ export const getPublicEntryInterview = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, result, "1-Time interview entry authorized"));
 });
-
