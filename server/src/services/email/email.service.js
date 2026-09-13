@@ -91,9 +91,58 @@ const getTransporter = async () => {
   return transporter;
 };
 
+const sendViaHttpApi = async ({ to, subject, html, text, fromAddress }) => {
+  const resendKey = process.env.RESEND_API_KEY;
+  const sendgridKey = process.env.SENDGRID_API_KEY;
+  const brevoKey = process.env.BREVO_API_KEY;
+
+  if (resendKey) {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${resendKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: fromAddress.includes("@") && !fromAddress.includes("gmail.com") ? fromAddress : "SecureAssess <onboarding@resend.dev>",
+        to: [to],
+        subject,
+        html: html || `<p>${text || subject}</p>`,
+        text: text || subject,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "Resend dispatch failed");
+    return { messageId: data.id };
+  }
+
+  if (sendgridKey) {
+    const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${sendgridKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        personalizations: [{ to: [{ email: to }] }],
+        from: { email: fromAddress.includes("@") ? fromAddress : "notifications@secureassess.io" },
+        subject,
+        content: [{ type: "text/html", value: html || `<p>${text || subject}</p>` }],
+      }),
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`SendGrid dispatch failed: ${errText}`);
+    }
+    return { messageId: `sg-${Date.now()}` };
+  }
+
+  return null;
+};
+
 export class EmailService {
   /**
-   * Core send email method with Nodemailer
+   * Core send email method with Nodemailer & HTTP REST API fallback
    */
   static async sendEmail({ to, subject, html, text }) {
     try {
@@ -115,10 +164,28 @@ export class EmailService {
         };
       }
 
-      const mailer = await getTransporter();
       const fromAddress = emailConfig.from || emailConfig.auth?.user || "noreply@secureassess.io";
 
-      logger.info(`[EmailService] Sending live email to: ${to} | Subject: "${subject}"`);
+      // 1. Check for transactional HTTP API (Resend, SendGrid) over HTTPS 443
+      try {
+        const httpResult = await sendViaHttpApi({ to, subject, html, text, fromAddress });
+        if (httpResult) {
+          logger.info(`[EmailService] Delivered via HTTPS REST API to: ${to}, MessageId: ${httpResult.messageId}`);
+          return {
+            success: true,
+            messageId: httpResult.messageId,
+            to,
+            subject,
+            timestamp: new Date(),
+          };
+        }
+      } catch (httpErr) {
+        logger.warn(`[EmailService] HTTP email API encountered: ${httpErr.message}. Falling back to SMTP...`);
+      }
+
+      // 2. Direct SMTP dispatch
+      const mailer = await getTransporter();
+      logger.info(`[EmailService] Sending live email via direct SMTP to: ${to} | Subject: "${subject}"`);
 
       const mailOptions = {
         from: `"SecureAssess Platform" <${fromAddress}>`,
