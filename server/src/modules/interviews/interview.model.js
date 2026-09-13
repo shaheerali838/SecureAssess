@@ -74,8 +74,20 @@ const interviewSchema = new mongoose.Schema(
     candidateId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Candidate",
-      required: [true, "Candidate ID is required"],
+      default: null,
       index: true,
+    },
+    candidateName: {
+      type: String,
+      default: "",
+    },
+    candidateEmail: {
+      type: String,
+      default: "",
+    },
+    isOneTime: {
+      type: Boolean,
+      default: false,
     },
     settings: {
       type: interviewSettingsSchema,

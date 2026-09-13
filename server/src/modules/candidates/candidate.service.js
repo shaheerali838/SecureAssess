@@ -164,7 +164,11 @@ export class CandidateService {
     const limit = parseInt(query.limit || "50", 10);
     const filter = { organizationId };
 
-    if (query.status) filter.status = query.status;
+    if (query.status) {
+      filter.status = query.status;
+    } else {
+      filter.status = { $ne: "DEACTIVATED" };
+    }
     if (query.departmentId) filter.departmentId = query.departmentId;
     if (query.programId) filter.programId = query.programId;
     if (query.candidateGroupId) filter.candidateGroupId = query.candidateGroupId;
@@ -347,33 +351,40 @@ export class CandidateService {
   }
 
   /**
-   * Soft deletes / deactivates candidate
+   * Deletes candidate permanently from organization roster
    */
   static async deleteCandidate(organizationId, candidateId, actorUserId = null) {
-    if (!mongoose.Types.ObjectId.isValid(organizationId) || !mongoose.Types.ObjectId.isValid(candidateId)) {
-      throw new ApiError(400, "Invalid identifier format");
+    if (!mongoose.Types.ObjectId.isValid(candidateId)) {
+      throw new ApiError(400, "Invalid candidate identifier format");
     }
 
-    const candidate = await Candidate.findOneAndUpdate(
-      { _id: candidateId, organizationId },
-      { $set: { status: "DEACTIVATED" } },
-      { returnDocument: "after" }
-    );
+    const filter =
+      organizationId && mongoose.Types.ObjectId.isValid(organizationId)
+        ? { _id: candidateId, organizationId }
+        : { _id: candidateId };
+
+    const candidate = await Candidate.findOneAndDelete(filter);
 
     if (!candidate) {
-      throw new ApiError(404, "Candidate not found in this organization");
+      throw new ApiError(404, "Candidate not found or already deleted");
+    }
+
+    if (candidate.candidateGroupId) {
+      await CandidateGroup.findByIdAndUpdate(candidate.candidateGroupId, {
+        $inc: { memberCount: -1 },
+      }).catch(() => {});
     }
 
     AuditLogService.createAuditLog({
-      organizationId,
+      organizationId: organizationId || candidate.organizationId,
       actorId: actorUserId,
-      action: "DEACTIVATE",
+      action: "DELETE",
       resource: "CANDIDATE",
       resourceId: candidate._id,
-      description: `Deactivated candidate '${candidate.candidateCode}'`,
+      description: `Deleted candidate '${candidate.candidateCode}' (${candidate.email})`,
     }).catch(() => {});
 
-    return { success: true, message: "Candidate deactivated successfully" };
+    return { success: true, message: "Candidate permanently removed from roster" };
   }
 
   /**

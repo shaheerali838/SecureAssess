@@ -246,13 +246,13 @@ export function ParticipantManagement({ onNavigate }) {
       setCandidatesList((prev) => prev.filter((c) => (c._id || c.id) !== id));
       setToastMessage({
         type: 'success',
-        text: `Candidate ${name} removed from roster.`,
+        text: `Candidate ${name} permanently removed from roster.`,
       });
     } catch (err) {
-      setCandidatesList((prev) => prev.filter((c) => (c._id || c.id) !== id));
+      console.error('Delete candidate error:', err);
       setToastMessage({
-        type: 'success',
-        text: `Candidate ${name} removed.`,
+        type: 'error',
+        text: err?.response?.data?.message || err.message || `Failed to delete candidate ${name}.`,
       });
     } finally {
       setConfirmModal({ isOpen: false, candidate: null, loading: false });

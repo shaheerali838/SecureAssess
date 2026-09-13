@@ -44,9 +44,10 @@ export class InterviewService {
 
     const candEmail = (metadata?.candidateEmail || data.candidateEmail || "").toLowerCase().trim();
     const candName = (metadata?.candidateName || data.candidateName || "Candidate").trim();
+    const isOneTime = Boolean(metadata?.openEntry || metadata?.isOneTime || data.isOneTime || !candidateId);
 
     let candidate = null;
-    if (candidateId && mongoose.Types.ObjectId.isValid(candidateId)) {
+    if (!isOneTime && candidateId && mongoose.Types.ObjectId.isValid(candidateId)) {
       candidate = await Candidate.findOne(
         organizationId ? { _id: candidateId, organizationId } : { _id: candidateId }
       );
@@ -55,51 +56,9 @@ export class InterviewService {
       }
     }
 
-    // Lookup candidate by email if candidateId was not specified or not found
-    if (!candidate && candEmail) {
-      candidate = await Candidate.findOne({
-        email: candEmail,
-        ...(organizationId ? { organizationId } : {}),
-      });
-    }
-
-    // If candidate still does not exist, automatically create a dedicated candidate record in MongoDB
-    if (!candidate && candEmail) {
-      const parts = candName.split(" ");
-      const firstName = parts[0] || "Candidate";
-      const lastName = parts.slice(1).join(" ") || "Applicant";
-
-      candidate = await Candidate.create({
-        organizationId: organizationId || null,
-        firstName,
-        lastName,
-        email: candEmail,
-        candidateCode: `CAND-${Date.now().toString().slice(-6)}`,
-        status: "ACTIVE",
-      });
-    }
-
-    if (!candidate) {
-      if (organizationId) {
-        candidate = await Candidate.findOne({ organizationId });
-      }
-      if (!candidate) {
-        candidate = await Candidate.create({
-          organizationId: organizationId || null,
-          firstName: candName,
-          lastName: "Applicant",
-          email: `candidate_${Date.now()}@secureassess.local`,
-          candidateCode: `CAND-${Date.now().toString().slice(-6)}`,
-          status: "ACTIVE",
-        });
-      }
-    }
-
-    if (!candidate) {
-      throw new ApiError(404, "Candidate not found. Please select an active candidate or register a new candidate.");
-    }
-
-    const targetOrgId = organizationId || candidate.organizationId;
+    // For 1-Time Interview: Do NOT create or enroll a Candidate record in MongoDB.
+    // The candidate is a one-time guest applicant who accesses only via their one-time entry token.
+    const targetOrgId = organizationId || candidate?.organizationId;
 
     const interview = await Interview.create({
       organizationId: targetOrgId,
@@ -111,7 +70,10 @@ export class InterviewService {
       scheduledEndAt: new Date(scheduledEndAt),
       createdBy: createdByUserId,
       assessmentId: assessmentId || null,
-      candidateId: candidate._id,
+      candidateId: candidate ? candidate._id : null,
+      candidateName: candName,
+      candidateEmail: candEmail,
+      isOneTime,
       questions: questions || [],
       rubrics: rubrics || [],
       settings,
@@ -119,8 +81,11 @@ export class InterviewService {
     });
 
     // Send 1-Time Entry / Scheduled Interview Invitation Email
-    const targetEmail = metadata?.candidateEmail || candidate.email;
-    const targetName = metadata?.candidateName || `${candidate.firstName || ''} ${candidate.lastName || ''}`.trim() || 'Candidate';
+    const targetEmail = metadata?.candidateEmail || candEmail || candidate?.email;
+    const targetName =
+      metadata?.candidateName ||
+      candName ||
+      (candidate ? `${candidate.firstName || ''} ${candidate.lastName || ''}`.trim() : 'Candidate');
     const clientBaseUrl = ENV.CLIENT_URL || "https://secure-assess.vercel.app";
     let roomUrl = metadata?.entryLink || `${clientBaseUrl}/interview/entry/${interview._id}`;
     roomUrl = roomUrl
@@ -140,8 +105,8 @@ export class InterviewService {
       });
     }
 
-    // Register Candidate as Participant
-    if (candidate.userId) {
+    // Register Candidate as Participant if an enrolled candidate identity exists
+    if (candidate?.userId) {
       await InterviewParticipant.create({
         interviewId: interview._id,
         userId: candidate.userId,

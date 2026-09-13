@@ -1,10 +1,16 @@
 import fs from "fs";
 import path from "path";
+import dns from "node:dns";
 import { fileURLToPath } from "url";
 import nodemailer from "nodemailer";
 import { emailConfig } from "../../config/email.js";
 import { logger } from "../../config/logger.js";
 import { ENV } from "../../config/env.js";
+
+// Ensure Node defaults to IPv4 first to prevent ENETUNREACH on dual-stack networks
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder("ipv4first");
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -28,6 +34,26 @@ const isTestOrMockAddress = (to) => {
   return testPatterns.some((pattern) => pattern.test(lower));
 };
 
+const createSmtpTransporter = (port = 465, secure = true) => {
+  const user = (emailConfig.auth?.user || "").trim();
+  const pass = (emailConfig.auth?.pass || "").toString().replace(/\s+/g, "");
+  const isGmail =
+    (emailConfig.host && emailConfig.host.includes("gmail")) ||
+    (user && user.toLowerCase().endsWith("@gmail.com"));
+
+  return nodemailer.createTransport({
+    host: isGmail ? "smtp.gmail.com" : (emailConfig.host || "smtp.gmail.com"),
+    port,
+    secure,
+    auth: { user, pass },
+    family: 4,
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 20000,
+    tls: { rejectUnauthorized: false },
+  });
+};
+
 const getTransporter = () => {
   if (transporter) return transporter;
 
@@ -37,32 +63,10 @@ const getTransporter = () => {
   const hasAuth = Boolean(user && pass);
 
   if (hasAuth && !isTestEnv) {
-    const isGmail =
-      (emailConfig.host && emailConfig.host.includes("gmail")) ||
-      (user && user.toLowerCase().endsWith("@gmail.com"));
-
-    transporter = nodemailer.createTransport({
-      host: isGmail ? "smtp.gmail.com" : (emailConfig.host || "smtp.gmail.com"),
-      port: 465,
-      secure: true,
-      auth: {
-        user: user,
-        pass: pass,
-      },
-      family: 4, // Explicitly force IPv4 to prevent ENETUNREACH on Render/cloud instances
-      connectionTimeout: 15000,
-      greetingTimeout: 15000,
-      socketTimeout: 20000,
-      tls: {
-        rejectUnauthorized: false,
-      },
-    });
+    transporter = createSmtpTransporter(465, true);
     logger.info(`[EmailService] Nodemailer SMTP SSL IPv4 initialized for: ${user}`);
   } else {
-    // Fallback stream transporter for test / non-SMTP environments
-    transporter = nodemailer.createTransport({
-      jsonTransport: true,
-    });
+    transporter = nodemailer.createTransport({ jsonTransport: true });
     logger.warn(`[EmailService] Using JSON/Mock transport (testEnv: ${isTestEnv}, hasAuth: ${hasAuth}).`);
   }
 
@@ -106,7 +110,15 @@ export class EmailService {
         text: text || subject,
       };
 
-      const info = await mailer.sendMail(mailOptions);
+      let info;
+      try {
+        info = await mailer.sendMail(mailOptions);
+      } catch (firstErr) {
+        logger.warn(`[EmailService] Initial dispatch encountered: ${firstErr.message}. Retrying over Port 587 IPv4...`);
+        const fallbackMailer = createSmtpTransporter(587, false);
+        info = await fallbackMailer.sendMail(mailOptions);
+      }
+
       logger.info(`[EmailService] Email successfully delivered to: ${to}, MessageId: ${info.messageId}`);
 
       return {
