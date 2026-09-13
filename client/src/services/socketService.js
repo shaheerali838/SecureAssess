@@ -14,14 +14,14 @@ const getSocketServerUrl = () => {
       if (envUrl && (envUrl.startsWith('https://') || envUrl.startsWith('wss://')) && !envUrl.includes('localhost')) {
         return envUrl;
       }
-      return 'https://secure-assess-server.vercel.app';
+      return 'https://secureassess.onrender.com';
     }
   }
 
   const envUrl = import.meta.env.VITE_SOCKET_URL;
   if (import.meta.env.PROD) {
     if (!envUrl || envUrl.includes('localhost') || envUrl.includes('127.0.0.1')) {
-      return 'https://secure-assess-server.vercel.app';
+      return 'https://secureassess.onrender.com';
     }
     return envUrl;
   }

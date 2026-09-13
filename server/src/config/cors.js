@@ -3,6 +3,7 @@ import { ENV } from "./env.js";
 const DEFAULT_ALLOWED_ORIGINS = [
   "https://secure-assess.vercel.app",
   "https://secure-assess-server.vercel.app",
+  "https://secureassess.onrender.com",
   "http://localhost:5173",
   "http://localhost:3000",
   "http://localhost:7000",
@@ -32,11 +33,12 @@ export const corsOptions = {
       return callback(null, true);
     }
 
-    // Automatically allow all Vercel deployment & preview branch domains
+    // Automatically allow all Vercel and Render deployment & preview domains
     try {
       const parsedUrl = new URL(origin);
       if (
         parsedUrl.hostname.endsWith(".vercel.app") ||
+        parsedUrl.hostname.endsWith(".onrender.com") ||
         parsedUrl.hostname === "localhost" ||
         parsedUrl.hostname === "127.0.0.1"
       ) {

@@ -15,7 +15,7 @@ const getApiBaseUrl = () => {
       if (envUrl && envUrl.startsWith('https://') && !envUrl.includes('localhost')) {
         return envUrl.replace(/\/$/, '');
       }
-      return 'https://secure-assess-server.vercel.app/api/v1';
+      return 'https://secureassess.onrender.com/api/v1';
     }
   }
 
@@ -23,7 +23,7 @@ const getApiBaseUrl = () => {
   const envUrl = import.meta.env.VITE_API_URL;
   if (import.meta.env.PROD) {
     if (!envUrl || envUrl.includes('localhost') || envUrl.includes('127.0.0.1')) {
-      return 'https://secure-assess-server.vercel.app/api/v1';
+      return 'https://secureassess.onrender.com/api/v1';
     }
     return envUrl;
   }
