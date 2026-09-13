@@ -25,27 +25,73 @@ const isTestOrMockAddress = (to) => {
   return testPatterns.some((pattern) => pattern.test(lower));
 };
 
-const getGmailTransporter = () => {
+const getSmtpTransporter = () => {
   if (transporter) return transporter;
 
   const isTestEnv = ENV.NODE_ENV === "test" || process.env.DISABLE_EMAIL_DISPATCH === "true";
   const user = (emailConfig.auth?.user || "").trim();
   const pass = (emailConfig.auth?.pass || "").toString().replace(/\s+/g, "");
+  const host = (emailConfig.host || "smtp.gmail.com").trim();
+  const isGmail = host.includes("gmail") || user.toLowerCase().endsWith("@gmail.com");
   const hasAuth = Boolean(user && pass);
 
   if (hasAuth && !isTestEnv) {
-    transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: { user, pass },
-      tls: { rejectUnauthorized: false },
-    });
-    logger.info(`[EmailService] Nodemailer Gmail SMTP service initialized for: ${user}`);
+    if (isGmail) {
+      transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: { user, pass },
+        tls: { rejectUnauthorized: false },
+      });
+      logger.info(`[EmailService] Nodemailer Gmail SMTP initialized for: ${user}`);
+    } else {
+      transporter = nodemailer.createTransport({
+        host,
+        port: emailConfig.port || 587,
+        secure: emailConfig.port === 465,
+        auth: { user, pass },
+        tls: { rejectUnauthorized: false },
+      });
+      logger.info(`[EmailService] Nodemailer SMTP relay initialized for host: ${host}, user: ${user}`);
+    }
   } else {
     transporter = nodemailer.createTransport({ jsonTransport: true });
     logger.warn(`[EmailService] Using JSON/Mock transport (testEnv: ${isTestEnv}, hasAuth: ${hasAuth}).`);
   }
 
   return transporter;
+};
+
+const sendViaBrevoApi = async ({ to, subject, html, text, fromAddress }) => {
+  const apiKey = (process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY || "").trim();
+  if (!apiKey) return null;
+
+  const senderEmail = (emailConfig.auth?.user || fromAddress || "shaheer838838@gmail.com").trim();
+
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "accept": "application/json",
+      "api-key": apiKey,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      sender: {
+        name: "SecureAssess Platform",
+        email: senderEmail,
+      },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html || `<p>${text || subject}</p>`,
+      textContent: text || subject,
+    }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || data.code || `Brevo HTTP error ${res.status}`);
+  }
+
+  return { messageId: data.messageId || `brevo-${Date.now()}` };
 };
 
 const sendViaResendApi = async ({ to, subject, html, text, fromAddress }) => {
@@ -127,7 +173,7 @@ const sendViaMailjetApi = async ({ to, subject, html, text, fromAddress }) => {
 
 export class EmailService {
   /**
-   * Core send live email method via Resend HTTPS API, Mailjet, or Gmail SMTP
+   * Core send live email method via Brevo, Resend, Mailjet, or SMTP Relay
    */
   static async sendEmail({ to, subject, html, text }) {
     try {
@@ -151,7 +197,24 @@ export class EmailService {
 
       const fromAddress = emailConfig.from || emailConfig.auth?.user || "noreply@secureassess.io";
 
-      // 1. Check for Resend HTTPS REST API (Port 443 - works everywhere)
+      // 1. Check for Brevo HTTPS REST API (Port 443)
+      try {
+        const brevoResult = await sendViaBrevoApi({ to, subject, html, text, fromAddress });
+        if (brevoResult) {
+          logger.info(`[EmailService] Delivered via Brevo HTTPS API to: ${to}, MessageId: ${brevoResult.messageId}`);
+          return {
+            success: true,
+            messageId: brevoResult.messageId,
+            to,
+            subject,
+            timestamp: new Date(),
+          };
+        }
+      } catch (brevoErr) {
+        logger.warn(`[EmailService] Brevo HTTPS API: ${brevoErr.message}. Falling back...`);
+      }
+
+      // 2. Check for Resend HTTPS REST API (Port 443)
       try {
         const resendResult = await sendViaResendApi({ to, subject, html, text, fromAddress });
         if (resendResult) {
@@ -165,10 +228,10 @@ export class EmailService {
           };
         }
       } catch (resendErr) {
-        logger.warn(`[EmailService] Resend HTTPS API error: ${resendErr.message}. Falling back...`);
+        logger.warn(`[EmailService] Resend HTTPS API: ${resendErr.message}. Falling back...`);
       }
 
-      // 2. Check for Mailjet HTTPS REST API (Port 443)
+      // 3. Check for Mailjet HTTPS REST API (Port 443)
       try {
         const mjResult = await sendViaMailjetApi({ to, subject, html, text, fromAddress });
         if (mjResult) {
@@ -182,12 +245,12 @@ export class EmailService {
           };
         }
       } catch (mjErr) {
-        logger.warn(`[EmailService] Mailjet HTTPS API error: ${mjErr.message}. Falling back to Gmail SMTP...`);
+        logger.warn(`[EmailService] Mailjet HTTPS API: ${mjErr.message}. Falling back...`);
       }
 
-      // 3. Fallback to Gmail SMTP
-      const mailer = getGmailTransporter();
-      logger.info(`[EmailService] Sending live email via Gmail SMTP to: ${to} | Subject: "${subject}"`);
+      // 4. Fallback to Direct SMTP Relay
+      const mailer = getSmtpTransporter();
+      logger.info(`[EmailService] Sending live email via SMTP to: ${to} | Subject: "${subject}"`);
 
       const mailOptions = {
         from: `"SecureAssess Platform" <${fromAddress}>`,
