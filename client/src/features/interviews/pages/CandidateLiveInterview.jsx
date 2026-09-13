@@ -510,7 +510,21 @@ export function CandidateLiveInterview({ onNavigate }) {
         onConfirm={() => {
           localStreamRef.current?.getTracks().forEach((t) => t.stop());
           setShowLeaveModal(false);
-          onNavigate('participant-evaluation');
+          const isOrg = Boolean(
+            storedUser?.role === 'ORGANIZATION_OWNER' ||
+            storedUser?.role === 'ORGANIZATION_ADMIN' ||
+            storedUser?.role === 'EXAMINER' ||
+            storedUser?.role === 'RECRUITER' ||
+            storedUser?.platformRole === 'PLATFORM_OWNER' ||
+            storedUser?.platformRole === 'PLATFORM_ADMIN'
+          );
+          if (isOrg) {
+            onNavigate('org-interviews');
+          } else if (storedUser?.role === 'CANDIDATE') {
+            onNavigate('candidate-dashboard');
+          } else {
+            window.location.href = '/';
+          }
         }}
         title="Leave Interview Session?"
         message="Are you sure you want to leave the live interview call?"

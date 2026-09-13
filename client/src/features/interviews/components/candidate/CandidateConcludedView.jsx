@@ -68,14 +68,47 @@ export const CandidateConcludedView = ({
             </div>
           </div>
 
-          <Button
-            variant="primary"
-            size="lg"
-            onClick={() => onNavigate('participant-evaluation')}
-            className="w-full bg-primary-600 hover:bg-primary-500 text-sm font-bold"
-          >
-            Return to Candidate Dashboard
-          </Button>
+          {(() => {
+            const storedUser = JSON.parse(localStorage.getItem('secureassess_user') || '{}');
+            const isOrgUser = Boolean(
+              storedUser?.role === 'ORGANIZATION_OWNER' ||
+              storedUser?.role === 'ORGANIZATION_ADMIN' ||
+              storedUser?.role === 'EXAMINER' ||
+              storedUser?.role === 'RECRUITER' ||
+              storedUser?.platformRole === 'PLATFORM_OWNER' ||
+              storedUser?.platformRole === 'PLATFORM_ADMIN'
+            );
+
+            if (isOrgUser) {
+              return (
+                <Button
+                  variant="primary"
+                  size="lg"
+                  onClick={() => onNavigate('org-interviews')}
+                  className="w-full bg-primary-600 hover:bg-primary-500 text-sm font-bold"
+                >
+                  Return to Organization Interviews Dashboard
+                </Button>
+              );
+            }
+
+            return (
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={() => {
+                  if (storedUser?.role === 'CANDIDATE') {
+                    onNavigate('candidate-dashboard');
+                  } else {
+                    window.location.href = '/';
+                  }
+                }}
+                className="w-full bg-primary-600 hover:bg-primary-500 text-sm font-bold"
+              >
+                Return to Dashboard
+              </Button>
+            );
+          })()}
         </div>
       </main>
 
