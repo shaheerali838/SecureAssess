@@ -178,7 +178,7 @@ export class InterviewService {
       action: "CREATE",
       resource: "INTERVIEW",
       resourceId: interview._id,
-      description: `Scheduled interview '${title}' for candidate '${candidate.email}'`,
+      description: `Scheduled interview '${title}' for candidate '${targetEmail || candidate?.email || candEmail || 'Candidate'}'`,
     }).catch(() => {});
 
     return interview;
@@ -535,47 +535,46 @@ export class InterviewService {
         }
       }
     } else if (candName || candEmail) {
-      // Find candidate by current interview candidateId, or by email, or create new
-      let candidateDoc = null;
-      if (interview.candidateId) {
-        candidateDoc = await Candidate.findById(interview.candidateId);
-      }
-      if (!candidateDoc && candEmail) {
-        candidateDoc = await Candidate.findOne({
-          email: candEmail,
-          ...(organizationId ? { organizationId } : {}),
-        });
-      }
-
-      if (candidateDoc) {
-        if (candName) {
-          const parts = candName.split(" ");
-          candidateDoc.firstName = parts[0] || "Candidate";
-          candidateDoc.lastName = parts.slice(1).join(" ") || "";
-        }
-        if (candEmail) {
-          candidateDoc.email = candEmail;
-        }
-        await candidateDoc.save();
-        interview.candidateId = candidateDoc._id;
+      if (interview.isOneTime || interview.metadata?.openEntry) {
+        interview.candidateName = candName || interview.candidateName;
+        interview.candidateEmail = candEmail || interview.candidateEmail;
+        interview.metadata = {
+          ...interview.metadata,
+          candidateName: candName || interview.metadata?.candidateName || "Candidate",
+          candidateEmail: candEmail || interview.metadata?.candidateEmail || "",
+        };
       } else {
-        const parts = (candName || "Candidate").split(" ");
-        candidateDoc = await Candidate.create({
-          organizationId: organizationId || null,
-          firstName: parts[0] || "Candidate",
-          lastName: parts.slice(1).join(" ") || "",
-          email: candEmail || `candidate_${Date.now()}@secureassess.local`,
-          candidateCode: `CAND-${Date.now().toString().slice(-6)}`,
-          status: "ACTIVE",
-        });
-        interview.candidateId = candidateDoc._id;
-      }
+        // Find candidate by current interview candidateId, or by email, or create new
+        let candidateDoc = null;
+        if (interview.candidateId) {
+          candidateDoc = await Candidate.findById(interview.candidateId);
+        }
+        if (!candidateDoc && candEmail) {
+          candidateDoc = await Candidate.findOne({
+            email: candEmail,
+            ...(organizationId ? { organizationId } : {}),
+          });
+        }
 
-      interview.metadata = {
-        ...interview.metadata,
-        candidateName: candName || `${candidateDoc.firstName || ''} ${candidateDoc.lastName || ''}`.trim(),
-        candidateEmail: candEmail || candidateDoc.email,
-      };
+        if (candidateDoc) {
+          if (candName) {
+            const parts = candName.split(" ");
+            candidateDoc.firstName = parts[0] || "Candidate";
+            candidateDoc.lastName = parts.slice(1).join(" ") || "";
+          }
+          if (candEmail) {
+            candidateDoc.email = candEmail;
+          }
+          await candidateDoc.save();
+          interview.candidateId = candidateDoc._id;
+        }
+
+        interview.metadata = {
+          ...interview.metadata,
+          candidateName: candName || (candidateDoc ? `${candidateDoc.firstName || ''} ${candidateDoc.lastName || ''}`.trim() : "Candidate"),
+          candidateEmail: candEmail || candidateDoc?.email || "",
+        };
+      }
     }
 
     await interview.save();
