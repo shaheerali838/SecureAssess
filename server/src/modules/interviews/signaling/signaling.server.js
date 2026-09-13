@@ -148,8 +148,8 @@ export const attachInterviewSignaling = (io) => {
             role: authCheck.role,
           });
 
-          // If the joining user is the host/examiner, immediately admit all waiting candidates
           if (isHost) {
+            // Inform room that host is in the room
             interviewNamespace.to(roomId).emit("interview:host-joined", {
               host: {
                 socketId: socket.id,
@@ -160,17 +160,15 @@ export const attachInterviewSignaling = (io) => {
                 role: authCheck.role,
               },
             });
-            interviewNamespace.to(roomId).emit("interview:admitted", {
-              admittedBy: socket.user._id,
-            });
-          } else if (hasHost) {
-            // If host is already present, immediately tell candidate that host is present
-            const hostPeer = activePeers.find((p) => p.role !== "CANDIDATE");
-            socket.emit("interview:host-joined", {
-              host: hostPeer || { role: "EXAMINER", name: "Examiner" },
-            });
-            socket.emit("interview:admitted", {
-              admitted: true,
+          } else {
+            // Notify Examiner that candidate is waiting in the queue
+            socket.to(roomId).emit("interview:candidate-waiting", {
+              candidateSocketId: socket.id,
+              candidateUserId: socket.user._id,
+              name:
+                `${socket.user.firstName || ""} ${socket.user.lastName || ""}`.trim() ||
+                "Candidate",
+              email: socket.user.email || "",
             });
           }
 
@@ -178,7 +176,7 @@ export const attachInterviewSignaling = (io) => {
           socket.emit("room:peers", {
             peers: activePeers,
             hasHost: hasHost || isHost,
-            waitingForHost: !isHost && !hasHost,
+            waitingForHost: !isHost,
           });
 
           await SignalingService.recordAuditEvent(
@@ -421,17 +419,33 @@ export const attachInterviewSignaling = (io) => {
           isHost,
         });
 
-        // When a candidate leaves, notify room and queue that the viva seat is now available for the next candidate
-        if (!isHost) {
+        if (isHost) {
+          // When examiner/host leaves, automatically conclude the interview for all candidates
+          interviewNamespace.to(roomId).emit(SIGNALING_EVENTS.INTERVIEW_ENDED, {
+            endedBy: participant.userId,
+            reason: "The examiner has left the session. The interview has automatically concluded.",
+          });
+
+          try {
+            if (
+              interviewId.length === 24 &&
+              /^[0-9a-fA-F]{24}$/.test(interviewId)
+            ) {
+              await Interview.findByIdAndUpdate(interviewId, {
+                status: "COMPLETED",
+                endedAt: new Date(),
+              });
+            }
+          } catch (dbErr) {
+            logger.warn(
+              `[SignalingServer] Failed to mark interview COMPLETED on host disconnect: ${dbErr.message}`,
+            );
+          }
+        } else {
+          // When a candidate leaves, notify room and queue that the viva seat is now available for the next candidate
           interviewNamespace.to(roomId).emit("interview:room_available", {
             interviewId,
             freedBy: participant.userId,
-          });
-        } else {
-          // If the examiner/host temporarily disconnects/steps out, inform room peers
-          interviewNamespace.to(roomId).emit("interview:host_stepped_out", {
-            hostId: participant.userId,
-            message: "The examiner stepped away and will rejoin shortly.",
           });
         }
 

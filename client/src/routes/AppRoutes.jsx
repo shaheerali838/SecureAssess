@@ -14,61 +14,61 @@ import {
 import { AppShell } from '@/components/layout/AppShell';
 
 // Auth Pages
-import { Login } from '@/pages/auth/Login';
+import { LoginPage as Login } from '@/features/auth/pages/LoginPage';
 
 // Public Marketing, Demo & Verification
 import { LandingPage } from '@/components/pages/LandingPage';
 import { RequestDemo } from '@/components/pages/RequestDemo';
-import { CertificateVerify } from '@/pages/public/CertificateVerify';
+import { CertificateVerify } from '@/components/pages/public/CertificateVerify';
 
 // Platform Super Admin Modular Views (PLATFORM Scope)
-import { PlatformDashboard } from '@/pages/platform/PlatformDashboard';
-import { OrganizationsList } from '@/pages/platform/OrganizationsList';
-import { Onboarding } from '@/pages/platform/Onboarding';
-import { SecurityCenter } from '@/pages/platform/SecurityCenter';
-import { PlatformAuditLogs } from '@/pages/platform/PlatformAuditLogs';
-import { PlatformAccess } from '@/pages/platform/PlatformAccess';
-import { SystemMonitoring } from '@/pages/platform/SystemMonitoring';
-import { ServiceHealth } from '@/pages/platform/ServiceHealth';
-import { SubscriptionPlans } from '@/pages/platform/SubscriptionPlans';
-import { PlatformBilling } from '@/pages/platform/PlatformBilling';
-import { PlatformSettings } from '@/pages/platform/PlatformSettings';
+import { PlatformDashboard } from '@/components/pages/platform/PlatformDashboard';
+import { Organizations as OrganizationsList } from '@/components/pages/platform/Organizations';
+import { Onboarding } from '@/components/pages/platform/Onboarding';
+import { SecurityCenter } from '@/components/pages/platform/SecurityCenter';
+import { PlatformAuditLogs } from '@/components/pages/platform/PlatformAuditLogs';
+import { PlatformAccess } from '@/components/pages/platform/PlatformAccess';
+import { SystemMonitoring } from '@/components/pages/platform/SystemMonitoring';
+import { ServiceHealth } from '@/components/pages/platform/ServiceHealth';
+import { SubscriptionPlans } from '@/components/pages/platform/SubscriptionPlans';
+import { PlatformBilling } from '@/components/pages/platform/PlatformBilling';
+import { PlatformSettings } from '@/components/pages/platform/PlatformSettings';
 
 // Organization Workspace Modular Views (ORGANIZATION Scope: Owner, Admin, Examiner)
-import { OrgDashboard } from '@/pages/org/OrgDashboard';
-import { AssessmentLibrary } from '@/pages/org/AssessmentLibrary';
-import { AssessmentBuilder } from '@/pages/org/AssessmentBuilder';
-import { QuestionBank } from '@/pages/org/QuestionBank';
-import { ParticipantManagement } from '@/pages/org/ParticipantManagement';
-import { ParticipantProfile } from '@/pages/org/ParticipantProfile';
-import { OrgUsers } from '@/pages/org/OrgUsers';
-import { Interviews } from '@/pages/org/Interviews';
-import { Evaluations } from '@/pages/org/Evaluations';
-import { Reports } from '@/pages/org/Reports';
-import { Billing } from '@/pages/org/Billing';
-import { Settings } from '@/pages/org/Settings';
-import { OrgStructure } from '@/pages/org/OrgStructure';
+import { OrgDashboard } from '@/components/pages/org/OrgDashboard';
+import { AssessmentLibrary } from '@/components/pages/org/AssessmentLibrary';
+import { AssessmentBuilder } from '@/components/pages/org/AssessmentBuilder';
+import { QuestionBank } from '@/components/pages/org/QuestionBank';
+import { ParticipantManagement } from '@/components/pages/org/ParticipantManagement';
+import { ParticipantProfile } from '@/components/pages/org/ParticipantProfile';
+import { OrgUsers } from '@/components/pages/org/OrgUsers';
+import { Interviews } from '@/components/pages/org/Interviews';
+import { Evaluations } from '@/components/pages/org/Evaluations';
+import { Reports } from '@/components/pages/org/Reports';
+import { Billing } from '@/components/pages/org/Billing';
+import { Settings } from '@/components/pages/org/Settings';
+import { OrgStructure } from '@/components/pages/org/OrgStructure';
 
 // Proctoring & Integrity Modular Views (ORGANIZATION Scope: Proctor, Admin, Owner)
-import { LiveMonitoring } from '@/pages/proctor/LiveMonitoring';
-import { SessionReview } from '@/pages/proctor/SessionReview';
-import { IntegrityEvidence } from '@/pages/proctor/IntegrityEvidence';
-import { Sessions } from '@/pages/proctor/Sessions';
+import { IntegrityCenter as LiveMonitoring } from '@/components/pages/org/IntegrityCenter';
+import { SessionReview } from '@/components/pages/org/SessionReview';
+import { IntegrityEvidence } from '@/components/pages/org/IntegrityEvidence';
+import { Sessions } from '@/components/pages/org/Sessions';
 
 // Candidate Examination Modular Views (ORGANIZATION Scope: Candidate)
-import { CandidateDashboard } from '@/pages/candidate/CandidateDashboard';
-import { CandidateAssessmentsPage } from '@/pages/candidate/CandidateAssessmentsPage';
-import { CandidateInterviewsPage } from '@/pages/candidate/CandidateInterviewsPage';
-import { CandidateAssignedHub } from '@/pages/candidate/CandidateAssignedHub';
-import { SystemCheck } from '@/pages/candidate/SystemCheck';
-import { Consent } from '@/pages/candidate/Consent';
-import { AssessmentExperience } from '@/pages/candidate/AssessmentExperience';
-import { LiveInterview } from '@/pages/candidate/LiveInterview';
-import { Evaluation } from '@/pages/candidate/Evaluation';
+import { CandidateDashboard } from '@/components/pages/participant/CandidateDashboard';
+import { CandidateAssessmentsPage } from '@/components/pages/participant/CandidateAssessmentsPage';
+import { CandidateInterviewsPage } from '@/components/pages/participant/CandidateInterviewsPage';
+import { CandidateAssignedHub } from '@/components/pages/participant/CandidateAssignedHub';
+import { SystemCheck } from '@/components/pages/participant/SystemCheck';
+import { Consent } from '@/components/pages/participant/Consent';
+import { AssessmentExperience } from '@/components/pages/participant/AssessmentExperience';
+import { CandidateLiveInterview as LiveInterview } from '@/features/interviews/pages/CandidateLiveInterview';
+import { Evaluation } from '@/components/pages/participant/Evaluation';
 
 // Error Views
-import { Forbidden } from '@/pages/errors/Forbidden';
-import { NotFound } from '@/pages/errors/NotFound';
+import { Forbidden } from '@/components/pages/errors/Forbidden';
+import { NotFound } from '@/components/pages/errors/NotFound';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
