@@ -48,6 +48,38 @@ const getGmailTransporter = () => {
   return transporter;
 };
 
+const sendViaResendApi = async ({ to, subject, html, text, fromAddress }) => {
+  const apiKey = (process.env.RESEND_API_KEY || "").trim();
+  if (!apiKey) return null;
+
+  const from =
+    fromAddress.includes("@") && !fromAddress.includes("gmail.com") && !fromAddress.includes("localhost")
+      ? fromAddress
+      : "SecureAssess <onboarding@resend.dev>";
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to: [to],
+      subject,
+      html: html || `<p>${text || subject}</p>`,
+      text: text || subject,
+    }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || JSON.stringify(data));
+  }
+
+  return { messageId: data.id };
+};
+
 const sendViaMailjetApi = async ({ to, subject, html, text, fromAddress }) => {
   const apiKey = (process.env.MJ_APIKEY_PUBLIC || process.env.MAILJET_API_KEY || "").trim();
   const secretKey = (process.env.MJ_APIKEY_PRIVATE || process.env.MAILJET_SECRET_KEY || "").trim();
@@ -95,7 +127,7 @@ const sendViaMailjetApi = async ({ to, subject, html, text, fromAddress }) => {
 
 export class EmailService {
   /**
-   * Core send live email method via Mailjet HTTPS API or Gmail SMTP
+   * Core send live email method via Resend HTTPS API, Mailjet, or Gmail SMTP
    */
   static async sendEmail({ to, subject, html, text }) {
     try {
@@ -119,7 +151,24 @@ export class EmailService {
 
       const fromAddress = emailConfig.from || emailConfig.auth?.user || "noreply@secureassess.io";
 
-      // 1. Check for Mailjet HTTPS REST API (Port 443 - works on Render)
+      // 1. Check for Resend HTTPS REST API (Port 443 - works everywhere)
+      try {
+        const resendResult = await sendViaResendApi({ to, subject, html, text, fromAddress });
+        if (resendResult) {
+          logger.info(`[EmailService] Delivered via Resend HTTPS API to: ${to}, MessageId: ${resendResult.messageId}`);
+          return {
+            success: true,
+            messageId: resendResult.messageId,
+            to,
+            subject,
+            timestamp: new Date(),
+          };
+        }
+      } catch (resendErr) {
+        logger.warn(`[EmailService] Resend HTTPS API error: ${resendErr.message}. Falling back...`);
+      }
+
+      // 2. Check for Mailjet HTTPS REST API (Port 443)
       try {
         const mjResult = await sendViaMailjetApi({ to, subject, html, text, fromAddress });
         if (mjResult) {
@@ -136,7 +185,7 @@ export class EmailService {
         logger.warn(`[EmailService] Mailjet HTTPS API error: ${mjErr.message}. Falling back to Gmail SMTP...`);
       }
 
-      // 2. Fallback to Gmail SMTP
+      // 3. Fallback to Gmail SMTP
       const mailer = getGmailTransporter();
       logger.info(`[EmailService] Sending live email via Gmail SMTP to: ${to} | Subject: "${subject}"`);
 
