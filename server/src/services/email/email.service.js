@@ -37,19 +37,38 @@ const getTransporter = () => {
   const hasAuth = Boolean(user && pass);
 
   if (hasAuth && !isTestEnv) {
-    transporter = nodemailer.createTransport({
-      host: emailConfig.host || "smtp.gmail.com",
-      port: emailConfig.port || 587,
-      secure: emailConfig.port === 465,
-      auth: {
-        user: user,
-        pass: pass,
-      },
-      tls: {
-        rejectUnauthorized: false,
-      },
-    });
-    logger.info(`[EmailService] Nodemailer SMTP transporter initialized for user: ${user}`);
+    const isGmail =
+      (emailConfig.host && emailConfig.host.includes("gmail")) ||
+      (user && user.toLowerCase().endsWith("@gmail.com"));
+
+    if (isGmail) {
+      // Use direct Gmail service with SSL port 465 to bypass cloud firewall port 587 blocking
+      transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: user,
+          pass: pass,
+        },
+        tls: {
+          rejectUnauthorized: false,
+        },
+      });
+      logger.info(`[EmailService] Nodemailer initialized with Gmail service for: ${user}`);
+    } else {
+      transporter = nodemailer.createTransport({
+        host: emailConfig.host || "smtp.gmail.com",
+        port: emailConfig.port || 465,
+        secure: (emailConfig.port || 465) === 465,
+        auth: {
+          user: user,
+          pass: pass,
+        },
+        tls: {
+          rejectUnauthorized: false,
+        },
+      });
+      logger.info(`[EmailService] Nodemailer SMTP initialized for: ${user} on ${emailConfig.host}:${emailConfig.port || 465}`);
+    }
   } else {
     // Fallback stream transporter for test / non-SMTP environments
     transporter = nodemailer.createTransport({
