@@ -1,16 +1,10 @@
 import fs from "fs";
 import path from "path";
-import dns from "node:dns";
 import { fileURLToPath } from "url";
 import nodemailer from "nodemailer";
 import { emailConfig } from "../../config/email.js";
 import { logger } from "../../config/logger.js";
 import { ENV } from "../../config/env.js";
-
-// Ensure Node defaults to IPv4 first to prevent ENETUNREACH on dual-stack networks
-if (dns.setDefaultResultOrder) {
-  dns.setDefaultResultOrder("ipv4first");
-}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,8 +14,6 @@ let transporter = null;
 const isTestOrMockAddress = (to) => {
   if (!to || typeof to !== "string") return true;
   const lower = to.toLowerCase().trim();
-  
-  // Only skip explicitly simulated test domains (never skip real domains like gmail, outlook, etc.)
   const testPatterns = [
     /@example\.com$/,
     /@test\.com$/,
@@ -30,49 +22,10 @@ const isTestOrMockAddress = (to) => {
     /@mock\.local$/,
     /@test\.local$/,
   ];
-  
   return testPatterns.some((pattern) => pattern.test(lower));
 };
 
-const resolveIpv4Host = async (rawHost) => {
-  try {
-    const addresses = await dns.promises.resolve4(rawHost);
-    if (addresses && addresses.length > 0) {
-      return addresses[0];
-    }
-  } catch (err) {
-    logger.debug(`[EmailService] IPv4 DNS lookup fallback for ${rawHost}: ${err.message}`);
-  }
-  return rawHost;
-};
-
-const createSmtpTransporter = async (port = 465, secure = true) => {
-  const user = (emailConfig.auth?.user || "").trim();
-  const pass = (emailConfig.auth?.pass || "").toString().replace(/\s+/g, "");
-  const baseHost = emailConfig.host || "smtp.gmail.com";
-  const isGmail =
-    baseHost.includes("gmail") ||
-    (user && user.toLowerCase().endsWith("@gmail.com"));
-  const hostname = isGmail ? "smtp.gmail.com" : baseHost;
-
-  const targetIp = await resolveIpv4Host(hostname);
-
-  return nodemailer.createTransport({
-    host: targetIp,
-    port,
-    secure,
-    auth: { user, pass },
-    tls: {
-      servername: hostname,
-      rejectUnauthorized: false,
-    },
-    connectionTimeout: 6000,
-    greetingTimeout: 6000,
-    socketTimeout: 8000,
-  });
-};
-
-const getTransporter = async () => {
+const getGmailTransporter = () => {
   if (transporter) return transporter;
 
   const isTestEnv = ENV.NODE_ENV === "test" || process.env.DISABLE_EMAIL_DISPATCH === "true";
@@ -81,8 +34,12 @@ const getTransporter = async () => {
   const hasAuth = Boolean(user && pass);
 
   if (hasAuth && !isTestEnv) {
-    transporter = await createSmtpTransporter(465, true);
-    logger.info(`[EmailService] Nodemailer SMTP SSL direct IPv4 initialized for: ${user}`);
+    transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: { user, pass },
+      tls: { rejectUnauthorized: false },
+    });
+    logger.info(`[EmailService] Nodemailer Gmail SMTP service initialized for: ${user}`);
   } else {
     transporter = nodemailer.createTransport({ jsonTransport: true });
     logger.warn(`[EmailService] Using JSON/Mock transport (testEnv: ${isTestEnv}, hasAuth: ${hasAuth}).`);
@@ -91,58 +48,54 @@ const getTransporter = async () => {
   return transporter;
 };
 
-const sendViaHttpApi = async ({ to, subject, html, text, fromAddress }) => {
-  const resendKey = process.env.RESEND_API_KEY;
-  const sendgridKey = process.env.SENDGRID_API_KEY;
-  const brevoKey = process.env.BREVO_API_KEY;
+const sendViaMailjetApi = async ({ to, subject, html, text, fromAddress }) => {
+  const apiKey = (process.env.MJ_APIKEY_PUBLIC || process.env.MAILJET_API_KEY || "").trim();
+  const secretKey = (process.env.MJ_APIKEY_PRIVATE || process.env.MAILJET_SECRET_KEY || "").trim();
 
-  if (resendKey) {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${resendKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: fromAddress.includes("@") && !fromAddress.includes("gmail.com") ? fromAddress : "SecureAssess <onboarding@resend.dev>",
-        to: [to],
-        subject,
-        html: html || `<p>${text || subject}</p>`,
-        text: text || subject,
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message || "Resend dispatch failed");
-    return { messageId: data.id };
+  if (!apiKey || !secretKey) return null;
+
+  const authHeader = "Basic " + Buffer.from(`${apiKey}:${secretKey}`).toString("base64");
+  const senderEmail = fromAddress.includes("@") ? fromAddress : "Saylanibootcamp.lms@gmail.com";
+
+  const res = await fetch("https://api.mailjet.com/v3.1/send", {
+    method: "POST",
+    headers: {
+      Authorization: authHeader,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      Messages: [
+        {
+          From: {
+            Email: senderEmail,
+            Name: "SecureAssess Platform",
+          },
+          To: [
+            {
+              Email: to,
+              Name: to.split("@")[0] || "Candidate",
+            },
+          ],
+          Subject: subject,
+          TextPart: text || subject,
+          HTMLPart: html || `<p>${text || subject}</p>`,
+        },
+      ],
+    }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.ErrorMessage || JSON.stringify(data));
   }
 
-  if (sendgridKey) {
-    const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${sendgridKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        personalizations: [{ to: [{ email: to }] }],
-        from: { email: fromAddress.includes("@") ? fromAddress : "notifications@secureassess.io" },
-        subject,
-        content: [{ type: "text/html", value: html || `<p>${text || subject}</p>` }],
-      }),
-    });
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`SendGrid dispatch failed: ${errText}`);
-    }
-    return { messageId: `sg-${Date.now()}` };
-  }
-
-  return null;
+  const messageId = data.Messages?.[0]?.To?.[0]?.MessageID || `mj-${Date.now()}`;
+  return { messageId };
 };
 
 export class EmailService {
   /**
-   * Core send email method with Nodemailer & HTTP REST API fallback
+   * Core send live email method via Mailjet HTTPS API or Gmail SMTP
    */
   static async sendEmail({ to, subject, html, text }) {
     try {
@@ -166,26 +119,26 @@ export class EmailService {
 
       const fromAddress = emailConfig.from || emailConfig.auth?.user || "noreply@secureassess.io";
 
-      // 1. Check for transactional HTTP API (Resend, SendGrid) over HTTPS 443
+      // 1. Check for Mailjet HTTPS REST API (Port 443 - works on Render)
       try {
-        const httpResult = await sendViaHttpApi({ to, subject, html, text, fromAddress });
-        if (httpResult) {
-          logger.info(`[EmailService] Delivered via HTTPS REST API to: ${to}, MessageId: ${httpResult.messageId}`);
+        const mjResult = await sendViaMailjetApi({ to, subject, html, text, fromAddress });
+        if (mjResult) {
+          logger.info(`[EmailService] Delivered via Mailjet HTTPS API to: ${to}, MessageId: ${mjResult.messageId}`);
           return {
             success: true,
-            messageId: httpResult.messageId,
+            messageId: mjResult.messageId,
             to,
             subject,
             timestamp: new Date(),
           };
         }
-      } catch (httpErr) {
-        logger.warn(`[EmailService] HTTP email API encountered: ${httpErr.message}. Falling back to SMTP...`);
+      } catch (mjErr) {
+        logger.warn(`[EmailService] Mailjet HTTPS API error: ${mjErr.message}. Falling back to Gmail SMTP...`);
       }
 
-      // 2. Direct SMTP dispatch
-      const mailer = await getTransporter();
-      logger.info(`[EmailService] Sending live email via direct SMTP to: ${to} | Subject: "${subject}"`);
+      // 2. Fallback to Gmail SMTP
+      const mailer = getGmailTransporter();
+      logger.info(`[EmailService] Sending live email via Gmail SMTP to: ${to} | Subject: "${subject}"`);
 
       const mailOptions = {
         from: `"SecureAssess Platform" <${fromAddress}>`,
@@ -195,27 +148,8 @@ export class EmailService {
         text: text || subject,
       };
 
-      let info;
-      try {
-        info = await mailer.sendMail(mailOptions);
-      } catch (firstErr) {
-        logger.warn(`[EmailService] Initial dispatch encountered: ${firstErr.message}. Retrying over Port 587 IPv4...`);
-        try {
-          const fallbackMailer = await createSmtpTransporter(587, false);
-          info = await fallbackMailer.sendMail(mailOptions);
-        } catch (secondErr) {
-          logger.warn(`[EmailService] SMTP direct egress blocked on hosting network (${secondErr.message}). Entry link is preserved and accessible via UI.`);
-          return {
-            success: false,
-            error: secondErr.message,
-            to,
-            subject,
-            notice: "Outbound SMTP port blocked by hosting firewall. Access link via Dashboard.",
-          };
-        }
-      }
-
-      logger.info(`[EmailService] Email successfully delivered to: ${to}, MessageId: ${info.messageId}`);
+      const info = await mailer.sendMail(mailOptions);
+      logger.info(`[EmailService] Email successfully delivered via Gmail to: ${to}, MessageId: ${info.messageId}`);
 
       return {
         success: true,
@@ -225,7 +159,7 @@ export class EmailService {
         timestamp: new Date(),
       };
     } catch (err) {
-      logger.error(`[EmailService] Error sending email to ${to}: ${err.message}`);
+      logger.error(`[EmailService] Error sending email via Gmail to ${to}: ${err.message}`);
       return {
         success: false,
         error: err.message,
