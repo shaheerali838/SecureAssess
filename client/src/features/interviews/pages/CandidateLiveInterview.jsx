@@ -275,6 +275,21 @@ export function CandidateLiveInterview({ onNavigate }) {
       socket.emit('interview:join', { interviewId: currentInterviewId });
     });
 
+    socket.on('room:peers', ({ peers, hasHost }) => {
+      const hostFound = hasHost || peers?.some((p) => p.role !== 'CANDIDATE');
+      if (hostFound) {
+        setIsWaitingForHost(false);
+        hasEverAdmittedRef.current = true;
+        socket.emit('interview:candidate-ready', { interviewId: currentInterviewId });
+      }
+    });
+
+    socket.on('interview:host-joined', () => {
+      setIsWaitingForHost(false);
+      hasEverAdmittedRef.current = true;
+      socket.emit('interview:candidate-ready', { interviewId: currentInterviewId });
+    });
+
     socket.on('interview:admitted', () => {
       setIsWaitingForHost(false);
       hasEverAdmittedRef.current = true;

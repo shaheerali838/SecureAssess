@@ -11,29 +11,35 @@ export function LiveInterview({ onNavigate }) {
   const params = useParams();
   const location = useLocation();
 
-  const pathToken = params?.token || window.location.pathname.split('/interview/entry/')[1]?.split('?')[0] || '';
+  const searchParams = new URLSearchParams(location?.search || window.location.search || '');
+  const roleParam = searchParams.get('role');
+  const purposeParam = searchParams.get('purpose');
   const pathname = window.location.pathname || '';
   const storedUser = JSON.parse(localStorage.getItem('secureassess_user') || '{}');
 
-  const isCandidate = Boolean(
-    pathToken ||
-    pathname.startsWith('/interview/entry') ||
-    pathname.startsWith('/candidate') ||
-    storedUser?.role === 'CANDIDATE' ||
-    storedUser?.isGuest === true ||
-    (!pathname.startsWith('/organization') &&
-      storedUser?.role !== 'ORGANIZATION_ADMIN' &&
-      storedUser?.role !== 'EXAMINER' &&
-      storedUser?.role !== 'RECRUITER' &&
-      storedUser?.platformRole !== 'PLATFORM_OWNER' &&
-      storedUser?.platformRole !== 'PLATFORM_ADMIN')
+  // Check if current user is an Examiner / Org Admin / Platform Owner / Host
+  const isHostAdmin = Boolean(
+    roleParam === 'examiner' ||
+    roleParam === 'host' ||
+    roleParam === 'admin' ||
+    purposeParam === 'examiner' ||
+    purposeParam === 'host' ||
+    pathname.startsWith('/organization') ||
+    storedUser?.role === 'ORGANIZATION_ADMIN' ||
+    storedUser?.role === 'EXAMINER' ||
+    storedUser?.role === 'RECRUITER' ||
+    storedUser?.role === 'ADMIN' ||
+    storedUser?.platformRole === 'PLATFORM_OWNER' ||
+    storedUser?.platformRole === 'PLATFORM_ADMIN'
   );
 
-  if (isCandidate) {
-    return <CandidateLiveInterview onNavigate={onNavigate} />;
+  // If host/admin, ALWAYS route to Examiner Evaluation Cockpit
+  if (isHostAdmin) {
+    return <ExaminerLiveInterview onNavigate={onNavigate} />;
   }
 
-  return <ExaminerLiveInterview onNavigate={onNavigate} />;
+  // Otherwise, route candidate to Candidate Live Interview
+  return <CandidateLiveInterview onNavigate={onNavigate} />;
 }
 
 export { CandidateLiveInterview } from './CandidateLiveInterview';
