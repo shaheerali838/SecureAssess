@@ -32,7 +32,7 @@ const getTransporter = () => {
   if (transporter) return transporter;
 
   const isTestEnv = ENV.NODE_ENV === "test" || process.env.DISABLE_EMAIL_DISPATCH === "true";
-  const user = emailConfig.auth?.user?.trim();
+  const user = (emailConfig.auth?.user || "").trim();
   const pass = (emailConfig.auth?.pass || "").toString().replace(/\s+/g, "");
   const hasAuth = Boolean(user && pass);
 
@@ -41,34 +41,22 @@ const getTransporter = () => {
       (emailConfig.host && emailConfig.host.includes("gmail")) ||
       (user && user.toLowerCase().endsWith("@gmail.com"));
 
-    if (isGmail) {
-      // Use direct Gmail service with SSL port 465 to bypass cloud firewall port 587 blocking
-      transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-          user: user,
-          pass: pass,
-        },
-        tls: {
-          rejectUnauthorized: false,
-        },
-      });
-      logger.info(`[EmailService] Nodemailer initialized with Gmail service for: ${user}`);
-    } else {
-      transporter = nodemailer.createTransport({
-        host: emailConfig.host || "smtp.gmail.com",
-        port: emailConfig.port || 465,
-        secure: (emailConfig.port || 465) === 465,
-        auth: {
-          user: user,
-          pass: pass,
-        },
-        tls: {
-          rejectUnauthorized: false,
-        },
-      });
-      logger.info(`[EmailService] Nodemailer SMTP initialized for: ${user} on ${emailConfig.host}:${emailConfig.port || 465}`);
-    }
+    transporter = nodemailer.createTransport({
+      host: isGmail ? "smtp.gmail.com" : (emailConfig.host || "smtp.gmail.com"),
+      port: 465,
+      secure: true,
+      auth: {
+        user: user,
+        pass: pass,
+      },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
+      tls: {
+        rejectUnauthorized: false,
+      },
+    });
+    logger.info(`[EmailService] Nodemailer SMTP SSL initialized for: ${user}`);
   } else {
     // Fallback stream transporter for test / non-SMTP environments
     transporter = nodemailer.createTransport({

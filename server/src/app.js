@@ -61,6 +61,22 @@ app.get("/health/live", (req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+app.get("/health/test-email", async (req, res) => {
+  const target = req.query.to || "theunknown838838@gmail.com";
+  try {
+    const { EmailService } = await import("./services/email/email.service.js");
+    const result = await EmailService.sendEmail({
+      to: target,
+      subject: "SecureAssess Direct Test Diagnostic",
+      text: `Test email diagnostic sent at ${new Date().toISOString()}`,
+      html: `<h3>SecureAssess SMTP Diagnostic</h3><p>Live email successfully dispatched to ${target}.</p>`,
+    });
+    return res.status(result.success ? 200 : 500).json(result);
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
 app.get("/favicon.ico", (req, res) => res.status(204).end());
 app.get(
   ["/health/plan", "/health/plans", "/api/health/plan", "/api/health/plans"],
