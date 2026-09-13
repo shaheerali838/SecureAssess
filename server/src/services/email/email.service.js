@@ -41,6 +41,9 @@ const getSmtpTransporter = () => {
         service: "gmail",
         auth: { user, pass },
         tls: { rejectUnauthorized: false },
+        connectionTimeout: 5000,
+        greetingTimeout: 5000,
+        socketTimeout: 7000,
       });
       logger.info(`[EmailService] Nodemailer Gmail SMTP initialized for: ${user}`);
     } else {
@@ -50,6 +53,9 @@ const getSmtpTransporter = () => {
         secure: emailConfig.port === 465,
         auth: { user, pass },
         tls: { rejectUnauthorized: false },
+        connectionTimeout: 5000,
+        greetingTimeout: 5000,
+        socketTimeout: 7000,
       });
       logger.info(`[EmailService] Nodemailer SMTP relay initialized for host: ${host}, user: ${user}`);
     }
