@@ -13,20 +13,16 @@ let transporter = null;
 
 const isTestOrMockAddress = (to) => {
   if (!to || typeof to !== "string") return true;
-  const lower = to.toLowerCase();
+  const lower = to.toLowerCase().trim();
   
-  // Dummy / test pattern matchers
+  // Only skip explicitly simulated test domains (never skip real domains like gmail, outlook, etc.)
   const testPatterns = [
     /@example\.com$/,
     /@test\.com$/,
     /@mock\.com$/,
     /@invalid\.com$/,
-    /^testowner_/,
-    /^examiner_/,
-    /^candidate_/,
-    /^student_/,
-    /^dummy_/,
-    /^mock_/,
+    /@mock\.local$/,
+    /@test\.local$/,
   ];
   
   return testPatterns.some((pattern) => pattern.test(lower));
@@ -36,22 +32,24 @@ const getTransporter = () => {
   if (transporter) return transporter;
 
   const isTestEnv = ENV.NODE_ENV === "test" || process.env.DISABLE_EMAIL_DISPATCH === "true";
-  const hasAuth = Boolean(emailConfig.auth?.user && emailConfig.auth?.pass);
+  const user = emailConfig.auth?.user?.trim();
+  const pass = (emailConfig.auth?.pass || "").toString().replace(/\s+/g, "");
+  const hasAuth = Boolean(user && pass);
 
   if (hasAuth && !isTestEnv) {
     transporter = nodemailer.createTransport({
       host: emailConfig.host || "smtp.gmail.com",
       port: emailConfig.port || 587,
-      secure: emailConfig.secure || false,
+      secure: emailConfig.port === 465,
       auth: {
-        user: emailConfig.auth.user,
-        pass: emailConfig.auth.pass,
+        user: user,
+        pass: pass,
       },
       tls: {
         rejectUnauthorized: false,
       },
     });
-    logger.info(`[EmailService] Nodemailer SMTP transporter initialized for user: ${emailConfig.auth.user}`);
+    logger.info(`[EmailService] Nodemailer SMTP transporter initialized for user: ${user}`);
   } else {
     // Fallback stream transporter for test / non-SMTP environments
     transporter = nodemailer.createTransport({
