@@ -71,7 +71,16 @@ const sendViaBrevoApi = async ({ to, subject, html, text, fromAddress }) => {
   const apiKey = (process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY || "").trim();
   if (!apiKey) return null;
 
-  const senderEmail = (emailConfig.auth?.user || fromAddress || "shaheer838838@gmail.com").trim();
+  const rawSender = (
+    process.env.BREVO_SENDER_EMAIL ||
+    process.env.EMAIL_FROM ||
+    fromAddress ||
+    emailConfig.auth?.user ||
+    "shaheer838838@gmail.com"
+  ).trim();
+
+  // Ensure Brevo SMTP login string (e.g. b37c4b001@smtp-brevo.com) is never sent as the 'From' email
+  const senderEmail = rawSender.includes("@smtp-brevo.com") ? "shaheer838838@gmail.com" : rawSender;
 
   const res = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
