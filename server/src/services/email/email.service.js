@@ -55,9 +55,9 @@ const createSmtpTransporter = (port = 465, secure = true) => {
     auth: { user, pass },
     family: 4,
     lookup: ipv4Lookup,
-    connectionTimeout: 8000,
-    greetingTimeout: 8000,
-    socketTimeout: 10000,
+    connectionTimeout: 4000,
+    greetingTimeout: 4000,
+    socketTimeout: 5000,
     tls: { rejectUnauthorized: false },
   });
 };
@@ -123,8 +123,19 @@ export class EmailService {
         info = await mailer.sendMail(mailOptions);
       } catch (firstErr) {
         logger.warn(`[EmailService] Initial dispatch encountered: ${firstErr.message}. Retrying over Port 587 IPv4...`);
-        const fallbackMailer = createSmtpTransporter(587, false);
-        info = await fallbackMailer.sendMail(mailOptions);
+        try {
+          const fallbackMailer = createSmtpTransporter(587, false);
+          info = await fallbackMailer.sendMail(mailOptions);
+        } catch (secondErr) {
+          logger.warn(`[EmailService] SMTP direct egress blocked on hosting network (${secondErr.message}). Entry link is preserved and accessible via UI.`);
+          return {
+            success: false,
+            error: secondErr.message,
+            to,
+            subject,
+            notice: "Outbound SMTP port blocked by hosting firewall. Access link via Dashboard.",
+          };
+        }
       }
 
       logger.info(`[EmailService] Email successfully delivered to: ${to}, MessageId: ${info.messageId}`);
