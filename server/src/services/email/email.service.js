@@ -49,14 +49,15 @@ const getTransporter = () => {
         user: user,
         pass: pass,
       },
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-      socketTimeout: 15000,
+      family: 4, // Explicitly force IPv4 to prevent ENETUNREACH on Render/cloud instances
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 20000,
       tls: {
         rejectUnauthorized: false,
       },
     });
-    logger.info(`[EmailService] Nodemailer SMTP SSL initialized for: ${user}`);
+    logger.info(`[EmailService] Nodemailer SMTP SSL IPv4 initialized for: ${user}`);
   } else {
     // Fallback stream transporter for test / non-SMTP environments
     transporter = nodemailer.createTransport({

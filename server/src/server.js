@@ -1,3 +1,4 @@
+import dns from "node:dns";
 import http from "http";
 import { Server as SocketIOServer } from "socket.io";
 import app from "./app.js";
@@ -6,6 +7,11 @@ import { ENV } from "./config/env.js";
 import { corsOptions } from "./config/cors.js";
 import { logger } from "./config/logger.js";
 import { attachInterviewSignaling } from "./modules/interviews/index.js";
+
+// Ensure Node defaults to IPv4 on cloud hosts (e.g. Render) without IPv6 routing
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder("ipv4first");
+}
 
 const server = http.createServer(app);
 
