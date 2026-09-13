@@ -4,7 +4,7 @@ import { io } from 'socket.io-client';
 import {
   Shield, Mic, MicOff, Video, VideoOff, ScreenShare, MessageSquare,
   Users, PhoneOff, Volume2, VolumeX, Send, Plus, StickyNote, Star,
-  Clock, Monitor, Award, X, CheckCircle, CheckCircle2, ArrowRight, FileText, BarChart3, Radio
+  Clock, Monitor, Award, X, CheckCircle, CheckCircle2, ArrowRight, FileText, BarChart3, Radio, FlipHorizontal
 } from 'lucide-react';
 import { Button, Avatar, ConfirmModal } from '@/components/ui';
 import interviewService from '@/services/interview.service';
@@ -123,6 +123,7 @@ export function ExaminerLiveInterview({ onNavigate }) {
     },
   ]);
   const [chatInput, setChatInput] = useState('');
+  const [isMirrored, setIsMirrored] = useState(false);
 
   // Refs
   const localVideoRef = useRef(null);
@@ -1261,7 +1262,8 @@ export function ExaminerLiveInterview({ onNavigate }) {
                   autoPlay
                   playsInline
                   muted
-                  className={`w-full h-full object-cover mirror ${camOn ? 'block' : 'hidden'}`}
+                  style={{ transform: isMirrored ? 'scaleX(-1)' : 'scaleX(1)', transition: 'transform 0.2s ease-in-out' }}
+                  className={`w-full h-full object-cover ${camOn ? 'block' : 'hidden'}`}
                 />
                 {!camOn && (
                   <div className="text-center p-6">
@@ -1278,6 +1280,17 @@ export function ExaminerLiveInterview({ onNavigate }) {
                     You ({examinerName} - Examiner)
                   </span>
                 </div>
+
+                {/* Quick Flip Camera Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsMirrored(!isMirrored)}
+                  title={isMirrored ? "Unmirror Camera (Natural View)" : "Mirror Camera"}
+                  className="absolute top-4 right-4 px-2.5 py-1 rounded-md bg-accent-950/80 hover:bg-accent-800/90 backdrop-blur-md text-[11px] font-medium text-white flex items-center gap-1.5 transition-all border border-accent-700/50 cursor-pointer shadow-md"
+                >
+                  <FlipHorizontal size={13} className={isMirrored ? "text-primary-400" : "text-accent-300"} />
+                  <span>{isMirrored ? "Mirrored" : "Natural View"}</span>
+                </button>
               </div>
 
               <div className="px-4 py-2.5 bg-accent-950/90 border-t border-accent-800 flex items-center justify-between">

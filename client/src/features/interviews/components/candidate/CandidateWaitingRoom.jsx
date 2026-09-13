@@ -1,5 +1,5 @@
-import React from 'react';
-import { Shield, Radio, Video, VideoOff, Mic, MicOff, Clock, Sparkles } from 'lucide-react';
+import React, { useState } from 'react';
+import { Shield, Radio, Video, VideoOff, Mic, MicOff, Clock, Sparkles, FlipHorizontal } from 'lucide-react';
 
 export const CandidateWaitingRoom = ({
   interviewTitle,
@@ -12,6 +12,8 @@ export const CandidateWaitingRoom = ({
   toggleCamera,
   toggleMicrophone,
 }) => {
+  const [isMirrored, setIsMirrored] = useState(false);
+
   return (
     <div className="min-h-screen bg-accent-950 flex flex-col justify-between text-white select-none">
       <header className="bg-accent-900 border-b border-accent-800 px-6 h-16 flex items-center justify-between z-20">
@@ -50,7 +52,8 @@ export const CandidateWaitingRoom = ({
                   autoPlay
                   playsInline
                   muted
-                  className={`w-full h-full object-cover mirror ${camOn ? 'block' : 'hidden'}`}
+                  style={{ transform: isMirrored ? 'scaleX(-1)' : 'scaleX(1)', transition: 'transform 0.2s ease-in-out' }}
+                  className={`w-full h-full object-cover ${camOn ? 'block' : 'hidden'}`}
                 />
                 {!camOn && (
                   <div className="text-center p-4">
@@ -61,6 +64,17 @@ export const CandidateWaitingRoom = ({
                 <div className="absolute bottom-3 left-3 px-2 py-1 rounded-md bg-accent-900/80 backdrop-blur-md text-[11px] font-medium text-white flex items-center gap-1">
                   <Shield size={12} className="text-emerald-400" /> Identity Verified
                 </div>
+
+                {/* Quick Flip Camera Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsMirrored(!isMirrored)}
+                  title={isMirrored ? "Unmirror Camera (Natural View)" : "Mirror Camera"}
+                  className="absolute top-3 right-3 px-2.5 py-1 rounded-md bg-accent-900/80 hover:bg-accent-800 backdrop-blur-md text-[11px] font-medium text-white flex items-center gap-1.5 transition-all border border-accent-700/50 cursor-pointer shadow-md"
+                >
+                  <FlipHorizontal size={13} className={isMirrored ? "text-primary-400" : "text-accent-300"} />
+                  <span>{isMirrored ? "Mirrored" : "Natural View"}</span>
+                </button>
               </div>
             </div>
 
