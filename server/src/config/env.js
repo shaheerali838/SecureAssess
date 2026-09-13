@@ -45,18 +45,18 @@ export const ENV = Object.freeze({
 
   // Email Service
   SMTP_HOST: process.env.SMTP_HOST || "smtp.gmail.com",
-  SMTP_PORT: parseInt(process.env.SMTP_PORT || "587", 10),
-  SMTP_USER: process.env.SMTP_USER || "shaheer838838@gmail.com",
+  SMTP_PORT: parseInt(process.env.SMTP_PORT || "465", 10),
+  SMTP_USER: process.env.SMTP_USER || "",
   SMTP_PASS: process.env.SMTP_PASS || process.env.SMTP_PASSWORD || "",
-  EMAIL_FROM: process.env.EMAIL_FROM || "[EMAIL_ADDRESS]",
+  EMAIL_FROM: process.env.EMAIL_FROM || process.env.SMTP_USER || "noreply@secureassess.io",
 
-  // Initial Platform Owner Admin Configuration
+  // Initial Platform Owner Admin Configuration (Environment driven)
   ADMIN_FIRST_NAME: process.env.ADMIN_FIRST_NAME || "Platform",
   ADMIN_LAST_NAME: process.env.ADMIN_LAST_NAME || "Owner",
-  ADMIN_EMAIL: process.env.ADMIN_EMAIL || "owner@secureassess.com",
-  ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || "Admin@123",
+  ADMIN_EMAIL: process.env.ADMIN_EMAIL || "",
+  ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || "",
   ADMIN_PHONE: process.env.ADMIN_PHONE || "",
 
   // Redis Cache
-  REDIS_URL: process.env.REDIS_URL || "redis://localhost:6379",
+  REDIS_URL: process.env.REDIS_URL || "",
 });

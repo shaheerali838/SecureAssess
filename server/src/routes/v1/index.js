@@ -26,6 +26,7 @@ import subjectsRoutes from "../../modules/subjects/index.js";
 import candidateGroupsRoutes from "../../modules/candidateGroups/index.js";
 import rubricsRoutes from "../../modules/rubrics/index.js";
 import { verifyPublicCertificate } from "../../modules/certificates/certificate.controller.js";
+import { authRateLimiter } from "../../middleware/rateLimit.middleware.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 
 const router = express.Router();
@@ -88,7 +89,7 @@ router.get("/certificates/verify/:verificationCode", verifyPublicCertificate);
 
 // Core API v1 routes
 router.use("/platform", platformRoutes);
-router.use("/auth", authRoutes);
+router.use("/auth", authRateLimiter, authRoutes);
 router.use("/users", usersRoutes);
 router.use("/assessments", assessmentsRoutes);
 router.use("/attempts", attemptsRoutes);

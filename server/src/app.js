@@ -2,8 +2,9 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import { corsOptions } from "./config/cors.js";
-import { securityHeaders } from "./middleware/security.middleware.js";
-import { rateLimiter } from "./middleware/rateLimit.middleware.js";
+import { securityHeaders, hppProtection } from "./middleware/security.middleware.js";
+import { mongoSanitize } from "./middleware/mongoSanitize.middleware.js";
+import { apiRateLimiter } from "./middleware/rateLimit.middleware.js";
 import { tenantMiddleware } from "./middleware/tenant.middleware.js";
 import { requestIdMiddleware } from "./middleware/requestId.middleware.js";
 import { notFoundHandler } from "./middleware/notFound.middleware.js";
@@ -13,10 +14,13 @@ import rootRoutes from "./routes/index.js";
 
 const app = express();
 
-// Trust reverse proxies (Vercel / Cloudflare / Load Balancers)
+// Disable information disclosure headers
+app.disable("x-powered-by");
+
+// Trust reverse proxies (Vercel / Cloudflare / Render)
 app.set("trust proxy", 1);
 
-// Automatic DB connection with caching for serverless environments
+// Automatic DB connection with caching for serverless/cloud environments
 app.use(async (req, res, next) => {
   try {
     await connectDatabase();
@@ -26,13 +30,15 @@ app.use(async (req, res, next) => {
   }
 });
 
-// Global Middlewares
+// Global Security Suite & Request Processing Middlewares
 app.use(requestIdMiddleware);
 app.use(securityHeaders);
 app.use(cors(corsOptions));
-app.use(express.json({ limit: "16kb" }));
-app.use(express.urlencoded({ extended: true, limit: "16kb" }));
-app.use(rateLimiter({ windowMs: 60 * 1000, max: 200 }));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(hppProtection);
+app.use(mongoSanitize);
+app.use("/api", apiRateLimiter);
 app.use(tenantMiddleware);
 
 // Static uploads folder
