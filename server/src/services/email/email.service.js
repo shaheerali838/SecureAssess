@@ -34,35 +34,45 @@ const isTestOrMockAddress = (to) => {
   return testPatterns.some((pattern) => pattern.test(lower));
 };
 
-const ipv4Lookup = (hostname, options, callback) => {
-  return dns.lookup(hostname, { family: 4, all: false }, (err, address, family) => {
-    if (err) return callback(err);
-    callback(null, address, 4);
-  });
+const resolveIpv4Host = async (rawHost) => {
+  try {
+    const addresses = await dns.promises.resolve4(rawHost);
+    if (addresses && addresses.length > 0) {
+      return addresses[0];
+    }
+  } catch (err) {
+    logger.debug(`[EmailService] IPv4 DNS lookup fallback for ${rawHost}: ${err.message}`);
+  }
+  return rawHost;
 };
 
-const createSmtpTransporter = (port = 465, secure = true) => {
+const createSmtpTransporter = async (port = 465, secure = true) => {
   const user = (emailConfig.auth?.user || "").trim();
   const pass = (emailConfig.auth?.pass || "").toString().replace(/\s+/g, "");
+  const baseHost = emailConfig.host || "smtp.gmail.com";
   const isGmail =
-    (emailConfig.host && emailConfig.host.includes("gmail")) ||
+    baseHost.includes("gmail") ||
     (user && user.toLowerCase().endsWith("@gmail.com"));
+  const hostname = isGmail ? "smtp.gmail.com" : baseHost;
+
+  const targetIp = await resolveIpv4Host(hostname);
 
   return nodemailer.createTransport({
-    host: isGmail ? "smtp.gmail.com" : (emailConfig.host || "smtp.gmail.com"),
+    host: targetIp,
     port,
     secure,
     auth: { user, pass },
-    family: 4,
-    lookup: ipv4Lookup,
-    connectionTimeout: 4000,
-    greetingTimeout: 4000,
-    socketTimeout: 5000,
-    tls: { rejectUnauthorized: false },
+    tls: {
+      servername: hostname,
+      rejectUnauthorized: false,
+    },
+    connectionTimeout: 6000,
+    greetingTimeout: 6000,
+    socketTimeout: 8000,
   });
 };
 
-const getTransporter = () => {
+const getTransporter = async () => {
   if (transporter) return transporter;
 
   const isTestEnv = ENV.NODE_ENV === "test" || process.env.DISABLE_EMAIL_DISPATCH === "true";
@@ -71,8 +81,8 @@ const getTransporter = () => {
   const hasAuth = Boolean(user && pass);
 
   if (hasAuth && !isTestEnv) {
-    transporter = createSmtpTransporter(465, true);
-    logger.info(`[EmailService] Nodemailer SMTP SSL IPv4 initialized for: ${user}`);
+    transporter = await createSmtpTransporter(465, true);
+    logger.info(`[EmailService] Nodemailer SMTP SSL direct IPv4 initialized for: ${user}`);
   } else {
     transporter = nodemailer.createTransport({ jsonTransport: true });
     logger.warn(`[EmailService] Using JSON/Mock transport (testEnv: ${isTestEnv}, hasAuth: ${hasAuth}).`);
@@ -105,7 +115,7 @@ export class EmailService {
         };
       }
 
-      const mailer = getTransporter();
+      const mailer = await getTransporter();
       const fromAddress = emailConfig.from || emailConfig.auth?.user || "noreply@secureassess.io";
 
       logger.info(`[EmailService] Sending live email to: ${to} | Subject: "${subject}"`);
@@ -124,7 +134,7 @@ export class EmailService {
       } catch (firstErr) {
         logger.warn(`[EmailService] Initial dispatch encountered: ${firstErr.message}. Retrying over Port 587 IPv4...`);
         try {
-          const fallbackMailer = createSmtpTransporter(587, false);
+          const fallbackMailer = await createSmtpTransporter(587, false);
           info = await fallbackMailer.sendMail(mailOptions);
         } catch (secondErr) {
           logger.warn(`[EmailService] SMTP direct egress blocked on hosting network (${secondErr.message}). Entry link is preserved and accessible via UI.`);
