@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Interview from "../interview.model.js";
 import InterviewParticipant from "../interviewParticipant.model.js";
 import InterviewEvent from "../interviewEvent.model.js";
@@ -178,12 +179,34 @@ export class SignalingService {
    */
   static async recordAuditEvent(interviewId, organizationId, userId, type, data = {}) {
     try {
+      const validUserId =
+        userId && mongoose.Types.ObjectId.isValid(userId) && !String(userId).startsWith("guest_")
+          ? userId
+          : null;
+
+      let orgId =
+        organizationId && mongoose.Types.ObjectId.isValid(organizationId)
+          ? organizationId
+          : null;
+
+      if (!orgId && interviewId && mongoose.Types.ObjectId.isValid(interviewId)) {
+        try {
+          const iv = await Interview.findById(interviewId).select("organizationId").lean();
+          orgId = iv?.organizationId || null;
+        } catch (e) {}
+      }
+
+      const eventData = { ...data };
+      if (!validUserId && userId) {
+        eventData.guestUserId = String(userId);
+      }
+
       await InterviewEvent.create({
-        interviewId,
-        organizationId,
-        userId,
+        interviewId: mongoose.Types.ObjectId.isValid(interviewId) ? interviewId : null,
+        organizationId: orgId,
+        userId: validUserId,
         type,
-        data,
+        data: eventData,
       });
     } catch (err) {
       logger.warn(`[SignalingService] Failed to record audit event: ${err.message}`);

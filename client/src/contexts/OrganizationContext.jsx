@@ -13,10 +13,16 @@ export const OrganizationProvider = ({ children }) => {
 
   // Fetch memberships / organizations for authenticated user
   const fetchMemberships = useCallback(async () => {
-    if (!isAuthenticated) {
+    if (
+      !isAuthenticated ||
+      user?.role === 'CANDIDATE' ||
+      user?.isGuest ||
+      String(user?.id || user?._id || '').startsWith('guest_')
+    ) {
       setOrganizations([]);
       setCurrentOrganization(null);
       setCurrentMembership(null);
+      setIsLoading(false);
       return;
     }
 

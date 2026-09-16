@@ -72,7 +72,7 @@ export const logoutAll = asyncHandler(async (req, res) => {
  */
 export const getMe = asyncHandler(async (req, res) => {
   const userId = req.user?.id || req.user?._id;
-  const result = await AuthService.getMe(userId);
+  const result = await AuthService.getMe(userId, req.user);
   return res.status(200).json(new ApiResponse(200, result, "Current profile retrieved successfully"));
 });
 

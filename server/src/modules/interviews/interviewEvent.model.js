@@ -20,7 +20,7 @@ const interviewEventSchema = new mongoose.Schema(
     organizationId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Organization",
-      required: [true, "Organization ID is required"],
+      default: null,
       index: true,
     },
     userId: {

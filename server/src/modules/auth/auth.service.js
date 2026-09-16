@@ -215,7 +215,29 @@ export class AuthService {
   /**
    * Returns current authenticated user profile and memberships
    */
-  static async getMe(userId) {
+  static async getMe(userId, guestPayload = null) {
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId) || String(userId).startsWith("guest_") || guestPayload?.isGuest) {
+      if (guestPayload || (userId && String(userId).startsWith("guest_"))) {
+        const guestId = String(userId || guestPayload?._id || guestPayload?.id || "guest_user");
+        const guestName = guestPayload?.name || (guestPayload?.firstName ? `${guestPayload.firstName} ${guestPayload.lastName || ""}`.trim() : "Guest Candidate");
+        return {
+          user: {
+            id: guestId,
+            _id: guestId,
+            email: guestPayload?.email || "",
+            name: guestName,
+            firstName: guestPayload?.firstName || (guestName.split(" ")[0] || "Guest"),
+            lastName: guestPayload?.lastName || (guestName.split(" ").slice(1).join(" ") || "Candidate"),
+            role: "CANDIDATE",
+            isGuest: true,
+            status: "ACTIVE",
+          },
+          memberships: [],
+        };
+      }
+      throw new ApiError(404, "User not found");
+    }
+
     const user = await User.findById(userId);
     if (!user) {
       throw new ApiError(404, "User not found");

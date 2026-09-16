@@ -393,8 +393,21 @@ export class OrganizationService {
       user.platformRole === PLATFORM_ROLES.PLATFORM_ADMIN;
 
     if (!isPlatformStaff) {
+      const uId = user.id || user._id;
+      if (!uId || !mongoose.Types.ObjectId.isValid(uId) || String(uId).startsWith("guest_") || user.isGuest) {
+        return {
+          items: [],
+          pagination: {
+            page,
+            limit,
+            total: 0,
+            totalPages: 1,
+          },
+        };
+      }
+
       const userMemberships = await UserMembership.find({
-        userId: user.id || user._id,
+        userId: uId,
         status: MEMBERSHIP_STATUSES.ACTIVE,
       });
 
