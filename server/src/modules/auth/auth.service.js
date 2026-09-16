@@ -23,7 +23,13 @@ export class AuthService {
   /**
    * Authenticates user credentials, creates a session, and issues tokens
    */
-  static async login({ email, password, userAgent = "", ipAddress = "", device = "" }) {
+  static async login({
+    email,
+    password,
+    userAgent = "",
+    ipAddress = "",
+    device = "",
+  }) {
     const normalizedEmail = email.toLowerCase().trim();
     const user = await User.findOne({ email: normalizedEmail });
 
@@ -35,17 +41,23 @@ export class AuthService {
     if (user.status === USER_STATUSES.INVITED) {
       throw new ApiError(
         403,
-        "Account is pending activation. Please use the activation link sent to your email or reset your password below."
+        "Account is pending activation. Please use the activation link sent to your email or reset your password below.",
       );
     }
     if (user.status === USER_STATUSES.SUSPENDED) {
-      throw new ApiError(403, "Account is suspended. Please contact platform support.");
+      throw new ApiError(
+        403,
+        "Account is suspended. Please contact platform support.",
+      );
     }
     if (user.status === USER_STATUSES.DEACTIVATED) {
       throw new ApiError(403, "Account is deactivated.");
     }
     if (user.status !== USER_STATUSES.ACTIVE) {
-      throw new ApiError(403, `Account status is '${user.status}'. Access denied.`);
+      throw new ApiError(
+        403,
+        `Account status is '${user.status}'. Access denied.`,
+      );
     }
 
     // Verify password hash
@@ -53,7 +65,10 @@ export class AuthService {
     if (!isPasswordValid) {
       user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
       await user.save();
-      throw new ApiError(401, "Incorrect password. Please try again or reset your password.");
+      throw new ApiError(
+        401,
+        "Incorrect password. Please try again or reset your password.",
+      );
     }
 
     // Reset failed login attempts and update last login
@@ -136,12 +151,12 @@ export class AuthService {
               revokedAt: new Date(),
               revokeReason: "TOKEN_REUSE_DETECTED",
             },
-          }
+          },
         );
 
         throw new ApiError(
           401,
-          "Security alert: Token reuse detected. Session family has been revoked. Please log in again."
+          "Security alert: Token reuse detected. Session family has been revoked. Please log in again.",
         );
       }
 
@@ -196,7 +211,7 @@ export class AuthService {
     if (sessionId) {
       await Session.findOneAndUpdate(
         { _id: sessionId, userId },
-        { $set: { revokedAt: new Date(), revokeReason: "USER_LOGOUT" } }
+        { $set: { revokedAt: new Date(), revokeReason: "USER_LOGOUT" } },
       );
     }
     return { success: true, message: "Logged out successfully" };
@@ -208,27 +223,45 @@ export class AuthService {
   static async logoutAll(userId) {
     await Session.updateMany(
       { userId, revokedAt: null },
-      { $set: { revokedAt: new Date(), revokeReason: "USER_LOGOUT_ALL" } }
+      { $set: { revokedAt: new Date(), revokeReason: "USER_LOGOUT_ALL" } },
     );
-    return { success: true, message: "All sessions have been revoked successfully" };
+    return {
+      success: true,
+      message: "All sessions have been revoked successfully",
+    };
   }
 
   /**
    * Returns current authenticated user profile and memberships
    */
   static async getMe(userId, guestPayload = null) {
-    if (!userId || !mongoose.Types.ObjectId.isValid(userId) || String(userId).startsWith("guest_") || guestPayload?.isGuest) {
+    if (
+      !userId ||
+      !mongoose.Types.ObjectId.isValid(userId) ||
+      String(userId).startsWith("guest_") ||
+      guestPayload?.isGuest
+    ) {
       if (guestPayload || (userId && String(userId).startsWith("guest_"))) {
-        const guestId = String(userId || guestPayload?._id || guestPayload?.id || "guest_user");
-        const guestName = guestPayload?.name || (guestPayload?.firstName ? `${guestPayload.firstName} ${guestPayload.lastName || ""}`.trim() : "Guest Candidate");
+        const guestId = String(
+          userId || guestPayload?._id || guestPayload?.id || "guest_user",
+        );
+        const guestName =
+          guestPayload?.name ||
+          (guestPayload?.firstName
+            ? `${guestPayload.firstName} ${guestPayload.lastName || ""}`.trim()
+            : "Guest Candidate");
         return {
           user: {
             id: guestId,
             _id: guestId,
             email: guestPayload?.email || "",
             name: guestName,
-            firstName: guestPayload?.firstName || (guestName.split(" ")[0] || "Guest"),
-            lastName: guestPayload?.lastName || (guestName.split(" ").slice(1).join(" ") || "Candidate"),
+            firstName:
+              guestPayload?.firstName || guestName.split(" ")[0] || "Guest",
+            lastName:
+              guestPayload?.lastName ||
+              guestName.split(" ").slice(1).join(" ") ||
+              "Candidate",
             role: "CANDIDATE",
             isGuest: true,
             status: "ACTIVE",
@@ -280,10 +313,14 @@ export class AuthService {
     // Revoke all active sessions
     await Session.updateMany(
       { userId, revokedAt: null },
-      { $set: { revokedAt: new Date(), revokeReason: "PASSWORD_CHANGED" } }
+      { $set: { revokedAt: new Date(), revokeReason: "PASSWORD_CHANGED" } },
     );
 
-    return { success: true, message: "Password changed successfully. Please log in again with your new password." };
+    return {
+      success: true,
+      message:
+        "Password changed successfully. Please log in again with your new password.",
+    };
   }
 
   /**
@@ -300,18 +337,24 @@ export class AuthService {
     if (user.status === USER_STATUSES.INVITED) {
       throw new ApiError(
         400,
-        "Account has not been activated yet. Please use the activation link sent to your email to set your password."
+        "Account has not been activated yet. Please use the activation link sent to your email to set your password.",
       );
     }
 
-    if (user.status === USER_STATUSES.SUSPENDED || user.status === USER_STATUSES.DEACTIVATED) {
-      throw new ApiError(403, `Account is ${user.status.toLowerCase()}. Password reset is not permitted.`);
+    if (
+      user.status === USER_STATUSES.SUSPENDED ||
+      user.status === USER_STATUSES.DEACTIVATED
+    ) {
+      throw new ApiError(
+        403,
+        `Account is ${user.status.toLowerCase()}. Password reset is not permitted.`,
+      );
     }
 
     if (user.status !== USER_STATUSES.ACTIVE || !user.emailVerified) {
       throw new ApiError(
         400,
-        "Account is not verified. Password reset is not available."
+        "Account is not verified. Password reset is not available.",
       );
     }
 
@@ -331,13 +374,19 @@ export class AuthService {
         resetUrl,
       });
     } catch (err) {
-      console.warn(`[AuthService] Failed to send password reset email: ${err.message}`);
+      console.warn(
+        `[AuthService] Failed to send password reset email: ${err.message}`,
+      );
     }
 
     return {
       success: true,
       message: `Password reset link sent to ${normalizedEmail}. Please check your inbox.`,
-      resetToken: process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test" ? rawToken : undefined,
+      resetToken:
+        process.env.NODE_ENV === "development" ||
+        process.env.NODE_ENV === "test"
+          ? rawToken
+          : undefined,
     };
   }
 
@@ -350,7 +399,10 @@ export class AuthService {
       throw new ApiError(400, "Token and new password are required");
     }
     if (rawPass.length < 6) {
-      throw new ApiError(400, "New password must be at least 6 characters long");
+      throw new ApiError(
+        400,
+        "New password must be at least 6 characters long",
+      );
     }
 
     const cleanToken = String(token).trim();
@@ -367,37 +419,54 @@ export class AuthService {
 
     if (user) {
       const isExpired =
-        (user.passwordResetExpiresAt && user.passwordResetExpiresAt < new Date() && (user.passwordResetTokenHash === tokenHash || user.passwordResetTokenHash === cleanToken)) ||
-        (user.emailVerificationExpiresAt && user.emailVerificationExpiresAt < new Date() && (user.emailVerificationTokenHash === tokenHash || user.emailVerificationTokenHash === cleanToken));
+        (user.passwordResetExpiresAt &&
+          user.passwordResetExpiresAt < new Date() &&
+          (user.passwordResetTokenHash === tokenHash ||
+            user.passwordResetTokenHash === cleanToken)) ||
+        (user.emailVerificationExpiresAt &&
+          user.emailVerificationExpiresAt < new Date() &&
+          (user.emailVerificationTokenHash === tokenHash ||
+            user.emailVerificationTokenHash === cleanToken));
 
       if (isExpired) {
-        throw new ApiError(400, "This password reset link has expired. Please request a new link.");
+        throw new ApiError(
+          400,
+          "This password reset link has expired. Please request a new link.",
+        );
       }
     }
 
     let candidate = null;
     if (!user) {
       candidate = await Candidate.findOne({
-        $or: [
-          { invitationToken: cleanToken },
-          { invitationToken: tokenHash },
-        ],
+        $or: [{ invitationToken: cleanToken }, { invitationToken: tokenHash }],
       });
 
       if (candidate) {
-        if (candidate.invitationExpiresAt && candidate.invitationExpiresAt < new Date()) {
-          throw new ApiError(400, "This invitation link has expired. Please contact your administrator.");
+        if (
+          candidate.invitationExpiresAt &&
+          candidate.invitationExpiresAt < new Date()
+        ) {
+          throw new ApiError(
+            400,
+            "This invitation link has expired. Please contact your administrator.",
+          );
         }
         if (candidate.userId) {
           user = await User.findById(candidate.userId);
         } else if (candidate.email) {
-          user = await User.findOne({ email: candidate.email.toLowerCase().trim() });
+          user = await User.findOne({
+            email: candidate.email.toLowerCase().trim(),
+          });
         }
       }
     }
 
     if (!user) {
-      throw new ApiError(400, "Invalid or expired password reset token. Please request a new link.");
+      throw new ApiError(
+        400,
+        "Invalid or expired password reset token. Please request a new link.",
+      );
     }
 
     const newHash = await hashPassword(rawPass);
@@ -422,23 +491,34 @@ export class AuthService {
     } else {
       await Candidate.updateMany(
         { email: user.email.toLowerCase().trim(), status: "INVITED" },
-        { $set: { status: "ACTIVE", invitationToken: null, invitationExpiresAt: null, userId: user._id } }
+        {
+          $set: {
+            status: "ACTIVE",
+            invitationToken: null,
+            invitationExpiresAt: null,
+            userId: user._id,
+          },
+        },
       );
     }
 
     // Activate all invited/pending memberships
     await UserMembership.updateMany(
       { userId: user._id, status: { $in: ["INVITED", "PENDING"] } },
-      { $set: { status: "ACTIVE", joinedAt: new Date() } }
+      { $set: { status: "ACTIVE", joinedAt: new Date() } },
     );
 
     // Revoke all sessions
     await Session.updateMany(
       { userId: user._id, revokedAt: null },
-      { $set: { revokedAt: new Date(), revokeReason: "PASSWORD_RESET" } }
+      { $set: { revokedAt: new Date(), revokeReason: "PASSWORD_RESET" } },
     );
 
-    return { success: true, message: "Password reset successfully. Please log in with your new password." };
+    return {
+      success: true,
+      message:
+        "Password reset successfully. Please log in with your new password.",
+    };
   }
 
   /**
@@ -453,8 +533,14 @@ export class AuthService {
 
     const user = await User.findOne({
       $or: [
-        { emailVerificationTokenHash: tokenHash, emailVerificationExpiresAt: { $gt: new Date() } },
-        { emailVerificationTokenHash: cleanToken, emailVerificationExpiresAt: { $gt: new Date() } },
+        {
+          emailVerificationTokenHash: tokenHash,
+          emailVerificationExpiresAt: { $gt: new Date() },
+        },
+        {
+          emailVerificationTokenHash: cleanToken,
+          emailVerificationExpiresAt: { $gt: new Date() },
+        },
       ],
     });
 
@@ -486,25 +572,41 @@ export class AuthService {
     }
 
     if (user.emailVerified) {
-      throw new ApiError(400, "This account is already verified. Please sign in directly.");
+      throw new ApiError(
+        400,
+        "This account is already verified. Please sign in directly.",
+      );
     }
 
     const rawToken = crypto.randomBytes(32).toString("hex");
     user.emailVerificationTokenHash = hashToken(rawToken);
-    user.emailVerificationExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    user.emailVerificationExpiresAt = new Date(
+      Date.now() + 24 * 60 * 60 * 1000,
+    ); // 24 hours
     await user.save();
 
     return {
       success: true,
       message: `Verification email resent to ${normalizedEmail}. Please check your inbox.`,
-      verificationToken: process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test" ? rawToken : undefined,
+      verificationToken:
+        process.env.NODE_ENV === "development" ||
+        process.env.NODE_ENV === "test"
+          ? rawToken
+          : undefined,
     };
   }
 
   /**
    * Accepts invitation and sets password
    */
-  static async acceptInvitation({ token, password, firstName, lastName, userAgent = "", ipAddress = "" }) {
+  static async acceptInvitation({
+    token,
+    password,
+    firstName,
+    lastName,
+    userAgent = "",
+    ipAddress = "",
+  }) {
     if (!token || !password) {
       throw new ApiError(400, "Token and password are required");
     }
@@ -527,11 +629,20 @@ export class AuthService {
 
     if (user) {
       const isExpired =
-        (user.passwordResetExpiresAt && user.passwordResetExpiresAt < new Date() && (user.passwordResetTokenHash === tokenHash || user.passwordResetTokenHash === cleanToken)) ||
-        (user.emailVerificationExpiresAt && user.emailVerificationExpiresAt < new Date() && (user.emailVerificationTokenHash === tokenHash || user.emailVerificationTokenHash === cleanToken));
+        (user.passwordResetExpiresAt &&
+          user.passwordResetExpiresAt < new Date() &&
+          (user.passwordResetTokenHash === tokenHash ||
+            user.passwordResetTokenHash === cleanToken)) ||
+        (user.emailVerificationExpiresAt &&
+          user.emailVerificationExpiresAt < new Date() &&
+          (user.emailVerificationTokenHash === tokenHash ||
+            user.emailVerificationTokenHash === cleanToken));
 
       if (isExpired) {
-        throw new ApiError(400, "This activation link has expired. Please request a new invitation or reset link.");
+        throw new ApiError(
+          400,
+          "This activation link has expired. Please request a new invitation or reset link.",
+        );
       }
     }
 
@@ -539,26 +650,34 @@ export class AuthService {
     let candidate = null;
     if (!user) {
       candidate = await Candidate.findOne({
-        $or: [
-          { invitationToken: cleanToken },
-          { invitationToken: tokenHash },
-        ],
+        $or: [{ invitationToken: cleanToken }, { invitationToken: tokenHash }],
       });
 
       if (candidate) {
-        if (candidate.invitationExpiresAt && candidate.invitationExpiresAt < new Date()) {
-          throw new ApiError(400, "This invitation link has expired. Please contact your organization administrator.");
+        if (
+          candidate.invitationExpiresAt &&
+          candidate.invitationExpiresAt < new Date()
+        ) {
+          throw new ApiError(
+            400,
+            "This invitation link has expired. Please contact your organization administrator.",
+          );
         }
         if (candidate.userId) {
           user = await User.findById(candidate.userId);
         } else if (candidate.email) {
-          user = await User.findOne({ email: candidate.email.toLowerCase().trim() });
+          user = await User.findOne({
+            email: candidate.email.toLowerCase().trim(),
+          });
         }
       }
     }
 
     if (!user) {
-      throw new ApiError(400, "This activation link is invalid or has already been used. Please sign in or use Forgot Password.");
+      throw new ApiError(
+        400,
+        "This activation link is invalid or has already been used. Please sign in or use Forgot Password.",
+      );
     }
 
     const newHash = await hashPassword(password);
@@ -572,8 +691,10 @@ export class AuthService {
     user.emailVerificationExpiresAt = null;
     user.passwordChangedAt = new Date();
     user.tokenVersion = (user.tokenVersion || 0) + 1;
-    if (firstName && typeof firstName === "string" && firstName.trim()) user.firstName = firstName.trim();
-    if (lastName && typeof lastName === "string" && lastName.trim()) user.lastName = lastName.trim();
+    if (firstName && typeof firstName === "string" && firstName.trim())
+      user.firstName = firstName.trim();
+    if (lastName && typeof lastName === "string" && lastName.trim())
+      user.lastName = lastName.trim();
     await user.save();
 
     // Activate candidate profile if applicable
@@ -586,14 +707,21 @@ export class AuthService {
     } else {
       await Candidate.updateMany(
         { email: user.email.toLowerCase().trim(), status: "INVITED" },
-        { $set: { status: "ACTIVE", invitationToken: null, invitationExpiresAt: null, userId: user._id } }
+        {
+          $set: {
+            status: "ACTIVE",
+            invitationToken: null,
+            invitationExpiresAt: null,
+            userId: user._id,
+          },
+        },
       );
     }
 
     // Activate invited/pending memberships
     await UserMembership.updateMany(
       { userId: user._id, status: { $in: ["INVITED", "PENDING"] } },
-      { $set: { status: "ACTIVE", joinedAt: new Date() } }
+      { $set: { status: "ACTIVE", joinedAt: new Date() } },
     );
 
     return this.login({ email: user.email, password, userAgent, ipAddress });
@@ -601,6 +729,3 @@ export class AuthService {
 }
 
 export default AuthService;
-
-
-
