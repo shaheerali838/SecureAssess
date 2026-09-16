@@ -11,8 +11,7 @@ import {
 } from '@/components/ui';
 import candidateService from '@/services/candidate.service';
 import organizationService from '@/services/organization.service';
-import assessmentService from '@/services/assessment.service';
-import { AssignAssessmentModal } from './AssignAssessmentModal';
+import { AssignAssessmentModal } from '@/features/assessments/components/AssignAssessmentModal';
 
 export function ParticipantManagement({ onNavigate }) {
   const [candidatesList, setCandidatesList] = useState([]);

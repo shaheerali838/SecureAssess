@@ -30,7 +30,7 @@ export const ExaminerNotesTab = ({
             >
               <p className="text-white leading-relaxed">{sn.data?.content || sn.content}</p>
               <span className="text-[10px] text-accent-400 block pt-1 border-t border-accent-800/60">
-                {sn.data?.createdAt ? new Date(sn.data.createdAt).toLocaleTimeString() : 'Just now'} · Synced to Vault
+                {sn.data?.createdAt ? new Date(sn.data.createdAt).toLocaleTimeString() : 'Just now'} · Recorded to Evaluation Log
               </span>
             </div>
           ))

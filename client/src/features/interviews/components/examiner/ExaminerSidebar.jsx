@@ -33,11 +33,20 @@ export const ExaminerSidebar = ({
   examinerName,
 }) => {
   return (
-    <div
-      className={`w-full sm:w-96 bg-accent-900 border-l border-accent-800 flex flex-col shrink-0 overflow-hidden shadow-2xl transition-all ${
-        mobilePanelOpen ? 'fixed inset-y-0 right-0 z-50 flex' : 'hidden lg:flex'
-      }`}
-    >
+    <>
+      {/* Mobile Backdrop */}
+      {mobilePanelOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 lg:hidden"
+          onClick={() => setMobilePanelOpen(false)}
+        />
+      )}
+
+      <div
+        className={`w-full sm:w-96 bg-accent-900 border-l border-accent-800 flex flex-col shrink-0 overflow-hidden shadow-2xl transition-all ${
+          mobilePanelOpen ? 'fixed inset-y-0 right-0 z-50 flex' : 'hidden lg:flex'
+        }`}
+      >
       {/* Sidebar Header */}
       <div className="px-4 h-12 border-b border-accent-800 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2 min-w-0">
@@ -114,5 +123,6 @@ export const ExaminerSidebar = ({
         />
       )}
     </div>
-  );
+  </>
+);
 };

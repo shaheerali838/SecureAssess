@@ -245,7 +245,7 @@ export function CandidateInterviewsPage({ onNavigate }) {
         />
         <MetricCard
           label="Next Viva Time"
-          value={interviews[0]?.scheduledAt ? new Date(interviews[0].scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Today 4:00 PM'}
+          value={interviews[0]?.scheduledAt ? new Date(interviews[0].scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'None Scheduled'}
           icon={<Clock size={20} />}
           trend={{ value: 'WebRTC Room Active', up: true }}
           color="warning"
