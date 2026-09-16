@@ -63,7 +63,8 @@ import { CandidateAssignedHub } from '@/components/pages/participant/CandidateAs
 import { SystemCheck } from '@/components/pages/participant/SystemCheck';
 import { Consent } from '@/components/pages/participant/Consent';
 import { AssessmentExperience } from '@/components/pages/participant/AssessmentExperience';
-import { CandidateLiveInterview as LiveInterview } from '@/features/interviews/pages/CandidateLiveInterview';
+import { LiveInterview } from '@/features/interviews/pages/LiveInterview';
+import { ExaminerLiveInterview } from '@/features/interviews/pages/ExaminerLiveInterview';
 import { Evaluation } from '@/components/pages/participant/Evaluation';
 
 // Error Views
@@ -485,7 +486,7 @@ export const AppRoutes = () => {
           />
           <Route
             path="interviews/room"
-            element={<LiveInterview onNavigate={handleDirectNavigate} />}
+            element={<ExaminerLiveInterview onNavigate={handleDirectNavigate} />}
           />
 
           {/* 3A. OWNER ONLY: Financial & Billing Governance */}

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { CandidateLiveInterview } from './CandidateLiveInterview';
-import { ExaminerLiveInterview } from '../org/ExaminerLiveInterview';
+import { ExaminerLiveInterview } from './ExaminerLiveInterview';
 
 /**
  * LiveInterview acts as the high-level router/dispatcher between the
@@ -14,11 +14,14 @@ export function LiveInterview({ onNavigate }) {
   const searchParams = new URLSearchParams(location?.search || window.location.search || '');
   const roleParam = searchParams.get('role');
   const purposeParam = searchParams.get('purpose');
+  const typeParam = searchParams.get('type');
   const pathname = window.location.pathname || '';
   const storedUser = JSON.parse(localStorage.getItem('secureassess_user') || '{}');
 
+  const isExplicitCandidate = roleParam === 'candidate' || typeParam === 'candidate';
+
   // Check if current user is an Examiner / Org Admin / Platform Owner / Host
-  const isHostAdmin = Boolean(
+  const isHostAdmin = !isExplicitCandidate && Boolean(
     roleParam === 'examiner' ||
     roleParam === 'host' ||
     roleParam === 'admin' ||
@@ -26,7 +29,9 @@ export function LiveInterview({ onNavigate }) {
     purposeParam === 'host' ||
     pathname.startsWith('/organization') ||
     storedUser?.role === 'ORGANIZATION_ADMIN' ||
+    storedUser?.role === 'ORGANIZATION_OWNER' ||
     storedUser?.role === 'EXAMINER' ||
+    storedUser?.role === 'PROCTOR' ||
     storedUser?.role === 'RECRUITER' ||
     storedUser?.role === 'ADMIN' ||
     storedUser?.platformRole === 'PLATFORM_OWNER' ||
@@ -43,6 +48,6 @@ export function LiveInterview({ onNavigate }) {
 }
 
 export { CandidateLiveInterview } from './CandidateLiveInterview';
-export { ExaminerLiveInterview } from '../org/ExaminerLiveInterview';
+export { ExaminerLiveInterview } from './ExaminerLiveInterview';
 
 export default LiveInterview;

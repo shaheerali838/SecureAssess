@@ -114,8 +114,8 @@ export function CandidateLiveInterview({ onNavigate }) {
           try {
             const entryRes = await interviewService.getPublicEntryInterview(pathToken);
             const entryPayload = entryRes?.data || entryRes;
-            if (entryPayload?.guestToken) localStorage.setItem('secureassess_access_token', entryPayload.guestToken);
-            if (entryPayload?.candidate) localStorage.setItem('secureassess_user', JSON.stringify(entryPayload.candidate));
+            if (entryPayload?.guestToken) sessionStorage.setItem('secureassess_guest_token', entryPayload.guestToken);
+            if (entryPayload?.candidate) sessionStorage.setItem('secureassess_candidate_guest', JSON.stringify(entryPayload.candidate));
             current = entryPayload?.interview || entryPayload;
           } catch (e) {}
         }
@@ -134,7 +134,7 @@ export function CandidateLiveInterview({ onNavigate }) {
             status: 'LIVE',
             scheduledStartAt: new Date().toISOString(),
             candidateName: nameParam || 'Guest Candidate',
-            candidateEmail: emailParam || storedUser?.email || '',
+            candidateEmail: emailParam || (storedUser?.role === 'CANDIDATE' ? storedUser?.email : ''),
           };
         }
         setInterview(current);
@@ -260,7 +260,7 @@ export function CandidateLiveInterview({ onNavigate }) {
     const currentInterviewId = interview._id || interview.id;
     const socket = io(`${getSocketUrl()}/interviews`, {
       auth: {
-        token: localStorage.getItem('secureassess_access_token'),
+        token: sessionStorage.getItem('secureassess_guest_token') || localStorage.getItem('secureassess_access_token'),
         entryToken: pathToken,
         interviewId: currentInterviewId,
         candidateName: examineeName,
